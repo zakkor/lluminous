@@ -7,6 +7,7 @@
 	const dispatch = createEventDispatcher();
 
 	export let convo;
+	export let settingsOpen = false;
 
 	let models = [];
 	let loading = false;
@@ -119,7 +120,12 @@
 	});
 </script>
 
-<aside class="flex border-l border-slate-200 flex-col w-[230px] gap-2 px-3 py-4">
+<aside
+	data-sidebar="history"
+	class="{settingsOpen
+		? ''
+		: 'translate-x-full'} h-full absolute right-0 bg-white z-[100] xl:static transition-transform ease-in-out xl:translate-x-0 flex border-l border-slate-200 flex-col w-[230px] gap-2 px-3 py-4"
+>
 	<div class="flex flex-col gap-1.5">
 		{#if models.length > 0}
 			<div class="relative">

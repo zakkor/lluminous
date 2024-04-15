@@ -6,7 +6,11 @@ const config = {
 	content: ['./src/**/*.{html,js,svelte,ts}'],
 
 	theme: {
-		extend: {},
+		extend: {
+			screens: {
+				xl: '1410px',
+			},
+		},
 	},
 
 	plugins: [forms, typography],
