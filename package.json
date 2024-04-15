@@ -1,0 +1,31 @@
+{
+	"name": "chat-svelte",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"tauri": "tauri"
+	},
+	"devDependencies": {
+		"@fortawesome/free-solid-svg-icons": "^6.5.2",
+		"@magidoc/plugin-svelte-marked": "^4.2.1",
+		"@tauri-apps/cli": "^1.5.11",
+		"@sveltejs/vite-plugin-svelte": "^3.0.1",
+		"@tailwindcss/forms": "^0.5.7",
+		"@tailwindcss/typography": "^0.5.10",
+		"autoprefixer": "^10.4.16",
+		"postcss": "^8.4.32",
+		"postcss-load-config": "^5.0.2",
+		"svelte": "^4.2.12",
+		"tailwindcss": "^3.3.6",
+		"vite": "^5.2.0"
+	},
+	"dependencies": {
+		"marked": "^11.0.0",
+		"marked-footnote": "^1.2.1",
+		"marked-katex-extension": "^4.0.5"
+	}
+}
