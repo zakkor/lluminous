@@ -216,8 +216,8 @@
 	}}
 />
 
-<main class="flex h-screen w-screen flex-col">
-	<div class="flex items-center border-b border-slate-200 px-6 py-1 xl:hidden">
+<main class="flex h-[calc(100dvh)] w-screen flex-col">
+	<div class="flex items-center border-b border-slate-200 px-4 py-1 xl:hidden">
 		<button data-trigger="history" class="flex p-3" on:click={() => (historyOpen = !historyOpen)}>
 			<Icon icon={faBarsStaggered} class="m-auto h-4 w-4" />
 		</button>
@@ -302,6 +302,7 @@
 					>
 						{#each $convo.messages as message, i}
 							{#if ['system', 'user', 'assistant'].includes(message.role)}
+								<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
 								<li
 									data-role={message.role}
 									class="{!message.generated &&
@@ -313,6 +314,10 @@
 											? 'bg-slate-50/75'
 											: ''} group relative px-8 pb-12 pt-6 xl:pb-8"
 									style="z-index: {$convo.messages.length - i};"
+									on:click={(event) => {
+										// Make click trigger hover on mobile:
+										event.target.dispatchEvent(new MouseEvent('mouseenter'));
+									}}
 								>
 									<div class="mx-auto flex w-full gap-x-5 self-start xl:relative xl:max-w-[768px]">
 										<button
@@ -344,54 +349,57 @@
 												{/if}
 											</span>
 										</button>
-										<div class="flex w-full self-start">
-											{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === ''}
-												<div class="mt-1 h-3 w-3 animate-pulse rounded-full bg-slate-700/75" />
-											{/if}
-											<!-- svelte-ignore a11y-no-static-element-interactions -->
-											{#if message.editing}
-												<textarea
-													bind:this={textareaEls[i]}
-													class="w-full resize-none rounded-lg border-none bg-transparent p-0 leading-[28px] text-[#334155] outline-none focus:ring-0"
-													rows={1}
-													enterkeyhint="send"
-													bind:value={message.pendingContent}
-													on:keydown={(event) => {
-														if (
-															event.key === 'Enter' &&
-															!event.shiftKey &&
-															message.role === 'user' &&
-															message.submitted &&
-															message.pendingContent &&
-															message.content !== message.pendingContent
-														) {
-															event.preventDefault();
-															submitEdit(i);
-															event.target.blur();
-														}
-													}}
-													on:input={(event) => {
-														// Resize textarea as content grows:
-														event.target.style.height = 'auto';
-														event.target.style.height = event.target.scrollHeight + 2 + 'px';
-													}}
-												/>
-											{:else}
-												<div
-													class="markdown prose prose-slate flex w-full max-w-none flex-col break-words prose-p:text-slate-800 prose-pre:whitespace-pre-line prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white prose-pre:text-slate-800"
-												>
-													<Markdown source={message.content} />
-													<!-- Render tool response inline by merging in the next 'tool' message -->
-													{#if i !== $convo.messages.length - 1 && $convo.messages[i + 1].role === 'tool'}
-														<div class="tool_response" transition:slide={{ duration: 500 }}>
-															{@html $convo.messages[i + 1].content}
-														</div>
-													{/if}
-												</div>
-											{/if}
-										</div>
+
+										{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === ''}
+											<div
+												class="mt-2 h-3 w-3 shrink-0 animate-pulse rounded-full bg-slate-700/75"
+											/>
+										{/if}
+										<!-- svelte-ignore a11y-no-static-element-interactions -->
 										{#if message.editing}
-											<div class="absolute bottom-[8px] right-0 flex translate-y-full gap-x-0.5">
+											<textarea
+												bind:this={textareaEls[i]}
+												class="w-full resize-none rounded-lg border-none bg-transparent p-0 leading-[28px] text-slate-800 outline-none focus:ring-0"
+												rows={1}
+												bind:value={message.pendingContent}
+												on:keydown={(event) => {
+													if (
+														event.key === 'Enter' &&
+														!event.shiftKey &&
+														message.role === 'user' &&
+														message.submitted &&
+														message.pendingContent &&
+														message.content !== message.pendingContent
+													) {
+														event.preventDefault();
+														submitEdit(i);
+														event.target.blur();
+													}
+												}}
+												on:input={(event) => {
+													// Resize textarea as content grows:
+													event.target.style.height = 'auto';
+													event.target.style.height = event.target.scrollHeight + 2 + 'px';
+												}}
+											/>
+										{:else}
+											<div
+												class="markdown prose prose-slate flex w-full max-w-none flex-col break-words prose-p:text-slate-800 prose-pre:whitespace-pre-line prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white prose-pre:text-slate-800"
+											>
+												<Markdown source={message.content} />
+												<!-- Render tool response inline by merging in the next 'tool' message -->
+												{#if i !== $convo.messages.length - 1 && $convo.messages[i + 1].role === 'tool'}
+													<div class="tool_response" transition:slide={{ duration: 500 }}>
+														{@html $convo.messages[i + 1].content}
+													</div>
+												{/if}
+											</div>
+										{/if}
+
+										{#if message.editing}
+											<div
+												class="absolute bottom-3 right-5 flex gap-x-0.5 lg:bottom-2 lg:right-0 lg:translate-y-full"
+											>
 												{#if message.role !== 'assistant' && message.pendingContent && message.pendingContent !== message.content}
 													<button
 														class="flex items-center gap-x-1 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
@@ -501,9 +509,9 @@
 						{/each}
 					</ul>
 				{:else}
-					<div class="m-auto flex flex-col items-center gap-4 text-center">
-						<Icon icon={faLightbulb} class="h-3.5 w-3.5 text-slate-700" />
-						<h3 class="text-3xl font-semibold tracking-tight">lluminous</h3>
+					<div class="m-auto flex flex-col items-center gap-5 text-center">
+						<Icon icon={faLightbulb} class="h-12 w-12 text-slate-800" />
+						<h3 class="text-4xl font-semibold tracking-tight text-slate-800">lluminous</h3>
 					</div>
 				{/if}
 			</section>
@@ -560,8 +568,9 @@
 				{/if}
 				<textarea
 					bind:this={inputTextareaEl}
-					class="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 shadow-sm transition-colors focus:border-slate-500 focus:ring-0"
-					rows={3}
+					class="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 font-normal text-slate-800 shadow-sm transition-colors focus:border-slate-500 focus:ring-0"
+					rows={2}
+					enterkeyhint="send"
 					bind:value={content}
 					on:keydown={onEnterMessage}
 					on:input={async () => {
