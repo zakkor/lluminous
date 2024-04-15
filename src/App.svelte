@@ -284,7 +284,7 @@
 		<div class="flex flex-1 flex-col">
 			<section
 				bind:this={scrollableEl}
-				class="scrollable flex h-full w-full flex-col overflow-y-auto pb-[180px]"
+				class="scrollable flex h-full w-full flex-col overflow-y-auto pb-[160px]"
 				on:scroll={() => {
 					if (
 						scrollableEl.scrollTop + scrollableEl.clientHeight >=
