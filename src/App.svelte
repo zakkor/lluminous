@@ -14,6 +14,7 @@
 		faStop,
 		faXmark,
 	} from '@fortawesome/free-solid-svg-icons';
+	import { faLightbulb } from '@fortawesome/free-regular-svg-icons';
 	import Markdown from '@magidoc/plugin-svelte-marked';
 	import Icon from './Icon.svelte';
 	import { persisted, persistedPicked } from './localstorage.js';
@@ -215,13 +216,13 @@
 	}}
 />
 
-<main class="flex flex-col h-screen w-screen">
-	<div class="xl:hidden flex items-center border-b border-slate-200 py-1 px-6">
+<main class="flex h-screen w-screen flex-col">
+	<div class="flex items-center border-b border-slate-200 px-6 py-1 xl:hidden">
 		<button data-trigger="history" class="flex p-3" on:click={() => (historyOpen = !historyOpen)}>
-			<Icon icon={faBarsStaggered} class="w-4 h-4 m-auto" />
+			<Icon icon={faBarsStaggered} class="m-auto h-4 w-4" />
 		</button>
 
-		<p class="text-sm font-semibold mx-auto">
+		<p class="mx-auto text-sm font-semibold">
 			{$convo.model}
 		</p>
 
@@ -230,15 +231,15 @@
 			class="flex p-3"
 			on:click={() => (settingsOpen = !settingsOpen)}
 		>
-			<Icon icon={faGear} class="w-4 h-4 m-auto" />
+			<Icon icon={faGear} class="m-auto h-4 w-4" />
 		</button>
 	</div>
-	<div class="flex-1 flex h-full relative overflow-hidden">
+	<div class="relative flex h-full flex-1 overflow-hidden">
 		<aside
 			data-sidebar="history"
 			class="{historyOpen
 				? ''
-				: '-translate-x-full'} absolute bg-white z-[100] h-full xl:static transition-transform ease-in-out xl:translate-x-0 flex flex-col w-[230px] px-3 py-4 border-r"
+				: '-translate-x-full'} absolute z-[100] flex h-full w-[230px] flex-col border-r bg-white px-3 py-4 transition-transform ease-in-out xl:static xl:translate-x-0"
 		>
 			<button
 				on:click={() => {
@@ -254,12 +255,13 @@
 					$history.entries[convoData.id] = convoData;
 					convo = persistedPicked(history, (h) => h.entries[h.convoId]);
 				}}
-				class="w-full text-sm flex items-center border mb-3 text-left hover:bg-gray-100 py-2.5 pl-3 pr-4 rounded-lg"
+				class="mb-3 flex w-full items-center rounded-lg border py-2.5 pl-3 pr-4 text-left text-sm font-medium hover:bg-gray-100"
 			>
+				<Icon icon={faLightbulb} class="mr-2.5 h-3.5 w-3.5 text-slate-700" />
 				New chat
-				<Icon icon={faPlus} class="w-3.5 h-3.5 text-slate-700 ml-auto" />
+				<Icon icon={faPlus} class="ml-auto h-3.5 w-3.5 text-slate-700" />
 			</button>
-			<ol class="list-none flex flex-col gap-1">
+			<ol class="flex list-none flex-col gap-1">
 				{#each Object.values($history.entries) as convo}
 					<li>
 						<button
@@ -269,7 +271,7 @@
 							}}
 							class="{$history.convoId === convo.id
 								? 'bg-gray-100'
-								: ''} text-sm w-full text-left hover:bg-gray-100 py-2 px-3 rounded-lg"
+								: ''} w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100"
 						>
 							{new Intl.DateTimeFormat('en-UK', { dateStyle: 'short', timeStyle: 'short' }).format(
 								convo.id
@@ -279,10 +281,10 @@
 				{/each}
 			</ol>
 		</aside>
-		<div class="flex-1 flex flex-col">
+		<div class="flex flex-1 flex-col">
 			<section
 				bind:this={scrollableEl}
-				class="scrollable w-full h-full flex flex-col overflow-y-auto pb-[180px]"
+				class="scrollable flex h-full w-full flex-col overflow-y-auto pb-[180px]"
 				on:scroll={() => {
 					if (
 						scrollableEl.scrollTop + scrollableEl.clientHeight >=
@@ -296,7 +298,7 @@
 			>
 				{#if $convo.messages.length > 0}
 					<ul
-						class="w-full flex flex-col !list-none divide-y divide-slate-200 border-b border-slate-200 mb-3"
+						class="mb-3 flex w-full !list-none flex-col divide-y divide-slate-200 border-b border-slate-200"
 					>
 						{#each $convo.messages as message, i}
 							{#if ['system', 'user', 'assistant'].includes(message.role)}
@@ -309,10 +311,10 @@
 										? 'bg-yellow-50/40'
 										: message.role === 'assistant'
 											? 'bg-slate-50/75'
-											: ''} relative group px-8 pt-6 pb-12 xl:pb-8"
+											: ''} group relative px-8 pb-12 pt-6 xl:pb-8"
 									style="z-index: {$convo.messages.length - i};"
 								>
-									<div class="xl:relative gap-x-5 flex self-start w-full xl:max-w-[768px] mx-auto">
+									<div class="mx-auto flex w-full gap-x-5 self-start xl:relative xl:max-w-[768px]">
 										<button
 											on:click={() => {
 												// Toggle between user and assistant:
@@ -322,15 +324,15 @@
 													message.role = 'user';
 												}
 											}}
-											class="flex w-10 h-10 shrink-0 rounded-[5px] {message.role === 'assistant'
+											class="flex h-10 w-10 shrink-0 rounded-[5px] {message.role === 'assistant'
 												? 'bg-teal-300'
 												: message.role === 'system'
 													? 'bg-blue-200'
 													: message.role === 'tool'
-														? 'bg-blue-100 border-1 border-slate-300 border-dashed'
+														? 'border-1 border-dashed border-slate-300 bg-blue-100'
 														: 'bg-red-200'}"
 										>
-											<span class="text-lg m-auto">
+											<span class="m-auto text-lg">
 												{#if message.role === 'system'}
 													S
 												{:else if message.role === 'assistant'}
@@ -342,16 +344,17 @@
 												{/if}
 											</span>
 										</button>
-										<div class="flex self-start w-full">
+										<div class="flex w-full self-start">
 											{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === ''}
-												<div class="mt-1 w-3 h-3 rounded-full bg-slate-700/75 animate-pulse" />
+												<div class="mt-1 h-3 w-3 animate-pulse rounded-full bg-slate-700/75" />
 											{/if}
 											<!-- svelte-ignore a11y-no-static-element-interactions -->
 											{#if message.editing}
 												<textarea
 													bind:this={textareaEls[i]}
-													class="border-none leading-[28px] text-[#334155] rounded-lg p-0 bg-transparent outline-none focus:ring-0 resize-none w-full"
+													class="w-full resize-none rounded-lg border-none bg-transparent p-0 leading-[28px] text-[#334155] outline-none focus:ring-0"
 													rows={1}
+													enterkeyhint="send"
 													bind:value={message.pendingContent}
 													on:keydown={(event) => {
 														if (
@@ -375,7 +378,7 @@
 												/>
 											{:else}
 												<div
-													class="prose markdown max-w-none prose-slate prose-p:text-slate-800 prose-pre:bg-white prose-pre:text-slate-800 prose-pre:border prose-pre:whitespace-pre-line prose-pre:border-slate-200 break-words flex flex-col w-full"
+													class="markdown prose prose-slate flex w-full max-w-none flex-col break-words prose-p:text-slate-800 prose-pre:whitespace-pre-line prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white prose-pre:text-slate-800"
 												>
 													<Markdown source={message.content} />
 													<!-- Render tool response inline by merging in the next 'tool' message -->
@@ -388,49 +391,49 @@
 											{/if}
 										</div>
 										{#if message.editing}
-											<div class="flex gap-x-0.5 absolute bottom-[8px] translate-y-full right-0">
+											<div class="absolute bottom-[8px] right-0 flex translate-y-full gap-x-0.5">
 												{#if message.role !== 'assistant' && message.pendingContent && message.pendingContent !== message.content}
 													<button
-														class="hover:bg-green-100 bg-green-50 gap-x-1 items-center rounded-full py-2 px-3 flex"
+														class="flex items-center gap-x-1 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
 														on:click={(event) => {
 															submitEdit(i);
 															event.target.blur();
 														}}
 													>
-														<Icon icon={faCheck} class="text-slate-600 w-3.5 h-3.5" />
-														<span class="text-slate-600 text-xs">Submit</span>
+														<Icon icon={faCheck} class="h-3.5 w-3.5 text-slate-600" />
+														<span class="text-xs text-slate-600">Submit</span>
 													</button>
 												{/if}
 												{#if message.role === 'assistant' && message.pendingContent && message.pendingContent !== message.content && message.content !== '...' && i === $convo.messages.length - 1}
 													<button
-														class="hover:bg-green-100 bg-green-50 gap-x-1 items-center rounded-full py-2 px-3 flex"
+														class="flex items-center gap-x-1 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
 														on:click={async () => {
 															$convo.messages[i].unclosed = true;
 															submitCompletion(false);
 														}}
 													>
-														<Icon icon={faCheck} class="text-slate-600 w-3.5 h-3.5" />
-														<span class="text-slate-600 text-xs">Continue generation</span>
+														<Icon icon={faCheck} class="h-3.5 w-3.5 text-slate-600" />
+														<span class="text-xs text-slate-600">Continue generation</span>
 													</button>
 												{/if}
 												<button
-													class="hover:bg-gray-100 bg-gray-50 gap-x-1 items-center rounded-full py-2 px-3 flex"
+													class="flex items-center gap-x-1 rounded-full bg-gray-50 px-3 py-2 hover:bg-gray-100"
 													on:click={() => {
 														$convo.messages[i].editing = false;
 														$convo.messages[i].pendingContent = '';
 													}}
 												>
-													<Icon icon={faXmark} class="text-slate-600 w-3.5 h-3.5" />
-													<span class="text-slate-600 text-xs">Cancel</span>
+													<Icon icon={faXmark} class="h-3.5 w-3.5 text-slate-600" />
+													<span class="text-xs text-slate-600">Cancel</span>
 												</button>
 											</div>
 										{/if}
 										{#if !message.editing}
 											<div
-												class="flex gap-x-0.5 absolute opacity-0 group-hover:opacity-100 transition-opacity bottom-2 right-7 xl:bottom-auto xl:translate-x-full xl:-top-2 xl:right-0"
+												class="absolute bottom-2 right-7 flex gap-x-0.5 opacity-0 transition-opacity group-hover:opacity-100 xl:-top-2 xl:bottom-auto xl:right-0 xl:translate-x-full"
 											>
 												<button
-													class="hover:bg-gray-100 w-7 h-7 shrink-0 rounded-full flex"
+													class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
 													on:click={async () => {
 														$convo.messages[i].editing = true;
 														$convo.messages[i].pendingContent = $convo.messages[i].content;
@@ -442,12 +445,12 @@
 												>
 													<Icon
 														icon={faPen}
-														class="w-[11px] h-[11px] xl:w-3 xl:h-3 m-auto text-slate-500 xl:text-slate-600"
+														class="m-auto h-[11px] w-[11px] text-slate-500 xl:h-3 xl:w-3 xl:text-slate-600"
 													/>
 												</button>
 												{#if message.role !== 'system'}
 													<button
-														class="hover:bg-gray-100 rounded-full w-7 h-7 shrink-0 flex"
+														class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
 														on:click={() => {
 															// If user message, remove all messages after this one, then regenerate:
 															if (message.role === 'user') {
@@ -462,12 +465,12 @@
 													>
 														<Icon
 															icon={faArrowsRotate}
-															class="text-slate-500 xl:text-slate-600 w-3 h-3 xl:w-3.5 xl:h-3.5 m-auto"
+															class="m-auto h-3 w-3 text-slate-500 xl:h-3.5 xl:w-3.5 xl:text-slate-600"
 														/>
 													</button>
 												{/if}
 												<button
-													class="hover:bg-gray-100 rounded-full w-7 h-7 shrink-0 flex"
+													class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
 													on:click={() => {
 														// Remove this message from the conversation:
 														$convo.messages = $convo.messages
@@ -477,7 +480,7 @@
 												>
 													<Icon
 														icon={faXmark}
-														class="text-slate-500 xl:text-slate-600 w-3.5 h-3.5 xl:w-4 xl:h-4 m-auto"
+														class="m-auto h-3.5 w-3.5 text-slate-500 xl:h-4 xl:w-4 xl:text-slate-600"
 													/>
 												</button>
 											</div>
@@ -489,20 +492,25 @@
 											$convo.messages.push({ role: 'assistant', content: '...' });
 											$convo.messages = $convo.messages;
 										}}
-										class="z-1 absolute bottom-0 translate-y-1/2 bg-white opacity-0 group-hover:opacity-100 transition-opacity left-1/2 -translate-x-1/2 w-6 h-6 border border-gray-300 hover:bg-gray-200 rounded-md flex items-center justify-center"
+										class="z-1 absolute bottom-0 left-1/2 flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-md border border-gray-300 bg-white opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100"
 									>
-										<Icon icon={faPlus} class="text-slate-600 w-3 h-3 m-auto" />
+										<Icon icon={faPlus} class="m-auto h-3 w-3 text-slate-600" />
 									</button>
 								</li>
 							{/if}
 						{/each}
 					</ul>
+				{:else}
+					<div class="m-auto flex flex-col items-center gap-4 text-center">
+						<Icon icon={faLightbulb} class="h-3.5 w-3.5 text-slate-700" />
+						<h3 class="text-3xl font-semibold tracking-tight">lluminous</h3>
+					</div>
 				{/if}
 			</section>
 			<section
-				class="left-1/2 bottom-4 flex flex-col -translate-x-1/2 fixed z-[99] w-full px-8 lg:px-0 max-w-[900px] xl:max-w-[768px]"
+				class="fixed bottom-4 left-1/2 z-[99] flex w-full max-w-[900px] -translate-x-1/2 flex-col px-8 lg:px-0 xl:max-w-[768px]"
 			>
-				<div class="absolute bottom-full flex gap-4 self-center mb-3">
+				<div class="absolute bottom-full mb-3 flex gap-4 self-center">
 					{#if $convo.messages.find((msg) => msg.editing) && $convo.messages.findIndex((msg) => msg.editing) !== $convo.messages.length - 1 && $convo.messages[$convo.messages.length - 1].role !== 'assistant'}
 						<Button
 							variant="outline"
@@ -523,7 +531,7 @@
 								submitCompletion();
 							}}
 						>
-							<Icon icon={faArrowsRotate} class="text-slate-600 w-3.5 h-3.5 mr-2" />
+							<Icon icon={faArrowsRotate} class="mr-2 h-3.5 w-3.5 text-slate-600" />
 							Regenerate
 						</Button>
 					{/if}
@@ -534,14 +542,14 @@
 								$convo.controller.abort();
 							}}
 						>
-							<Icon icon={faStop} class="text-slate-500 w-3.5 h-3.5 mr-2" />
+							<Icon icon={faStop} class="mr-2 h-3.5 w-3.5 text-slate-500" />
 							<span>Stop generating</span>
 						</Button>
 					{/if}
 				</div>
 				{#if $convo.local && !hidingTokenCount && totalTokens > 0}
 					<span
-						class="absolute bottom-full mb-3 text-xs right-3"
+						class="absolute bottom-full right-3 mb-3 text-xs"
 						transition:fade={{ duration: 300 }}
 					>
 						{#if currentTokens > 0}
@@ -552,7 +560,7 @@
 				{/if}
 				<textarea
 					bind:this={inputTextareaEl}
-					class="border border-slate-300 w-full rounded-lg resize-none focus:border-slate-500 transition-colors focus:ring-0 px-4 py-3 shadow-sm"
+					class="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 shadow-sm transition-colors focus:border-slate-500 focus:ring-0"
 					rows={3}
 					bind:value={content}
 					on:keydown={onEnterMessage}
@@ -585,21 +593,21 @@
 	[data-role='assistant'] {
 		:global(tool_call) {
 			display: block;
-			@apply font-mono border text-sm mt-2 border-slate-300 border-dashed bg-white px-5 py-3 rounded-lg whitespace-normal transition-all;
+			@apply mt-2 whitespace-normal rounded-lg border border-dashed border-slate-300 bg-white px-5 py-3 font-mono text-sm transition-all;
 		}
 		:global(tool_call)::before {
 			content: 'Function call';
-			@apply font-sans block pb-2 text-slate-600 text-sm;
+			@apply block pb-2 font-sans text-sm text-slate-600;
 		}
 		:global(tool_call:has(+ .tool_response)) {
 			@apply rounded-b-none;
 		}
 		:global(tool_response) {
-			@apply flex flex-col font-mono border border-t-0 rounded-t-none text-sm border-slate-300 border-dashed bg-white px-5 py-3 rounded-lg whitespace-pre transition-all;
+			@apply flex flex-col whitespace-pre rounded-lg rounded-t-none border border-t-0 border-dashed border-slate-300 bg-white px-5 py-3 font-mono text-sm transition-all;
 		}
 		:global(tool_response)::before {
 			content: 'Output';
-			@apply font-sans block pb-2 text-slate-600 text-sm;
+			@apply block pb-2 font-sans text-sm text-slate-600;
 		}
 	}
 

@@ -10,15 +10,19 @@
 		"tauri": "tauri"
 	},
 	"devDependencies": {
+		"@fortawesome/free-regular-svg-icons": "^6.5.2",
 		"@fortawesome/free-solid-svg-icons": "^6.5.2",
 		"@magidoc/plugin-svelte-marked": "^4.2.1",
-		"@tauri-apps/cli": "^1.5.11",
 		"@sveltejs/vite-plugin-svelte": "^3.0.1",
 		"@tailwindcss/forms": "^0.5.7",
 		"@tailwindcss/typography": "^0.5.10",
+		"@tauri-apps/cli": "^1.5.11",
 		"autoprefixer": "^10.4.16",
 		"postcss": "^8.4.32",
 		"postcss-load-config": "^5.0.2",
+		"prettier": "^3.2.5",
+		"prettier-plugin-svelte": "^3.2.3",
+		"prettier-plugin-tailwindcss": "^0.5.14",
 		"svelte": "^4.2.12",
 		"tailwindcss": "^3.3.6",
 		"vite": "^5.2.0"
