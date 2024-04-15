@@ -121,7 +121,7 @@
 </script>
 
 <aside
-	data-sidebar="history"
+	data-sidebar="settings"
 	class="{settingsOpen
 		? ''
 		: 'translate-x-full'} h-full absolute right-0 bg-white z-[100] xl:static transition-transform ease-in-out xl:translate-x-0 flex border-l border-slate-200 flex-col w-[230px] gap-2 px-3 py-4"
