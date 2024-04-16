@@ -5,7 +5,7 @@
 
 	const variantClass = {
 		outline:
-			'border bg-white border-slate-300 hover:border-slate-400 transition-colors text-slate-600 px-4 py-2 rounded-lg',
+			'border bg-white border-slate-300 hover:border-slate-400 transition-colors text-slate-600 text-sm xl:text-base px-3 py-1.5 xl:px-4 xl:py-2 rounded-lg',
 	}[variant];
 </script>
 
