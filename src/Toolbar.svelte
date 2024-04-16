@@ -124,7 +124,7 @@
 	data-sidebar="settings"
 	class="{settingsOpen
 		? ''
-		: 'translate-x-full'} h-full absolute right-0 bg-white z-[100] xl:static transition-transform ease-in-out xl:translate-x-0 flex border-l border-slate-200 flex-col w-[230px] gap-2 px-3 py-4"
+		: 'translate-x-full'} fixed right-0 top-0 z-[100] flex h-full w-[230px] flex-col gap-2 border-l border-slate-200 bg-white px-3 py-4 transition-transform ease-in-out xl:static xl:translate-x-0"
 >
 	<div class="flex flex-col gap-1.5">
 		{#if models.length > 0}
@@ -144,10 +144,10 @@
 				</select>
 
 				{#if loading}
-					<div role="status" class="absolute w-5 h-5 -left-8 top-1">
+					<div role="status" class="absolute -left-8 top-1 h-5 w-5">
 						<svg
 							aria-hidden="true"
-							class="inline w-5 h-5 text-gray-200 animate-spin dark:text-gray-600 fill-gray-600 dark:fill-gray-300"
+							class="inline h-5 w-5 animate-spin fill-gray-600 text-gray-200 dark:fill-gray-300 dark:text-gray-600"
 							viewBox="0 0 100 101"
 							fill="none"
 							xmlns="http://www.w3.org/2000/svg"
@@ -170,8 +170,8 @@
 		{#if $convo.local}
 			<select
 				class="{autodetectedFormat
-					? 'bg-green-50/75 border-green-300/80'
-					: 'bg-red-50/75 border-red-300'} rounded-lg text-sm"
+					? 'border-green-300/80 bg-green-50/75'
+					: 'border-red-300 bg-red-50/75'} rounded-lg text-sm"
 				value={$convo.tmpl}
 				on:change={(event) => {
 					$convo.tmpl = event.target.value;
@@ -186,7 +186,7 @@
 	</div>
 
 	<select
-		class="rounded-lg w-full border-slate-300 text-sm"
+		class="w-full rounded-lg border-slate-300 text-sm"
 		value={conversationTemplate}
 		on:change={async (event) => {
 			loadConversationTemplate(event.target.value);
@@ -198,8 +198,8 @@
 		{/each}
 	</select>
 
-	<label class="mt-3 text-[10px] tracking-wide uppercase flex flex-col">
-		<span class="ml-[3px] mb-1.5">OpenRouter API Key</span>
+	<label class="mt-3 flex flex-col text-[10px] uppercase tracking-wide">
+		<span class="mb-1.5 ml-[3px]">OpenRouter API Key</span>
 		<input
 			type="text"
 			bind:value={$openrouterAPIKey}

@@ -11,13 +11,15 @@
 		faGear,
 		faPen,
 		faPlus,
+		faShareFromSquare,
 		faStop,
 		faXmark,
 	} from '@fortawesome/free-solid-svg-icons';
-	import { faLightbulb } from '@fortawesome/free-regular-svg-icons';
+	import { faLightbulb, faTrashCan } from '@fortawesome/free-regular-svg-icons';
 	import Markdown from '@magidoc/plugin-svelte-marked';
 	import Icon from './Icon.svelte';
 	import { persisted, persistedPicked } from './localstorage.js';
+	import { getRelativeDate } from './date.js';
 
 	// import { marked } from 'marked';
 	// import markedKatex from 'marked-katex-extension';
@@ -50,7 +52,36 @@
 		$history.convoId = convoData.id;
 		$history.entries[convoData.id] = convoData;
 	}
+
+	$: historyBuckets = Object.entries($history.entries).reduce((acc, [id, convo]) => {
+		if (id === 'shared') {
+			return acc;
+		}
+		const date = new Date(parseInt(id));
+		const bucketKey = getRelativeDate(date);
+		if (!acc[bucketKey]) {
+			acc[bucketKey] = [];
+		}
+		acc[bucketKey].push(convo);
+		return acc;
+	}, []);
+
 	let convo = persistedPicked(history, (h) => h.entries[h.convoId]);
+
+	if (window.location.search) {
+		const params = new URLSearchParams(window.location.search);
+		const share = params.get('s');
+		$history.entries['shared'] = {
+			id: 'shared',
+			summary: 'Shared conversation',
+			local: false,
+			model: 'openchat/openchat-7b:free',
+			tmpl: 'none',
+			messages: JSON.parse(decodeURIComponent(share)),
+		};
+		$history.convoId = 'shared';
+		convo = persistedPicked(history, (h) => h.entries[h.convoId]);
+	}
 
 	let content = '';
 	let generating = false;
@@ -195,6 +226,46 @@
 			}
 		}
 	}
+
+	function newConversation() {
+		const params = new URLSearchParams(window.location.search);
+		if (params.has('s')) {
+			window.history.pushState('', document.title, window.location.pathname);
+		}
+
+		if ($convo.messages.length === 0) {
+			historyOpen = false;
+			inputTextareaEl.focus();
+			return;
+		}
+
+		const existingNewConvo = Object.values($history.entries).find(
+			(convo) => convo.messages.length === 0
+		);
+		if (existingNewConvo) {
+			$history.convoId = existingNewConvo.id;
+			convo = persistedPicked(history, (h) => h.entries[h.convoId]);
+			historyOpen = false;
+			inputTextareaEl.focus();
+			return;
+		}
+
+		const convoData = {
+			id: Date.now(),
+			summary: null,
+			local: false,
+			model: $convo.model || 'openchat/openchat-7b:free',
+			tmpl: 'none',
+			messages: [],
+		};
+		$history.convoId = convoData.id;
+		$history.entries[convoData.id] = convoData;
+		convo = persistedPicked(history, (h) => h.entries[h.convoId]);
+
+		historyOpen = false;
+
+		inputTextareaEl.focus();
+	}
 </script>
 
 <svelte:window
@@ -218,12 +289,19 @@
 
 <main class="flex h-[calc(100dvh)] w-screen flex-col">
 	<div class="flex items-center border-b border-slate-200 px-4 py-1 xl:hidden">
+		<button on:click={newConversation} class="flex p-3">
+			<Icon icon={faPlus} class="ml-auto h-4 w-4 text-slate-700" />
+		</button>
 		<button data-trigger="history" class="flex p-3" on:click={() => (historyOpen = !historyOpen)}>
-			<Icon icon={faBarsStaggered} class="m-auto h-4 w-4" />
+			<Icon icon={faBarsStaggered} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 
 		<p class="mx-auto text-sm font-semibold">
-			{$convo.model}
+			{#if $convo.id !== 'shared'}
+				{$convo.model}
+			{:else}
+				Shared conversation
+			{/if}
 		</p>
 
 		<button
@@ -231,7 +309,7 @@
 			class="flex p-3"
 			on:click={() => (settingsOpen = !settingsOpen)}
 		>
-			<Icon icon={faGear} class="m-auto h-4 w-4" />
+			<Icon icon={faGear} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 	</div>
 	<div class="relative flex h-full flex-1 overflow-hidden">
@@ -239,45 +317,53 @@
 			data-sidebar="history"
 			class="{historyOpen
 				? ''
-				: '-translate-x-full'} absolute z-[100] flex h-full w-[230px] flex-col border-r bg-white px-3 py-4 transition-transform ease-in-out xl:static xl:translate-x-0"
+				: '-translate-x-full'} fixed top-0 z-[100] flex h-full w-[230px] flex-col border-r bg-white px-3 py-4 transition-transform duration-300 ease-in-out xl:static xl:translate-x-0"
 		>
 			<button
-				on:click={() => {
-					const convoData = {
-						id: Date.now(),
-						summary: null,
-						local: false,
-						model: $convo.model || 'openchat/openchat-7b:free',
-						tmpl: 'none',
-						messages: [],
-					};
-					$history.convoId = convoData.id;
-					$history.entries[convoData.id] = convoData;
-					convo = persistedPicked(history, (h) => h.entries[h.convoId]);
-				}}
-				class="mb-3 flex w-full items-center rounded-lg border py-2.5 pl-3 pr-4 text-left text-sm font-medium hover:bg-gray-100"
+				on:click={newConversation}
+				class="mb-1 flex w-full items-center rounded-lg border py-2.5 pl-3 pr-4 text-left text-sm font-medium hover:bg-gray-100"
 			>
 				<Icon icon={faLightbulb} class="mr-2.5 h-3.5 w-3.5 text-slate-700" />
 				New chat
 				<Icon icon={faPlus} class="ml-auto h-3.5 w-3.5 text-slate-700" />
 			</button>
-			<ol class="flex list-none flex-col gap-1">
-				{#each Object.values($history.entries) as convo}
-					<li>
-						<button
-							on:click={() => {
-								$history.convoId = convo.id;
-								convo = persistedPicked(history, (h) => h.entries[h.convoId]);
-							}}
-							class="{$history.convoId === convo.id
-								? 'bg-gray-100'
-								: ''} w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100"
-						>
-							{new Intl.DateTimeFormat('en-UK', { dateStyle: 'short', timeStyle: 'short' }).format(
-								convo.id
-							)}
-						</button>
+			<ol class="flex list-none flex-col">
+				{#each Object.entries(historyBuckets).reverse() as [relativeDate, convos]}
+					<li class="mb-2 ml-3 mt-6 text-xs font-medium text-slate-600">
+						{relativeDate}
 					</li>
+					{#each convos.reverse() as convo}
+						<li class="group relative">
+							<button
+								on:click={() => {
+									$history.convoId = convo.id;
+									convo = persistedPicked(history, (h) => h.entries[h.convoId]);
+									historyOpen = false;
+								}}
+								class="{$history.convoId === convo.id
+									? 'bg-gray-100'
+									: ''} leading-0 w-full rounded-lg px-3 py-2 text-left text-sm group-hover:bg-gray-100"
+							>
+								<span class="line-clamp-1">
+									{convo.summary || convo.messages.length === 0
+										? 'New conversation'
+										: convo.messages[0].content.split(' ').slice(0, 5).join(' ')}
+								</span>
+							</button>
+							<button
+								on:click={() => {
+									if ($history.convoId === convo.id) {
+										$history.convoId = Object.values($history.entries)[0].id;
+									}
+									delete $history.entries[convo.id];
+									$history.entries = $history.entries;
+								}}
+								class="z-1 absolute right-0 top-0 flex h-full w-12 rounded-br-lg rounded-tr-lg bg-gradient-to-l from-gray-100 from-65% to-transparent pr-3 opacity-0 transition-opacity group-hover:opacity-100"
+							>
+								<Icon icon={faTrashCan} class="m-auto mr-0 h-3 w-3 shrink-0 text-slate-700" />
+							</button>
+						</li>
+					{/each}
 				{/each}
 			</ol>
 		</aside>
@@ -296,6 +382,27 @@
 					}
 				}}
 			>
+				<div class="hidden items-center border-b border-slate-200 px-4 py-1 xl:flex">
+					<div class="" />
+
+					<p class="mx-auto text-sm font-semibold">
+						{#if $convo.id !== 'shared'}
+							{$convo.model}
+						{:else}
+							Shared conversation
+						{/if}
+					</p>
+
+					<button
+						class="flex p-3"
+						on:click={() => {
+							const share = `https://lluminous.chat/?s=${encodeURIComponent(JSON.stringify($convo.messages))}`;
+							navigator.clipboard.writeText(share);
+						}}
+					>
+						<Icon icon={faShareFromSquare} class="m-auto h-4 w-4 text-slate-700" />
+					</button>
+				</div>
 				{#if $convo.messages.length > 0}
 					<ul
 						class="mb-3 flex w-full !list-none flex-col divide-y divide-slate-200 border-b border-slate-200"
@@ -384,7 +491,7 @@
 											/>
 										{:else}
 											<div
-												class="markdown prose prose-slate flex w-full max-w-none flex-col break-words prose-p:text-slate-800 prose-pre:whitespace-pre-line prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white prose-pre:text-slate-800"
+												class="markdown prose prose-slate flex w-full max-w-none flex-col break-words prose-p:whitespace-pre-wrap prose-p:text-slate-800 prose-pre:my-0 prose-pre:whitespace-pre-wrap prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white prose-pre:text-slate-800"
 											>
 												<Markdown source={message.content} />
 												<!-- Render tool response inline by merging in the next 'tool' message -->
