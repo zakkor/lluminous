@@ -427,22 +427,22 @@
 				on:click={newConversation}
 				class="mb-1 flex w-full items-center rounded-lg border py-2.5 pl-3 pr-4 text-left text-sm font-medium hover:bg-gray-100"
 			>
-				<Icon icon={faLightbulb} class="mr-2.5 h-3.5 w-3.5 text-slate-700" />
 				New chat
 				<Icon icon={faPlus} class="ml-auto h-3.5 w-3.5 text-slate-700" />
 			</button>
 			<ol class="flex list-none flex-col">
-				{#each Object.entries(historyBuckets).reverse() as [relativeDate, convos]}
+				{#each Object.entries(historyBuckets).reverse() as [relativeDate, convos] (relativeDate)}
 					<li class="mb-2 ml-3 mt-6 text-xs font-medium text-slate-600">
 						{relativeDate}
 					</li>
-					{#each convos.reverse() as convo}
+					{#each convos.reverse() as convo (convo.id)}
 						<li class="group relative">
 							<button
 								on:click={() => {
+									historyOpen = false;
+
 									$history.convoId = convo.id;
 									convo = persistedPicked(history, (h) => h.entries[h.convoId]);
-									historyOpen = false;
 
 									cleanShareLink();
 								}}
