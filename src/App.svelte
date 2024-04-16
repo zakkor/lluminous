@@ -1,7 +1,7 @@
 <script>
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
-	import { complete, conversationToString } from './convo.js';
+	import { complete, conversationToString, detectFormat, isModelLocal } from './convo.js';
 	import Toolbar from './Toolbar.svelte';
 	import Button from './Button.svelte';
 	import {
@@ -20,6 +20,7 @@
 	import Icon from './Icon.svelte';
 	import { persisted, persistedPicked } from './localstorage.js';
 	import { getRelativeDate } from './date.js';
+	import ModelSelector from './ModelSelector.svelte';
 
 	// import { marked } from 'marked';
 	// import markedKatex from 'marked-katex-extension';
@@ -266,6 +267,80 @@
 
 		inputTextareaEl.focus();
 	}
+
+	let loading = false;
+
+	async function loadModel(newModel) {
+		loading = true;
+
+		const local = isModelLocal(newModel);
+		if (local) {
+			// For local models, we need to tell the server to load them:
+			await fetch(`http://localhost:8081/model`, {
+				method: 'POST',
+				body: JSON.stringify({
+					model: newModel,
+				}),
+			});
+		}
+		setModel(newModel);
+
+		loading = false;
+	}
+
+	let autodetectedFormat = false;
+
+	function setModel(newModel) {
+		$convo.model = newModel;
+		const { detected, local } = detectFormat(newModel);
+		if (detected) {
+			$convo.tmpl = detected;
+			autodetectedFormat = true;
+		} else {
+			autodetectedFormat = false;
+		}
+		$convo.local = local;
+	}
+
+	let models = [];
+
+	onMount(async () => {
+		fetch('https://openrouter.ai/api/v1/models', { method: 'GET' })
+			.then((response) => response.json())
+			.then((json) => {
+				models = models.concat(json.data).map((m) => {
+					return {
+						id: m.id,
+						name: m.name,
+						local: false,
+					};
+				});
+			})
+			.catch((error) => {
+				console.error('Error:', error);
+			});
+
+		try {
+			const modelsData = await (
+				await fetch('http://localhost:8081/models', { method: 'GET' })
+			).json();
+			models = modelsData.models.map((m) => {
+				return {
+					id: m,
+					name: m,
+					local: true,
+				};
+			});
+
+			// Get the model that is currently loaded on the llama.cpp server, if any:
+			const modelData = await (
+				await fetch('http://localhost:8081/model', { method: 'GET' })
+			).json();
+			setModel(modelData.model || null);
+		} catch (error) {
+			console.warn('Local llama.cpp server is not running, running in external mode only.');
+		}
+	});
 </script>
 
 <svelte:window
@@ -296,13 +371,11 @@
 			<Icon icon={faBarsStaggered} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 
-		<p class="mx-auto text-sm font-semibold">
-			{#if $convo.id !== 'shared'}
-				{$convo.model}
-			{:else}
-				Shared conversation
-			{/if}
-		</p>
+		{#if $convo.id !== 'shared'}
+			<ModelSelector {convo} {models} {loading} {loadModel} class="mx-auto" />
+		{:else}
+			<p class="mx-auto text-sm font-semibold">Shared conversation</p>
+		{/if}
 
 		<button
 			data-trigger="settings"
@@ -385,13 +458,11 @@
 				<div class="hidden items-center border-b border-slate-200 px-4 py-1 xl:flex">
 					<div class="" />
 
-					<p class="mx-auto text-sm font-semibold">
-						{#if $convo.id !== 'shared'}
-							{$convo.model}
-						{:else}
-							Shared conversation
-						{/if}
-					</p>
+					{#if $convo.id !== 'shared'}
+						<ModelSelector {convo} {models} {loading} {loadModel} class="mx-auto" />
+					{:else}
+						<p class="mx-auto text-sm font-semibold">Shared conversation</p>
+					{/if}
 
 					<button
 						class="flex p-3"
