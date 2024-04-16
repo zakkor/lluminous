@@ -276,8 +276,13 @@
 	}
 
 	async function shareConversation() {
-		const share = `${window.location.protocol}//${window.location.host}/?s=${await compressAndEncode($convo.messages)}`;
-		navigator.clipboard.writeText(share);
+		const clipboardItem = new ClipboardItem({
+			'text/plain': new Promise(async (resolve) => {
+				const share = `${window.location.protocol}//${window.location.host}/?s=${await compressAndEncode($convo.messages)}`;
+				resolve(share);
+			}),
+		});
+		navigator.clipboard.write([clipboardItem]);
 	}
 
 	let loading = false;
