@@ -21,6 +21,7 @@
 	import { persisted, persistedPicked } from './localstorage.js';
 	import { getRelativeDate } from './date.js';
 	import ModelSelector from './ModelSelector.svelte';
+	import { compressAndEncode, decodeAndDecompress } from './share.js';
 
 	// import { marked } from 'marked';
 	// import markedKatex from 'marked-katex-extension';
@@ -72,16 +73,19 @@
 	if (window.location.search) {
 		const params = new URLSearchParams(window.location.search);
 		const share = params.get('s');
-		$history.entries['shared'] = {
-			id: 'shared',
-			summary: 'Shared conversation',
-			local: false,
-			model: 'openchat/openchat-7b:free',
-			tmpl: 'none',
-			messages: JSON.parse(decodeURIComponent(share)),
-		};
-		$history.convoId = 'shared';
-		convo = persistedPicked(history, (h) => h.entries[h.convoId]);
+
+		decodeAndDecompress(share).then((messages) => {
+			$history.entries['shared'] = {
+				id: 'shared',
+				summary: 'Shared conversation',
+				local: false,
+				model: 'openchat/openchat-7b:free',
+				tmpl: 'none',
+				messages,
+			};
+			$history.convoId = 'shared';
+			convo = persistedPicked(history, (h) => h.entries[h.convoId]);
+		});
 	}
 
 	let content = '';
@@ -466,8 +470,8 @@
 
 					<button
 						class="flex p-3"
-						on:click={() => {
-							const share = `https://lluminous.chat/?s=${encodeURIComponent(JSON.stringify($convo.messages))}`;
+						on:click={async () => {
+							const share = `https://lluminous.chat/?s=${await compressAndEncode($convo.messages)}`;
 							navigator.clipboard.writeText(share);
 						}}
 					>
