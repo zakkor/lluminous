@@ -8,6 +8,8 @@ const config = {
 	theme: {
 		extend: {
 			screens: {
+				md: '880px',
+				ld: '1215px',
 				xl: '1410px',
 			},
 			transitionTimingFunction: {

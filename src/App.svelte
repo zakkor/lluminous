@@ -388,7 +388,7 @@
 <svelte:window on:touchstart={closeSidebars} on:click={closeSidebars} />
 
 <main class="flex h-[calc(100dvh)] w-screen flex-col">
-	<div class="flex items-center border-b border-slate-200 px-4 py-1 xl:hidden">
+	<div class="flex items-center border-b border-slate-200 px-4 py-1 md:hidden">
 		<button on:click={newConversation} class="flex p-3">
 			<Icon icon={faPlus} class="ml-auto h-4 w-4 text-slate-700" />
 		</button>
@@ -421,7 +421,7 @@
 			data-sidebar="history"
 			class="{historyOpen
 				? ''
-				: '-translate-x-full'} fixed top-0 z-[100] flex h-full w-[230px] flex-col border-r bg-white px-3 py-4 transition-transform duration-300 ease-in-out xl:static xl:translate-x-0"
+				: '-translate-x-full'} fixed top-0 z-[100] flex h-full w-[230px] flex-col border-r bg-white px-3 py-4 transition-transform duration-300 ease-in-out md:static md:translate-x-0"
 		>
 			<button
 				on:click={newConversation}
@@ -488,7 +488,7 @@
 					}
 				}}
 			>
-				<div class="hidden items-center border-b border-slate-200 px-4 py-1 xl:flex">
+				<div class="hidden items-center border-b border-slate-200 px-4 py-1 md:flex">
 					<div class="" />
 
 					{#if $convo.id !== 'shared'}
@@ -502,6 +502,13 @@
 						on:click={shareConversation}
 					>
 						<Icon icon={faShareFromSquare} class="m-auto h-4 w-4 text-slate-700" />
+					</button>
+					<button
+						data-trigger="settings"
+						class="flex rounded-full p-3 transition-colors hover:bg-gray-100 xl:hidden"
+						on:click={() => (settingsOpen = !settingsOpen)}
+					>
+						<Icon icon={faGear} class="m-auto h-4 w-4 text-slate-700" />
 					</button>
 				</div>
 				{#if $convo.messages.length > 0}
@@ -520,7 +527,7 @@
 										? 'bg-yellow-50/40'
 										: message.role === 'assistant'
 											? 'bg-slate-50/75'
-											: ''} group relative px-5 pb-12 pt-6 xl:px-8 xl:pb-8"
+											: ''} group relative px-5 pb-12 pt-6 ld:px-8"
 									style="z-index: {$convo.messages.length - i};"
 									on:click={(event) => {
 										// Make click trigger hover on mobile:
@@ -528,7 +535,7 @@
 									}}
 								>
 									<div
-										class="mx-auto flex w-full gap-x-3.5 self-start xl:relative xl:max-w-[768px] xl:gap-x-5"
+										class="relative mx-auto flex w-full max-w-[680px] gap-x-3.5 self-start md:gap-x-5 ld:max-w-[768px]"
 									>
 										<button
 											on:click={() => {
@@ -539,7 +546,7 @@
 													message.role = 'user';
 												}
 											}}
-											class="flex h-8 w-8 shrink-0 rounded xl:h-10 xl:w-10 xl:rounded-[5px] {message.role ===
+											class="flex h-8 w-8 shrink-0 rounded md:h-10 md:w-10 md:rounded-[5px] {message.role ===
 											'assistant'
 												? 'bg-teal-300'
 												: message.role === 'system'
@@ -548,7 +555,7 @@
 														? 'border-1 border-dashed border-slate-300 bg-blue-100'
 														: 'bg-red-200'}"
 										>
-											<span class="m-auto text-base xl:text-lg">
+											<span class="m-auto text-base md:text-lg">
 												{#if message.role === 'system'}
 													S
 												{:else if message.role === 'assistant'}
@@ -609,7 +616,7 @@
 
 										{#if message.editing}
 											<div
-												class="absolute bottom-3 right-5 flex gap-x-0.5 xl:bottom-2 xl:right-0 xl:translate-y-full"
+												class="absolute -bottom-9 right-1 flex gap-x-0.5 md:bottom-2 md:right-0 md:translate-y-full"
 											>
 												{#if message.role !== 'assistant' && message.pendingContent && message.pendingContent !== message.content}
 													<button
@@ -649,7 +656,7 @@
 										{/if}
 										{#if !message.editing}
 											<div
-												class="absolute bottom-2 right-7 flex gap-x-0.5 opacity-0 transition-opacity group-hover:opacity-100 xl:-top-2 xl:bottom-auto xl:right-0 xl:translate-x-full"
+												class="absolute -bottom-9 right-1 flex gap-x-0.5 opacity-0 transition-opacity group-hover:opacity-100 ld:-top-2 ld:bottom-auto ld:right-0 ld:translate-x-full"
 											>
 												<button
 													class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
@@ -664,7 +671,7 @@
 												>
 													<Icon
 														icon={faPen}
-														class="m-auto h-[11px] w-[11px] text-slate-500 xl:h-3 xl:w-3 xl:text-slate-600"
+														class="m-auto h-[11px] w-[11px] text-slate-500 md:h-3 md:w-3 md:text-slate-600"
 													/>
 												</button>
 												{#if message.role !== 'system'}
@@ -684,7 +691,7 @@
 													>
 														<Icon
 															icon={faArrowsRotate}
-															class="m-auto h-3 w-3 text-slate-500 xl:h-3.5 xl:w-3.5 xl:text-slate-600"
+															class="m-auto h-3 w-3 text-slate-500 md:h-3.5 md:w-3.5 md:text-slate-600"
 														/>
 													</button>
 												{/if}
@@ -699,7 +706,7 @@
 												>
 													<Icon
 														icon={faXmark}
-														class="m-auto h-3.5 w-3.5 text-slate-500 xl:h-4 xl:w-4 xl:text-slate-600"
+														class="m-auto h-3.5 w-3.5 text-slate-500 md:h-4 md:w-4 md:text-slate-600"
 													/>
 												</button>
 											</div>
@@ -727,7 +734,7 @@
 				{/if}
 			</section>
 			<section
-				class="fixed bottom-4 left-1/2 z-[99] flex w-full max-w-[900px] -translate-x-1/2 flex-col px-8 lg:px-0 xl:max-w-[768px]"
+				class="fixed bottom-4 left-1/2 z-[99] flex w-full max-w-[680px] -translate-x-1/2 flex-col px-5 md:left-[calc((100vw+230px)*0.5)] lg:px-0 ld:max-w-[768px] xl:left-1/2"
 			>
 				<div class="absolute bottom-full mb-3 flex gap-4 self-center">
 					{#if $convo.messages.find((msg) => msg.editing) && $convo.messages.findIndex((msg) => msg.editing) !== $convo.messages.length - 1 && $convo.messages[$convo.messages.length - 1].role !== 'assistant'}
