@@ -13,7 +13,7 @@
 	<select
 		class="{loading
 			? 'opacity-50'
-			: ''} max-w-[200px] rounded-lg border-slate-300 py-2 text-xs xl:max-w-[250px]"
+			: ''} max-w-[200px] rounded-lg border-slate-200 py-2 text-xs xl:max-w-[250px]"
 		value={$convo.model}
 		disabled={loading}
 		on:change={(event) => {

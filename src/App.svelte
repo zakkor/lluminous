@@ -268,6 +268,23 @@
 		inputTextareaEl.focus();
 	}
 
+	function closeSidebars(event) {
+		if (
+			historyOpen &&
+			!event.target.closest('[data-sidebar="history"]') &&
+			!event.target.closest('[data-trigger="history"]')
+		) {
+			historyOpen = false;
+		}
+		if (
+			settingsOpen &&
+			!event.target.closest('[data-trigger="settings"]') &&
+			!event.target.closest('[data-sidebar="settings"]')
+		) {
+			settingsOpen = false;
+		}
+	}
+
 	let loading = false;
 
 	async function loadModel(newModel) {
@@ -343,24 +360,7 @@
 	});
 </script>
 
-<svelte:window
-	on:click={(event) => {
-		if (
-			historyOpen &&
-			!event.target.closest('[data-sidebar="history"]') &&
-			!event.target.closest('[data-trigger="history"]')
-		) {
-			historyOpen = false;
-		}
-		if (
-			settingsOpen &&
-			!event.target.closest('[data-trigger="settings"]') &&
-			!event.target.closest('[data-sidebar="settings"]')
-		) {
-			settingsOpen = false;
-		}
-	}}
-/>
+<svelte:window on:touchstart={closeSidebars} on:click={closeSidebars} />
 
 <main class="flex h-[calc(100dvh)] w-screen flex-col">
 	<div class="flex items-center border-b border-slate-200 px-4 py-1 xl:hidden">
@@ -497,7 +497,9 @@
 										event.target.dispatchEvent(new MouseEvent('mouseenter'));
 									}}
 								>
-									<div class="mx-auto flex w-full gap-x-5 self-start xl:relative xl:max-w-[768px]">
+									<div
+										class="mx-auto flex w-full gap-x-3.5 self-start xl:relative xl:max-w-[768px] xl:gap-x-5"
+									>
 										<button
 											on:click={() => {
 												// Toggle between user and assistant:

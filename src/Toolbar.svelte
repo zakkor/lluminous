@@ -81,7 +81,7 @@
 			type="text"
 			bind:value={$openrouterAPIKey}
 			placeholder="Enter your API key"
-			class="{$openrouterAPIKey.length === 0
+			class="{!$openrouterAPIKey || $openrouterAPIKey.length === 0
 				? 'bg-red-50 placeholder:text-slate-800'
 				: ''} rounded-md border border-slate-300 text-sm"
 		/></label
