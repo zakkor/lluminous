@@ -70,24 +70,6 @@
 
 	let convo = persistedPicked(history, (h) => h.entries[h.convoId]);
 
-	if (window.location.search) {
-		const params = new URLSearchParams(window.location.search);
-		const share = params.get('s');
-
-		decodeAndDecompress(share).then((messages) => {
-			$history.entries['shared'] = {
-				id: 'shared',
-				summary: 'Shared conversation',
-				local: false,
-				model: 'openchat/openchat-7b:free',
-				tmpl: 'none',
-				messages,
-			};
-			$history.convoId = 'shared';
-			convo = persistedPicked(history, (h) => h.entries[h.convoId]);
-		});
-	}
-
 	let content = '';
 	let generating = false;
 
@@ -232,11 +214,15 @@
 		}
 	}
 
-	function newConversation() {
+	function cleanShareLink() {
 		const params = new URLSearchParams(window.location.search);
 		if (params.has('s')) {
 			window.history.pushState('', document.title, window.location.pathname);
 		}
+	}
+
+	function newConversation() {
+		cleanShareLink();
 
 		if ($convo.messages.length === 0) {
 			historyOpen = false;
@@ -326,6 +312,27 @@
 	let models = [];
 
 	onMount(async () => {
+		if (window.location.search) {
+			const params = new URLSearchParams(window.location.search);
+			const share = params.get('s');
+			decodeAndDecompress(share)
+				.then((messages) => {
+					$history.entries['shared'] = {
+						id: 'shared',
+						summary: 'Shared conversation',
+						local: false,
+						model: 'openchat/openchat-7b:free',
+						tmpl: 'none',
+						messages,
+					};
+					$history.convoId = 'shared';
+					convo = persistedPicked(history, (h) => h.entries[h.convoId]);
+				})
+				.catch((err) => {
+					console.error('Error decoding shared conversation:', err);
+				});
+		}
+
 		fetch('https://openrouter.ai/api/v1/models', { method: 'GET' })
 			.then((response) => response.json())
 			.then((json) => {
@@ -416,6 +423,8 @@
 									$history.convoId = convo.id;
 									convo = persistedPicked(history, (h) => h.entries[h.convoId]);
 									historyOpen = false;
+
+									cleanShareLink();
 								}}
 								class="{$history.convoId === convo.id
 									? 'bg-gray-100'
@@ -471,7 +480,7 @@
 					<button
 						class="flex p-3"
 						on:click={async () => {
-							const share = `https://lluminous.chat/?s=${await compressAndEncode($convo.messages)}`;
+							const share = `${window.location.protocol}//${window.location.host}/?s=${await compressAndEncode($convo.messages)}`;
 							navigator.clipboard.writeText(share);
 						}}
 					>
