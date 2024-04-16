@@ -275,6 +275,11 @@
 		}
 	}
 
+	async function shareConversation() {
+		const share = `${window.location.protocol}//${window.location.host}/?s=${await compressAndEncode($convo.messages)}`;
+		navigator.clipboard.writeText(share);
+	}
+
 	let loading = false;
 
 	async function loadModel(newModel) {
@@ -336,6 +341,10 @@
 		fetch('https://openrouter.ai/api/v1/models', { method: 'GET' })
 			.then((response) => response.json())
 			.then((json) => {
+				const externalModels = json.data;
+				// Reorder the model list, by placing a few handpicked models at the start of the list:
+
+				// Then append external models to the local models (if any):
 				models = models.concat(json.data).map((m) => {
 					return {
 						id: m.id,
@@ -389,8 +398,14 @@
 		{/if}
 
 		<button
+			class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
+			on:click={shareConversation}
+		>
+			<Icon icon={faShareFromSquare} class="m-auto h-4 w-4 text-slate-700" />
+		</button>
+		<button
 			data-trigger="settings"
-			class="flex p-3"
+			class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
 			on:click={() => (settingsOpen = !settingsOpen)}
 		>
 			<Icon icon={faGear} class="m-auto h-4 w-4 text-slate-700" />
@@ -478,11 +493,8 @@
 					{/if}
 
 					<button
-						class="flex p-3"
-						on:click={async () => {
-							const share = `${window.location.protocol}//${window.location.host}/?s=${await compressAndEncode($convo.messages)}`;
-							navigator.clipboard.writeText(share);
-						}}
+						class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
+						on:click={shareConversation}
 					>
 						<Icon icon={faShareFromSquare} class="m-auto h-4 w-4 text-slate-700" />
 					</button>
