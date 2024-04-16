@@ -490,7 +490,7 @@
 										? 'bg-yellow-50/40'
 										: message.role === 'assistant'
 											? 'bg-slate-50/75'
-											: ''} group relative px-8 pb-12 pt-6 xl:pb-8"
+											: ''} group relative px-5 pb-12 pt-6 xl:px-8 xl:pb-8"
 									style="z-index: {$convo.messages.length - i};"
 									on:click={(event) => {
 										// Make click trigger hover on mobile:
@@ -507,7 +507,8 @@
 													message.role = 'user';
 												}
 											}}
-											class="flex h-10 w-10 shrink-0 rounded-[5px] {message.role === 'assistant'
+											class="flex h-8 w-8 shrink-0 rounded xl:h-10 xl:w-10 xl:rounded-[5px] {message.role ===
+											'assistant'
 												? 'bg-teal-300'
 												: message.role === 'system'
 													? 'bg-blue-200'
@@ -515,7 +516,7 @@
 														? 'border-1 border-dashed border-slate-300 bg-blue-100'
 														: 'bg-red-200'}"
 										>
-											<span class="m-auto text-lg">
+											<span class="m-auto text-base xl:text-lg">
 												{#if message.role === 'system'}
 													S
 												{:else if message.role === 'assistant'}
@@ -576,7 +577,7 @@
 
 										{#if message.editing}
 											<div
-												class="absolute bottom-3 right-5 flex gap-x-0.5 lg:bottom-2 lg:right-0 lg:translate-y-full"
+												class="absolute bottom-3 right-5 flex gap-x-0.5 xl:bottom-2 xl:right-0 xl:translate-y-full"
 											>
 												{#if message.role !== 'assistant' && message.pendingContent && message.pendingContent !== message.content}
 													<button
