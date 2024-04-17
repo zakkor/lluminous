@@ -22,6 +22,7 @@
 	import { getRelativeDate } from './date.js';
 	import ModelSelector from './ModelSelector.svelte';
 	import { compressAndEncode, decodeAndDecompress } from './share.js';
+	import { writable } from 'svelte/store';
 
 	// import { marked } from 'marked';
 	// import markedKatex from 'marked-katex-extension';
@@ -55,18 +56,25 @@
 		$history.entries[convoData.id] = convoData;
 	}
 
-	$: historyBuckets = Object.entries($history.entries).reduce((acc, [id, convo]) => {
-		if (id === 'shared') {
-			return acc;
+	let historyBuckets = [];
+	$: {
+		historyBuckets = [];
+		for (const entry of Object.values($history.entries).sort((a, b) => b.id - a.id)) {
+			if (isNaN(new Date(entry.id).getTime())) {
+				continue;
+			}
+
+			const bucketKey = getRelativeDate(entry.id);
+
+			const existingBucket = historyBuckets.find((bucket) => bucket.relativeDate === bucketKey);
+			if (!existingBucket) {
+				historyBuckets.push({ relativeDate: bucketKey, convos: [entry] });
+			} else {
+				existingBucket.convos.push(entry);
+			}
 		}
-		const date = new Date(parseInt(id));
-		const bucketKey = getRelativeDate(date);
-		if (!acc[bucketKey]) {
-			acc[bucketKey] = [];
-		}
-		acc[bucketKey].push(convo);
-		return acc;
-	}, []);
+		historyBuckets.sort((a, b) => b.convos[0].id - a.convos[0].id);
+	}
 
 	let convo = persistedPicked(history, (h) => h.entries[h.convoId]);
 
@@ -327,16 +335,15 @@
 			const share = params.get('s');
 			decodeAndDecompress(share)
 				.then((messages) => {
-					$history.entries['shared'] = {
+					$history.convoId = 'shared';
+					convo = writable({
 						id: 'shared',
 						summary: 'Shared conversation',
 						local: false,
 						model: 'openchat/openchat-7b:free',
 						tmpl: 'none',
 						messages,
-					};
-					$history.convoId = 'shared';
-					convo = persistedPicked(history, (h) => h.entries[h.convoId]);
+					});
 				})
 				.catch((err) => {
 					console.error('Error decoding shared conversation:', err);
@@ -431,11 +438,11 @@
 				<Icon icon={faPlus} class="ml-auto h-3.5 w-3.5 text-slate-700" />
 			</button>
 			<ol class="flex list-none flex-col">
-				{#each Object.entries(historyBuckets).reverse() as [relativeDate, convos] (relativeDate)}
+				{#each historyBuckets as { relativeDate, convos } (relativeDate)}
 					<li class="mb-2 ml-3 mt-6 text-xs font-medium text-slate-600">
 						{relativeDate}
 					</li>
-					{#each convos.reverse() as convo (convo.id)}
+					{#each convos as convo (convo.id)}
 						<li class="group relative">
 							<button
 								on:click={() => {
