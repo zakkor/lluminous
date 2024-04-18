@@ -13,6 +13,7 @@
 		faPlus,
 		faShareFromSquare,
 		faStop,
+		faVial,
 		faXmark,
 	} from '@fortawesome/free-solid-svg-icons';
 	import { faLightbulb, faTrashCan } from '@fortawesome/free-regular-svg-icons';
@@ -22,7 +23,6 @@
 	import { getRelativeDate } from './date.js';
 	import ModelSelector from './ModelSelector.svelte';
 	import { compressAndEncode, decodeAndDecompress } from './share.js';
-	import { writable } from 'svelte/store';
 
 	// import { marked } from 'marked';
 	// import markedKatex from 'marked-katex-extension';
@@ -201,6 +201,13 @@
 		return {};
 	}
 
+	async function insertSystemPrompt() {
+		$convo.messages.unshift({ role: 'system', content: '', editing: true });
+		$convo.messages = $convo.messages;
+		await tick();
+		textareaEls[0].focus();
+	}
+
 	async function onEnterMessage(event) {
 		if (event.key === 'Enter' && !event.shiftKey) {
 			event.preventDefault();
@@ -287,7 +294,7 @@
 		const sharePromise = new Promise(async (resolve) => {
 			const encoded = await compressAndEncode($convo.messages);
 			const share = `${window.location.protocol}//${window.location.host}/?s=${encoded}`;
-			if (share.length > 2000) {
+			if (share.length > 200) {
 				const data = new FormData();
 				data.append('pwd', 'muie_webshiti');
 				data.append('f:1', new Blob([encoded], { type: 'text/plain' }), 'content.txt');
@@ -516,7 +523,9 @@
 		{#if !$convo.shared}
 			<ModelSelector {convo} {models} {loading} {loadModel} class="mx-auto" />
 		{:else}
-			<p class="mx-auto text-sm font-semibold">Shared conversation</p>
+			<p class="mx-auto line-clamp-1 whitespace-nowrap text-sm font-semibold">
+				Shared conversation
+			</p>
 		{/if}
 
 		<button
@@ -591,6 +600,29 @@
 			</ol>
 		</aside>
 		<div class="flex flex-1 flex-col">
+			<div class="hidden items-center border-b border-slate-200 px-4 py-1 md:flex">
+				<div class="pointer-events-none w-10" />
+
+				{#if !$convo.shared}
+					<ModelSelector {convo} {models} {loading} {loadModel} class="mx-auto" />
+				{:else}
+					<p class="mx-auto text-sm font-semibold">Shared conversation</p>
+				{/if}
+
+				<button
+					class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
+					on:click={shareConversation}
+				>
+					<Icon icon={faShareFromSquare} class="m-auto h-4 w-4 text-slate-700" />
+				</button>
+				<button
+					data-trigger="settings"
+					class="flex rounded-full p-3 transition-colors hover:bg-gray-100 xl:hidden"
+					on:click={() => (settingsOpen = !settingsOpen)}
+				>
+					<Icon icon={faGear} class="m-auto h-4 w-4 text-slate-700" />
+				</button>
+			</div>
 			<section
 				bind:this={scrollableEl}
 				class="scrollable flex h-full w-full flex-col overflow-y-auto pb-[160px]"
@@ -605,29 +637,6 @@
 					}
 				}}
 			>
-				<div class="hidden items-center border-b border-slate-200 px-4 py-1 md:flex">
-					<div class="" />
-
-					{#if !$convo.shared}
-						<ModelSelector {convo} {models} {loading} {loadModel} class="mx-auto" />
-					{:else}
-						<p class="mx-auto text-sm font-semibold">Shared conversation</p>
-					{/if}
-
-					<button
-						class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
-						on:click={shareConversation}
-					>
-						<Icon icon={faShareFromSquare} class="m-auto h-4 w-4 text-slate-700" />
-					</button>
-					<button
-						data-trigger="settings"
-						class="flex rounded-full p-3 transition-colors hover:bg-gray-100 xl:hidden"
-						on:click={() => (settingsOpen = !settingsOpen)}
-					>
-						<Icon icon={faGear} class="m-auto h-4 w-4 text-slate-700" />
-					</button>
-				</div>
 				{#if $convo.messages.length > 0}
 					<ul
 						class="mb-3 flex w-full !list-none flex-col divide-y divide-slate-200 border-b border-slate-200"
@@ -651,10 +660,21 @@
 										event.target.dispatchEvent(new MouseEvent('mouseenter'));
 									}}
 								>
+									{#if i === 0 && message.role !== 'system'}
+										<Button
+											variant="outline-small"
+											class="absolute left-1/2 top-0 z-[99] -translate-x-1/2 rounded-t-none !border-t-0  border-dashed opacity-0 transition-opacity group-hover:opacity-100"
+											on:click={insertSystemPrompt}
+										>
+											<Icon icon={faVial} class="mr-2 h-3 w-3 text-slate-600" />
+											Add system prompt
+										</Button>
+									{/if}
 									<div
 										class="relative mx-auto flex w-full max-w-[680px] gap-x-3.5 self-start md:gap-x-5 ld:max-w-[768px]"
 									>
 										<button
+											disabled={message.role === 'system'}
 											on:click={() => {
 												// Toggle between user and assistant:
 												if (message.role === 'user') {
@@ -739,12 +759,25 @@
 													<button
 														class="flex items-center gap-x-1 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
 														on:click={(event) => {
+															if (message.role === 'system') {
+																// If system message, accept the edit instead of submitting at point:
+																$convo.messages[i].content = message.pendingContent;
+																$convo.messages[i].pendingContent = '';
+																$convo.messages[i].editing = false;
+																return;
+															}
 															submitEdit(i);
 															event.target.blur();
 														}}
 													>
 														<Icon icon={faCheck} class="h-3.5 w-3.5 text-slate-600" />
-														<span class="text-xs text-slate-600">Submit</span>
+														<span class="text-xs text-slate-600">
+															{#if message.role === 'system'}
+																Accept
+															{:else}
+																Submit
+															{/if}
+														</span>
 													</button>
 												{/if}
 												{#if message.role === 'assistant' && message.pendingContent && message.pendingContent !== message.content && message.content !== '...' && i === $convo.messages.length - 1}
@@ -844,6 +877,14 @@
 						{/each}
 					</ul>
 				{:else}
+					<Button
+						variant="outline-small"
+						class="z-[99] mx-auto rounded-t-none !border-t-0 border-dashed"
+						on:click={insertSystemPrompt}
+					>
+						<Icon icon={faVial} class="mr-2 h-3 w-3 text-slate-600" />
+						Add system prompt
+					</Button>
 					<div class="m-auto flex flex-col items-center gap-5 text-center">
 						<Icon icon={faLightbulb} class="h-12 w-12 text-slate-800" />
 						<h3 class="text-4xl font-semibold tracking-tight text-slate-800">lluminous</h3>
