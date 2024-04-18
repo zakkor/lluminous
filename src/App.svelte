@@ -390,9 +390,77 @@
 			.then((json) => {
 				const externalModels = json.data;
 				// Reorder the model list, by placing a few handpicked models at the start of the list:
+				const priorityOrder = [
+					{ exactly: 'openai/gpt-4-turbo' },
+					{ exactly: 'openai/gpt-3.5-turbo' },
+					{
+						startsWith: 'anthropic/',
+						exactlyNot: [
+							'anthropic/claude-2',
+							'anthropic/claude-2.1',
+							'anthropic/claude-2.0',
+							'anthropic/claude-instant-1',
+							'anthropic/claude-instant-1.0',
+							'anthropic/claude-instant-1.1',
+							'anthropic/claude-instant-1.2',
+							'anthropic/claude-1.2',
+							'anthropic/claude-1',
+							'anthropic/claude-2:beta',
+							'anthropic/claude-2.0:beta',
+							'anthropic/claude-2.1:beta',
+							'anthropic/claude-instant-1:beta',
+						],
+					},
+					{
+						startsWith: 'openai/',
+						exactlyNot: [
+							'openai/gpt-3.5-turbo-0125',
+							'openai/gpt-3.5-turbo-0301',
+							'openai/gpt-3.5-turbo-0613',
+							'openai/gpt-3.5-turbo-1106',
+							'openai/gpt-3.5-turbo-instruct',
+							'openai/gpt-4',
+							'openai/gpt-4-0314',
+							'openai/gpt-4-1106-preview',
+							'openai/gpt-4-32k-0314',
+						],
+					},
+					{ exactly: 'meta-llama/llama-3-70b-instruct' },
+					{ exactly: 'meta-llama/llama-3-8b-instruct' },
+					{ startsWith: 'mistralai/' },
+					{ startsWith: 'cohere/' },
+				];
+
+				// Function to determine the priority index of a model
+				function getPriorityIndex(modelID) {
+					for (let i = 0; i < priorityOrder.length; i++) {
+						const rule = priorityOrder[i];
+						if (rule.exactly && modelID === rule.exactly) {
+							return i;
+						}
+						if (rule.startsWith && modelID.startsWith(rule.startsWith)) {
+							if (rule.exactlyNot && rule.exactlyNot.includes(modelID)) {
+								continue; // Skip this rule if the model is in the exactlyNot list
+							}
+							return i;
+						}
+					}
+					return priorityOrder.length; // Return a default high index for non-matching models
+				}
+
+				// Sorting external models based on the defined priority rules
+				externalModels.sort((a, b) => {
+					const aIndex = getPriorityIndex(a.id);
+					const bIndex = getPriorityIndex(b.id);
+
+					if (aIndex === bIndex) {
+						return a.id.localeCompare(b.id); // Sort alphabetically if same priority
+					}
+					return aIndex - bIndex;
+				});
 
 				// Then append external models to the local models (if any):
-				models = models.concat(json.data).map((m) => {
+				models = models.concat(externalModels).map((m) => {
 					return {
 						id: m.id,
 						name: m.name,
@@ -430,11 +498,18 @@
 <svelte:window on:touchstart={closeSidebars} on:click={closeSidebars} />
 
 <main class="flex h-[calc(100dvh)] w-screen flex-col">
-	<div class="flex items-center border-b border-slate-200 px-4 py-1 md:hidden">
-		<button on:click={newConversation} class="flex p-3">
+	<div class="flex items-center border-b border-slate-200 px-3 py-1 md:hidden">
+		<button
+			on:click={newConversation}
+			class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
+		>
 			<Icon icon={faPlus} class="ml-auto h-4 w-4 text-slate-700" />
 		</button>
-		<button data-trigger="history" class="flex p-3" on:click={() => (historyOpen = !historyOpen)}>
+		<button
+			data-trigger="history"
+			class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
+			on:click={() => (historyOpen = !historyOpen)}
+		>
 			<Icon icon={faBarsStaggered} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 
@@ -569,7 +644,7 @@
 										? 'bg-yellow-50/40'
 										: message.role === 'assistant'
 											? 'bg-slate-50/75'
-											: ''} group relative px-5 pb-12 pt-6 ld:px-8"
+											: ''} group relative px-5 pb-12 pt-6 ld:px-8 ld:pb-8"
 									style="z-index: {$convo.messages.length - i};"
 									on:click={(event) => {
 										// Make click trigger hover on mobile:
@@ -588,7 +663,7 @@
 													message.role = 'user';
 												}
 											}}
-											class="flex h-8 w-8 shrink-0 rounded md:h-10 md:w-10 md:rounded-[5px] {message.role ===
+											class="flex h-8 w-8 shrink-0 rounded-md md:h-9 md:w-9 md:rounded-[7px] {message.role ===
 											'assistant'
 												? 'bg-teal-300'
 												: message.role === 'system'
@@ -597,7 +672,7 @@
 														? 'border-1 border-dashed border-slate-300 bg-blue-100'
 														: 'bg-red-200'}"
 										>
-											<span class="m-auto text-base md:text-lg">
+											<span class="m-auto text-base">
 												{#if message.role === 'system'}
 													S
 												{:else if message.role === 'assistant'}
@@ -756,8 +831,8 @@
 									</div>
 									<button
 										on:click={() => {
-											// Insert a blank message after this one:
-											$convo.messages.push({ role: 'assistant', content: '...' });
+											// Insert a blank message inbetween the next message and the next next message:
+											$convo.messages.splice(i + 1, 0, { role: 'assistant', content: '...' });
 											$convo.messages = $convo.messages;
 										}}
 										class="z-1 absolute bottom-0 left-1/2 flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-md border border-gray-300 bg-white opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100"
