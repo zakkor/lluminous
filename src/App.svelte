@@ -60,7 +60,7 @@
 	$: {
 		historyBuckets = [];
 		for (const entry of Object.values($history.entries).sort((a, b) => b.id - a.id)) {
-			if (isNaN(new Date(entry.id).getTime())) {
+			if (entry.shared || isNaN(new Date(entry.id).getTime())) {
 				continue;
 			}
 
@@ -224,7 +224,7 @@
 
 	function cleanShareLink() {
 		const params = new URLSearchParams(window.location.search);
-		if (params.has('s')) {
+		if (params.has('s') || params.has('sl')) {
 			window.history.pushState('', document.title, window.location.pathname);
 		}
 	}
@@ -284,13 +284,35 @@
 	}
 
 	async function shareConversation() {
-		const clipboardItem = new ClipboardItem({
-			'text/plain': new Promise(async (resolve) => {
-				const share = `${window.location.protocol}//${window.location.host}/?s=${await compressAndEncode($convo.messages)}`;
-				resolve(share);
-			}),
+		const sharePromise = new Promise(async (resolve) => {
+			const encoded = await compressAndEncode($convo.messages);
+			const share = `${window.location.protocol}//${window.location.host}/?s=${encoded}`;
+			if (share.length > 2000) {
+				const data = new FormData();
+				data.append('pwd', 'muie_webshiti');
+				data.append('f:1', new Blob([encoded], { type: 'text/plain' }), 'content.txt');
+				const response = await fetch(`https://zak.oni2025.ro`, {
+					method: 'POST',
+					body: data,
+				});
+
+				const shortenedLink = await response.text();
+				resolve(
+					`${window.location.protocol}//${window.location.host}/?sl=${shortenedLink.slice(25, shortenedLink.length - 13)}`
+				);
+			} else {
+				resolve(`${window.location.protocol}//${window.location.host}/?s=${encoded}`);
+			}
 		});
-		navigator.clipboard.write([clipboardItem]);
+
+		try {
+			const clipboardItem = new ClipboardItem({
+				'text/plain': sharePromise,
+			});
+			navigator.clipboard.write([clipboardItem]);
+		} catch (err) {
+			await navigator.clipboard.writeText(await sharePromise);
+		}
 	}
 
 	let loading = false;
@@ -330,20 +352,33 @@
 	let models = [];
 
 	onMount(async () => {
-		if (window.location.search) {
-			const params = new URLSearchParams(window.location.search);
-			const share = params.get('s');
+		const params = new URLSearchParams(window.location.search);
+		let share;
+		if (params.has('s')) {
+			share = params.get('s');
+		} else if (params.has('sl')) {
+			const response = await fetch(`https://zak.oni2025.ro/p/${params.get('sl')}/`);
+			share = await response.text();
+		}
+		if (share) {
 			decodeAndDecompress(share)
 				.then((messages) => {
-					$history.convoId = 'shared';
-					convo = writable({
-						id: 'shared',
-						summary: 'Shared conversation',
+					let id = Date.now();
+					const existingShared = Object.values($history.entries).find((convo) => convo.shared);
+					if (existingShared) {
+						id = existingShared.id;
+					}
+					const convoData = {
+						id,
+						shared: true,
 						local: false,
-						model: 'openchat/openchat-7b:free',
+						model: $convo.model || 'openchat/openchat-7b:free',
 						tmpl: 'none',
 						messages,
-					});
+					};
+					$history.convoId = convoData.id;
+					$history.entries[convoData.id] = convoData;
+					convo = persistedPicked(history, (h) => h.entries[h.convoId]);
 				})
 				.catch((err) => {
 					console.error('Error decoding shared conversation:', err);
@@ -403,7 +438,7 @@
 			<Icon icon={faBarsStaggered} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 
-		{#if $convo.id !== 'shared'}
+		{#if !$convo.shared}
 			<ModelSelector {convo} {models} {loading} {loadModel} class="mx-auto" />
 		{:else}
 			<p class="mx-auto text-sm font-semibold">Shared conversation</p>
@@ -458,7 +493,7 @@
 									: ''} leading-0 w-full rounded-lg px-3 py-2 text-left text-sm group-hover:bg-gray-100"
 							>
 								<span class="line-clamp-1">
-									{convo.summary || convo.messages.length === 0
+									{convo.messages.length === 0
 										? 'New conversation'
 										: convo.messages[0].content.split(' ').slice(0, 5).join(' ')}
 								</span>
@@ -498,7 +533,7 @@
 				<div class="hidden items-center border-b border-slate-200 px-4 py-1 md:flex">
 					<div class="" />
 
-					{#if $convo.id !== 'shared'}
+					{#if !$convo.shared}
 						<ModelSelector {convo} {models} {loading} {loadModel} class="mx-auto" />
 					{:else}
 						<p class="mx-auto text-sm font-semibold">Shared conversation</p>
