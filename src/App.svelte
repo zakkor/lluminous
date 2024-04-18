@@ -309,7 +309,7 @@
 			const clipboardItem = new ClipboardItem({
 				'text/plain': sharePromise,
 			});
-			navigator.clipboard.write([clipboardItem]);
+			await navigator.clipboard.write([clipboardItem]);
 		} catch (err) {
 			await navigator.clipboard.writeText(await sharePromise);
 		}
