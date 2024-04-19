@@ -8,6 +8,8 @@
 		faArrowsRotate,
 		faBarsStaggered,
 		faCheck,
+		faChevronDown,
+		faCircleNotch,
 		faGear,
 		faPen,
 		faPlus,
@@ -23,6 +25,7 @@
 	import { getRelativeDate } from './date.js';
 	import ModelSelector from './ModelSelector.svelte';
 	import { compressAndEncode, decodeAndDecompress } from './share.js';
+	// import ToolSelector from './ToolSelector.svelte';
 
 	// import { marked } from 'marked';
 	// import markedKatex from 'marked-katex-extension';
@@ -122,47 +125,73 @@
 		const i = $convo.messages.length - 1;
 
 		const onupdate = async (chunk) => {
+			if ($convo.local) {
+				$convo.messages[i].content += chunk.content;
+				totalTokens = await tokenizeCount(conversationToString($convo));
+			} else {
+				// FIXME: Parallel tool calls: loop through tool_calls
+				// FIXME: Parallel tool calls: loop through tool_calls
+				// FIXME: Parallel tool calls: loop through tool_calls
+				// FIXME: Parallel tool calls: loop through tool_calls
+				// FIXME: Parallel tool calls: loop through tool_calls
+				// FIXME: Parallel tool calls: loop through tool_calls
+				if (chunk.choices[0].delta.tool_calls) {
+					if (chunk.choices[0].delta.tool_calls[0].function.name) {
+						if (!$convo.messages[i].toolcall) {
+							$convo.messages[i].toolcall = {
+								id: chunk.choices[0].delta.tool_calls[0].id,
+								name: '',
+								arguments: '',
+								expanded: false,
+							};
+						}
+						$convo.messages[i].toolcall.name += chunk.choices[0].delta.tool_calls[0].function.name;
+					}
+					$convo.messages[i].toolcall.arguments +=
+						chunk.choices[0].delta.tool_calls[0].function.arguments;
+				}
+				if (chunk.choices[0].delta.content) {
+					$convo.messages[i].content += chunk.choices[0].delta.content;
+				}
+			}
+
 			// Check for stoppage:
 			// For local models, `.stop` will be true.
 			// For external models, `.choices[0].finish_reason` will be 'stop'.
 			if ($convo.local && chunk.stop) {
 				generating = false;
+				return;
+			}
 
-				if (chunk.stopping_word === '</tool_call>') {
-					// Stopping word is not included, so we add it back manually:
-					$convo.messages[i].content += chunk.stopping_word;
+			if (
+				!$convo.local &&
+				chunk.choices &&
+				(chunk.choices[0].finish_reason === 'stop' ||
+					chunk.choices[0].finish_reason === 'tool_calls')
+			) {
+				generating = false;
 
-					// Parse the response and extract what is inside <tool_call>...</tool_call>:
-					const toolcallContent = parseToolcall($convo.messages[i].content);
-					if (toolcallContent.name && toolcallContent.arguments) {
-						// Call the tool
-						const resp = await fetch('http://localhost:8081/tool', {
-							method: 'POST',
-							body: JSON.stringify(toolcallContent),
-						});
-						const toolresponse = await resp.json();
-						$convo.messages.push({
-							role: 'tool',
-							content: `<tool_response>${toolresponse}</tool_response>`,
-						});
-						$convo.messages = $convo.messages;
+				if ($convo.messages[i].toolcall) {
+					// Toolcall arguments are now finalized, we can parse them:
+					$convo.messages[i].toolcall.arguments = JSON.parse($convo.messages[i].toolcall.arguments);
 
-						submitCompletion();
-					}
+					// Call the tool
+					const resp = await fetch('http://localhost:8081/tool', {
+						method: 'POST',
+						body: JSON.stringify($convo.messages[i].toolcall),
+					});
+					const toolresponse = await resp.text();
+					$convo.messages.push({
+						tool_call_id: $convo.messages[i].toolcall.id,
+						role: 'tool',
+						content: toolresponse,
+					});
+					$convo.messages = $convo.messages;
+
+					submitCompletion();
 				}
 
 				return;
-			}
-			if (!$convo.local && chunk.choices && chunk.choices[0].finish_reason === 'stop') {
-				generating = false;
-				return;
-			}
-
-			if ($convo.local) {
-				$convo.messages[i].content += chunk.content;
-				totalTokens = await tokenizeCount(conversationToString($convo));
-			} else {
-				$convo.messages[i].content += chunk.choices[0].delta.content;
 			}
 		};
 
@@ -179,26 +208,6 @@
 			body: JSON.stringify({ content }),
 		});
 		return parseInt(await tokenizeResp.text());
-	}
-
-	function parseToolcall(content) {
-		const startTag = '<tool_call>';
-		const endTag = '</tool_call>';
-
-		const startIndex = content.indexOf(startTag);
-		const endIndex = content.indexOf(endTag);
-
-		if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex + startTag.length) {
-			try {
-				const toolcall = JSON.parse(content.slice(startIndex + startTag.length, endIndex));
-				return toolcall;
-			} catch (e) {
-				console.error('Error parsing tool call:', e);
-				return {};
-			}
-		}
-
-		return {};
 	}
 
 	async function insertSystemPrompt() {
@@ -500,6 +509,8 @@
 			console.warn('Local llama.cpp server is not running, running in external mode only.');
 		}
 	});
+
+	$: console.log(`$convo.messages:`, $convo.messages);
 </script>
 
 <svelte:window on:touchstart={closeSidebars} on:click={closeSidebars} />
@@ -601,7 +612,8 @@
 		</aside>
 		<div class="flex flex-1 flex-col">
 			<div class="hidden items-center border-b border-slate-200 px-4 py-1 md:flex">
-				<div class="pointer-events-none w-10" />
+				<div class="pointer-events-none w-20" />
+				<!-- <ToolSelector /> -->
 
 				{#if !$convo.shared}
 					<ModelSelector {convo} {models} {loading} {loadModel} class="mx-auto" />
@@ -705,7 +717,7 @@
 											</span>
 										</button>
 
-										{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === ''}
+										{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === '' && !message.toolcall}
 											<div
 												class="mt-2 h-3 w-3 shrink-0 animate-pulse rounded-full bg-slate-700/75"
 											/>
@@ -738,14 +750,82 @@
 												}}
 											/>
 										{:else}
-											<div
-												class="markdown prose prose-slate flex w-full max-w-none flex-col break-words prose-p:whitespace-pre-wrap prose-p:text-slate-800 prose-pre:my-0 prose-pre:whitespace-pre-wrap prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white prose-pre:text-slate-800"
-											>
-												<Markdown source={message.content} />
-												<!-- Render tool response inline by merging in the next 'tool' message -->
-												{#if i !== $convo.messages.length - 1 && $convo.messages[i + 1].role === 'tool'}
-													<div class="tool_response" transition:slide={{ duration: 500 }}>
-														{@html $convo.messages[i + 1].content}
+											<div class="flex w-full flex-col gap-6">
+												{#if message.content}
+													<div
+														class="markdown prose prose-slate flex w-full max-w-none flex-col break-words prose-p:whitespace-pre-wrap prose-p:text-slate-800 prose-pre:my-0 prose-pre:whitespace-pre-wrap prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white prose-pre:text-slate-800"
+													>
+														<Markdown source={message.content} />
+													</div>
+												{/if}
+
+												<!-- OAI toolcalls will always be at the end -->
+												{#if message.toolcall}
+													{@const hasToolResponse =
+														i !== $convo.messages.length - 1 &&
+														message.toolcall &&
+														$convo.messages[i + 1].role === 'tool'}
+													<div class="flex w-full flex-col bg-white">
+														<button
+															class="{message.toolcall.expanded
+																? ''
+																: 'rounded-b-lg'} flex items-center gap-3 rounded-t-lg border border-slate-300 py-3 pl-4 pr-5 text-sm text-slate-700 transition-colors hover:bg-gray-50"
+															on:click={() => {
+																$convo.messages[i].toolcall.expanded =
+																	!$convo.messages[i].toolcall.expanded;
+															}}
+														>
+															{#if !hasToolResponse}
+																<Icon
+																	icon={faCircleNotch}
+																	class="h-4 w-4 animate-spin text-slate-700"
+																/>
+															{:else}
+																<Icon icon={faCheck} class="h-4 w-4 text-slate-700" />
+															{/if}
+															<span class="prose">
+																Using tool: <code class="ml-1">{message.toolcall.name}</code>
+															</span>
+															<Icon
+																icon={faChevronDown}
+																class="{message.toolcall.expanded
+																	? 'rotate-180'
+																	: ''} ml-auto h-3 w-3 text-slate-700 transition-transform"
+															/>
+														</button>
+														{#if message.toolcall.expanded}
+															<div transition:slide={{ duration: 300 }}>
+																<div
+																	class="{hasToolResponse
+																		? 'border-b-0'
+																		: 'rounded-b-lg'} whitespace-pre border border-t-0 border-slate-300 bg-white px-4 py-3 font-mono text-sm text-slate-800"
+																>
+																	{#if typeof message.toolcall.arguments === 'object'}
+																		{JSON.stringify(message.toolcall.arguments, null, 2)}
+																	{:else}
+																		{message.toolcall.arguments}
+																	{/if}
+																</div>
+																{#if i !== $convo.messages.length - 1 && message.toolcall && $convo.messages[i + 1].role === 'tool'}
+																	<div
+																		class="h-px w-full border-t border-dashed border-slate-300"
+																	/>
+																	<div
+																		class="flex flex-col rounded-b-lg border border-t-0 border-slate-300"
+																	>
+																		<span
+																			class="px-4 pt-3 text-sm font-medium tracking-[0.01em] text-slate-700"
+																			>Result:</span
+																		>
+																		<div
+																			class="whitespace-pre rounded-[inherit] bg-white px-4 py-3 font-mono text-sm text-slate-800"
+																		>
+																			{$convo.messages[i + 1].content}
+																		</div>
+																	</div>
+																{/if}
+															</div>
+														{/if}
 													</div>
 												{/if}
 											</div>
@@ -806,7 +886,7 @@
 										{/if}
 										{#if !message.editing}
 											<div
-												class="absolute -bottom-9 right-1 flex gap-x-0.5 opacity-0 transition-opacity group-hover:opacity-100 ld:-top-2 ld:bottom-auto ld:right-0 ld:translate-x-full"
+												class="absolute bottom-[-38px] right-1 flex gap-x-0.5 opacity-0 transition-opacity group-hover:opacity-100 ld:-right-2 ld:-top-2 ld:bottom-auto ld:translate-x-full"
 											>
 												<button
 													class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
@@ -974,28 +1054,6 @@
 </main>
 
 <style lang="postcss">
-	/* Render <tool_call> and <tool_response> inside assistant messages */
-	[data-role='assistant'] {
-		:global(tool_call) {
-			display: block;
-			@apply mt-2 whitespace-normal rounded-lg border border-dashed border-slate-300 bg-white px-5 py-3 font-mono text-sm transition-all;
-		}
-		:global(tool_call)::before {
-			content: 'Function call';
-			@apply block pb-2 font-sans text-sm text-slate-600;
-		}
-		:global(tool_call:has(+ .tool_response)) {
-			@apply rounded-b-none;
-		}
-		:global(tool_response) {
-			@apply flex flex-col whitespace-pre rounded-lg rounded-t-none border border-t-0 border-dashed border-slate-300 bg-white px-5 py-3 font-mono text-sm transition-all;
-		}
-		:global(tool_response)::before {
-			content: 'Output';
-			@apply block pb-2 font-sans text-sm text-slate-600;
-		}
-	}
-
 	textarea {
 		-ms-overflow-style: none; /* Internet Explorer 10+ */
 		scrollbar-width: none; /* Firefox */

@@ -8,12 +8,14 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"syscall"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/zakkor/server/llm"
+	"github.com/zakkor/server/tools"
 )
 
 const llamaPath = "/Users/ed/src/llama.cpp"
@@ -27,53 +29,55 @@ func main() {
 		AllowedOrigins: []string{"https://*", "http://*"},
 	}))
 
-	router.Get("/models", func(w http.ResponseWriter, r *http.Request) {
-		data, err := json.Marshal(map[string]any{
-			"models": listLocalModels(),
-		})
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+	// FIXME: Use a ping to check if the server is up
+	// router.Get("/models", func(w http.ResponseWriter, r *http.Request) {
+	// 	data, err := json.Marshal(map[string]any{
+	// 		"models": listLocalModels(),
+	// 	})
+	// 	if err != nil {
+	// 		w.WriteHeader(http.StatusInternalServerError)
+	// 		return
+	// 	}
 
-		w.Write(data)
-	})
+	// 	w.Write(data)
+	// })
 
-	router.Get("/model", func(w http.ResponseWriter, r *http.Request) {
-		if activeLlama == nil {
+	// FIXME: Getting the active llama model should not set the active model in client.
+	// router.Get("/model", func(w http.ResponseWriter, r *http.Request) {
+	// 	if activeLlama == nil {
 
-			data, err := json.Marshal(map[string]any{
-				"model": "",
-			})
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			w.Write(data)
-			return
-		}
-		data, err := json.Marshal(map[string]any{
-			"model": activeLlama.ModelName,
-		})
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		w.Write(data)
-	})
-	router.Post("/model", func(w http.ResponseWriter, r *http.Request) {
-		var newModel map[string]any
-		if err := json.NewDecoder(r.Body).Decode(&newModel); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
+	// 		data, err := json.Marshal(map[string]any{
+	// 			"model": "",
+	// 		})
+	// 		if err != nil {
+	// 			w.WriteHeader(http.StatusInternalServerError)
+	// 			return
+	// 		}
+	// 		w.Write(data)
+	// 		return
+	// 	}
+	// 	data, err := json.Marshal(map[string]any{
+	// 		"model": activeLlama.ModelName,
+	// 	})
+	// 	if err != nil {
+	// 		w.WriteHeader(http.StatusInternalServerError)
+	// 		return
+	// 	}
+	// 	w.Write(data)
+	// })
+	// router.Post("/model", func(w http.ResponseWriter, r *http.Request) {
+	// 	var newModel map[string]any
+	// 	if err := json.NewDecoder(r.Body).Decode(&newModel); err != nil {
+	// 		w.WriteHeader(http.StatusBadRequest)
+	// 		return
+	// 	}
 
-		if activeLlama != nil {
-			activeLlama.Close()
-		}
-		activeLlama = llm.Serve(newModel["model"].(string), []string{"-c", "4096", "-ngl", "1", "-t", "8", "-tb", "12", "-b", "4096"})
+	// 	if activeLlama != nil {
+	// 		activeLlama.Close()
+	// 	}
+	// 	activeLlama = llm.Serve(newModel["model"].(string), []string{"-c", "4096", "-ngl", "1", "-t", "8", "-tb", "12", "-b", "4096"})
 
-	})
+	// })
 
 	router.Post("/tokenize_count", func(w http.ResponseWriter, r *http.Request) {
 		var content map[string]any
@@ -92,9 +96,11 @@ func main() {
 	})
 
 	router.Get("/tool_schema", func(w http.ResponseWriter, r *http.Request) {
-		schemas := []FunctionSchema{
-			NewFunctionSchema(Ls),
+		schemas := []tools.Schema{}
+		for _, tool := range tools.Tools {
+			schemas = append(schemas, tool.Schema)
 		}
+
 		schemasJSON, err := json.Marshal(schemas)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -104,26 +110,41 @@ func main() {
 	})
 
 	router.Post("/tool", func(w http.ResponseWriter, r *http.Request) {
-		// Get `name` and `arguments`
-		var toolcall map[string]any
+		var toolcall struct {
+			Name      string          `json:"name"`
+			Arguments tools.Arguments `json:"arguments"`
+		}
 		if err := json.NewDecoder(r.Body).Decode(&toolcall); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+
+		schema := tools.Tools[toolcall.Name].Schema
+
+		// Validate arguments
+		for name, property := range schema.Function.Parameters.Properties {
+			arg, ok := toolcall.Arguments[name]
+			if !ok {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "error performing tool call: expected argument \"%s\", but it is missing",
+					name)
+				return
+			}
+
+			if reflect.TypeOf(arg).Name() != property.Type {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "error performing tool call: expected argument \"%s\" to be of type %s, but it is of type %s",
+					name, property.Type, reflect.TypeOf(arg).Name())
+				return
+			}
+		}
+
 		// Call the tool
-		name := toolcall["name"].(string)
-		arguments := toolcall["arguments"]
-		tool, ok := tools[name]
-		if !ok {
-			panic("unknown tool: " + name)
-		}
-		content := tool(arguments)
-		contentJSON, err := json.Marshal(content)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		w.Write(contentJSON)
+		fn := tools.Tools[toolcall.Name].Fn
+		result := fn(toolcall.Arguments)
+
+		// Return the result
+		w.Write([]byte(result))
 	})
 
 	httpServer := &http.Server{Addr: ":8081", Handler: router}

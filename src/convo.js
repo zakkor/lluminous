@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { openrouterAPIKey } from './stores.js';
+import { openrouterAPIKey, toolSchema } from './stores.js';
 
 export const promptFormats = ['none', 'chatml', 'deepseek'];
 
@@ -102,18 +102,42 @@ export async function complete(convo, onupdate, onabort) {
 			}),
 		});
 	} else {
-		const messages = convo.messages.map((msg) => ({
-			role: msg.role,
-			content: msg.content,
-		}));
+		const messages = convo.messages.map((msg) => {
+			const msgOAI = {
+				role: msg.role,
+				content: msg.content,
+			};
+			// Additional data for tool calls
+			if (msg.toolcall) {
+				msgOAI.tool_calls = [
+					{
+						id: msg.toolcall.id,
+						type: 'function',
+						function: {
+							name: msg.toolcall.name,
+							arguments: JSON.stringify(msg.toolcall.arguments),
+						},
+					},
+				];
+			}
+			// Additional data for tool responses
+			if (msg.tool_call_id) {
+				msgOAI.tool_call_id = msg.tool_call_id;
+			}
+			return msgOAI;
+		});
+
 		// Filter out unclosed messages from being submitted if using external models
 		if (convo.messages[convo.messages.length - 1].unclosed) {
 			messages.pop();
 		}
+		
 		response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
 			method: 'POST',
 			headers: {
 				Authorization: `Bearer ${get(openrouterAPIKey)}`,
+				'HTTP-Referer': 'https://lluminous.chat',
+				'X-Title': 'lluminous',
 				'Content-Type': 'application/json',
 			},
 			signal: convo.controller.signal,
@@ -121,6 +145,7 @@ export async function complete(convo, onupdate, onabort) {
 				stream: true,
 				model: convo.model,
 				temperature: 0,
+				tools: get(toolSchema),
 				messages,
 			}),
 		});

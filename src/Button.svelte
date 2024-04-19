@@ -4,6 +4,7 @@
 	export { className as class };
 
 	const variantClass = {
+		small: 'border bg-white border-slate-300 hover:border-slate-400 transition-colors text-slate-600 text-sm px-3 py-1.5 rounded-md',
 		outline:
 			'border bg-white border-slate-300 hover:border-slate-400 transition-colors text-slate-600 text-sm xl:text-base px-3 py-1.5 xl:px-4 xl:py-2 rounded-lg',
 		'outline-small':

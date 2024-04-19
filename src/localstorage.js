@@ -1,13 +1,12 @@
 import { writable, get } from 'svelte/store';
 
-export function persisted(key, data) {
-	const store = writable(data);
+export function persisted(key, initial) {
+	const store = writable(initial);
 	const { subscribe, set } = store;
 
-	if (data) {
-		// If initial data is passed in, skip reading from localStorage,
-		// and persist what was given.
-		const toPersist = JSON.stringify(data);
+	if (initial !== undefined && localStorage.getItem(key) === null) {
+		// If initial data is passed in, use it to initialize only if there is no persisted data.
+		const toPersist = JSON.stringify(initial);
 		localStorage.setItem(key, toPersist);
 	} else {
 		// Otherwise, read persisted data from localStorage and set value of store to that.

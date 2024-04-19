@@ -2,7 +2,10 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { detectFormat, isModelLocal, promptFormats } from './convo.js';
 	import { conversationTemplates } from './templates.js';
-	import { openrouterAPIKey } from './stores.js';
+	import { openrouterAPIKey, toolSchema } from './stores.js';
+	import Button from './Button.svelte';
+	import { faSync } from '@fortawesome/free-solid-svg-icons';
+	import Icon from './Icon.svelte';
 
 	const dispatch = createEventDispatcher();
 
@@ -86,4 +89,27 @@
 				: ''} rounded-md border border-slate-300 text-sm"
 		/></label
 	>
+
+	<label class="flex flex-col text-[10px] uppercase tracking-wide">
+		<span class="mb-1.5 ml-[3px]">Tool schema</span>
+		<textarea
+			value={JSON.stringify($toolSchema)}
+			readonly
+			rows={10}
+			class="rounded-md border border-slate-300 text-sm"
+		/></label
+	>
+	<Button
+		variant="small"
+		class="self-start"
+		on:click={async () => {
+			const schema = await (
+				await fetch('http://localhost:8081/tool_schema', { method: 'GET' })
+			).text();
+			$toolSchema = JSON.parse(schema);
+		}}
+	>
+		<Icon icon={faSync} class="mr-2 h-3 w-3 text-slate-700" />
+		Sync
+	</Button>
 </aside>

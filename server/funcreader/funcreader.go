@@ -17,21 +17,6 @@ func FuncPathAndName(f interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
 }
 
-// Get the types of the arguments of a func
-func FuncArgumentsType(f interface{}) []string {
-	funcType := reflect.TypeOf(f)
-	args := make([]string, funcType.NumIn())
-	for i := 0; i < funcType.NumIn(); i++ {
-		args[i] = funcType.In(i).String()
-	}
-	return args
-}
-
-// Get the return type of a func
-func FuncReturnType(f interface{}) string {
-	return reflect.TypeOf(f).Out(0).String()
-}
-
 // Get the name of a func (with package path)
 func FuncName(f interface{}) string {
 	splitFuncName := strings.Split(FuncPathAndName(f), ".")
