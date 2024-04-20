@@ -1,40 +1,6 @@
 import { get } from 'svelte/store';
-import { openrouterAPIKey, toolSchema } from './stores.js';
-
-export const promptFormats = ['none', 'chatml', 'deepseek'];
-
-const modelFormats = {
-	'deepseek-coder-6.7b-instruct': 'deepseek',
-	'deepseek-coder-33b-instruct': 'deepseek',
-	'deepseek-coder-6.7b-base': 'none',
-	'yi-34b': 'none',
-	'openhermes-2.5-mistral-7b': 'chatml',
-	'Hermes-2-Pro-Mistral-7B': 'chatml',
-	'openai/gpt-3.5-turbo-0125': 'chatml',
-};
-
-export function isModelLocal(model) {
-	if (!model) {
-		return null;
-	}
-	// External models are defined like "mistralai/mixtral-8x7b-instruct"
-	if (model.includes('/')) {
-		return false;
-	}
-	return true;
-}
-
-export function detectFormat(model) {
-	if (!model) {
-		return { detected: null, local: null };
-	}
-	const local = isModelLocal(model);
-	if (local) {
-		const noext = model.replace(/\.Q.+\.gguf$/, '');
-		return { detected: modelFormats[noext], local: true };
-	}
-	return { detected: modelFormats[model], local: false };
-}
+import { toolSchema } from './stores.js';
+import { providers } from './providers.js';
 
 export function conversationToString(convo) {
 	let result = '';
@@ -131,11 +97,13 @@ export async function complete(convo, onupdate, onabort) {
 		if (convo.messages[convo.messages.length - 1].unclosed) {
 			messages.pop();
 		}
-		
-		response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+
+		const schema = get(toolSchema);
+		const provider = providers.find((p) => p.name === convo.model.provider);
+		response = await fetch(`${provider.url}/v1/chat/completions`, {
 			method: 'POST',
 			headers: {
-				Authorization: `Bearer ${get(openrouterAPIKey)}`,
+				Authorization: `Bearer ${provider.apiKeyFn()}`,
 				'HTTP-Referer': 'https://lluminous.chat',
 				'X-Title': 'lluminous',
 				'Content-Type': 'application/json',
@@ -143,9 +111,9 @@ export async function complete(convo, onupdate, onabort) {
 			signal: convo.controller.signal,
 			body: JSON.stringify({
 				stream: true,
-				model: convo.model,
+				model: convo.model.id,
 				temperature: 0,
-				tools: get(toolSchema),
+				tools: schema.length > 0 ? schema : undefined,
 				messages,
 			}),
 		});

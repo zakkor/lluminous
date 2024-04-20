@@ -1,18 +1,17 @@
 <script>
-	import { createEventDispatcher, onMount } from 'svelte';
-	import { detectFormat, isModelLocal, promptFormats } from './convo.js';
-	import { conversationTemplates } from './templates.js';
-	import { openrouterAPIKey, toolSchema } from './stores.js';
+	// import { createEventDispatcher, onMount } from 'svelte';
+	// import { conversationTemplates } from './templates.js';
+	import { groqAPIKey, openrouterAPIKey, toolSchema } from './stores.js';
 	import Button from './Button.svelte';
 	import { faSync } from '@fortawesome/free-solid-svg-icons';
 	import Icon from './Icon.svelte';
 
-	const dispatch = createEventDispatcher();
+	// const dispatch = createEventDispatcher();
 
-	export let convo;
+	// export let convo;
 	export let settingsOpen = false;
 
-	let conversationTemplate = null;
+	// let conversationTemplate = null;
 
 	// async function loadConversationTemplate(name) {
 	// 	const template = conversationTemplates[name];
@@ -91,10 +90,28 @@
 	>
 
 	<label class="flex flex-col text-[10px] uppercase tracking-wide">
-		<span class="mb-1.5 ml-[3px]">Tool schema</span>
+		<span class="mb-1.5 ml-[3px]">Groq API Key</span>
+		<input
+			type="text"
+			bind:value={$groqAPIKey}
+			placeholder="Enter your API key"
+			class="rounded-md border border-slate-300 text-sm"
+		/></label
+	>
+
+	<label class="mt-3 flex flex-col text-[10px] uppercase tracking-wide">
+		<span class="mb-1.5 ml-[3px]"
+			>Tool schema<span
+				class="ml-2 self-end rounded bg-teal-300 px-1 py-0.5 text-[10px] uppercase text-black"
+				>Beta</span
+			></span
+		>
 		<textarea
 			value={JSON.stringify($toolSchema)}
-			readonly
+			on:change={(event) => {
+				const schema = event.target.value.length > 0 ? event.target.value : '[]';
+				$toolSchema = JSON.parse(schema);
+			}}
 			rows={10}
 			class="rounded-md border border-slate-300 text-sm"
 		/></label

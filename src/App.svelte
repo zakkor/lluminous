@@ -25,6 +25,7 @@
 	import { getRelativeDate } from './date.js';
 	import ModelSelector from './ModelSelector.svelte';
 	import { compressAndEncode, decodeAndDecompress } from './share.js';
+	import { providers } from './providers.js';
 	// import ToolSelector from './ToolSelector.svelte';
 
 	// import { marked } from 'marked';
@@ -49,10 +50,7 @@
 	if (!$history.convoId) {
 		const convoData = {
 			id: Date.now(),
-			summary: null,
-			local: false,
-			model: 'openchat/openchat-7b:free',
-			tmpl: 'none',
+			model: { id: null, name: 'No model loaded', provider: null },
 			messages: [],
 		};
 		$history.convoId = convoData.id;
@@ -103,7 +101,7 @@
 	async function submitCompletion(insertUnclosed = true) {
 		generating = true;
 
-		if ($convo.local) {
+		if ($convo.model.provider === 'Local') {
 			totalTokens = await tokenizeCount(conversationToString($convo));
 		}
 
@@ -125,7 +123,7 @@
 		const i = $convo.messages.length - 1;
 
 		const onupdate = async (chunk) => {
-			if ($convo.local) {
+			if ($convo.model.provider === 'Local') {
 				$convo.messages[i].content += chunk.content;
 				totalTokens = await tokenizeCount(conversationToString($convo));
 			} else {
@@ -158,13 +156,13 @@
 			// Check for stoppage:
 			// For local models, `.stop` will be true.
 			// For external models, `.choices[0].finish_reason` will be 'stop'.
-			if ($convo.local && chunk.stop) {
+			if ($convo.model.provider === 'Local' && chunk.stop) {
 				generating = false;
 				return;
 			}
 
 			if (
-				!$convo.local &&
+				!($convo.model.provider === 'Local') &&
 				chunk.choices &&
 				(chunk.choices[0].finish_reason === 'stop' ||
 					chunk.choices[0].finish_reason === 'tool_calls')
@@ -267,10 +265,7 @@
 
 		const convoData = {
 			id: Date.now(),
-			summary: null,
-			local: false,
-			model: $convo.model || 'openchat/openchat-7b:free',
-			tmpl: 'none',
+			model: $convo.model || models.find((m) => m.id === 'meta-llama/llama-3-8b-instruct'),
 			messages: [],
 		};
 		$history.convoId = convoData.id;
@@ -334,38 +329,133 @@
 	let loading = false;
 
 	async function loadModel(newModel) {
-		loading = true;
+		if (newModel.provider === 'Local') {
+			loading = true;
 
-		const local = isModelLocal(newModel);
-		if (local) {
 			// For local models, we need to tell the server to load them:
+			// FIXME: local
 			await fetch(`http://localhost:8081/model`, {
 				method: 'POST',
 				body: JSON.stringify({
 					model: newModel,
 				}),
 			});
+
+			loading = false;
 		}
+
 		setModel(newModel);
-
-		loading = false;
 	}
-
-	let autodetectedFormat = false;
 
 	function setModel(newModel) {
 		$convo.model = newModel;
-		const { detected, local } = detectFormat(newModel);
-		if (detected) {
-			$convo.tmpl = detected;
-			autodetectedFormat = true;
-		} else {
-			autodetectedFormat = false;
-		}
-		$convo.local = local;
 	}
 
 	let models = [];
+
+	async function fetchModels() {
+		try {
+			const promises = providers.map((provider) => {
+				return fetch(`${provider.url}/v1/models`, {
+					method: 'GET',
+					headers: {
+						Authorization: `Bearer ${provider.apiKeyFn()}`,
+					},
+				})
+					.then((response) => response.json())
+					.then((json) => {
+						const externalModels = json.data.map((m) => ({
+							id: m.id,
+							name: m.name || `${provider.name}: ${m.id}`,
+							provider: provider.name,
+						}));
+						return externalModels;
+					})
+					.catch(() => {
+						console.log('Error fetching models from provider', provider.name);
+						return [];
+					});
+			});
+
+			const results = await Promise.all(promises);
+			const externalModels = results.flat();
+
+			const priorityOrder = [
+				{ exactly: 'openai/gpt-4-turbo' },
+				{ exactly: 'openai/gpt-3.5-turbo' },
+				{
+					startsWith: 'anthropic/',
+					exactlyNot: [
+						'anthropic/claude-2',
+						'anthropic/claude-2.1',
+						'anthropic/claude-2.0',
+						'anthropic/claude-instant-1',
+						'anthropic/claude-instant-1.0',
+						'anthropic/claude-instant-1.1',
+						'anthropic/claude-instant-1.2',
+						'anthropic/claude-1.2',
+						'anthropic/claude-1',
+						'anthropic/claude-2:beta',
+						'anthropic/claude-2.0:beta',
+						'anthropic/claude-2.1:beta',
+						'anthropic/claude-instant-1:beta',
+					],
+				},
+				{
+					startsWith: 'openai/',
+					exactlyNot: [
+						'openai/gpt-3.5-turbo-0125',
+						'openai/gpt-3.5-turbo-0301',
+						'openai/gpt-3.5-turbo-0613',
+						'openai/gpt-3.5-turbo-1106',
+						'openai/gpt-3.5-turbo-instruct',
+						'openai/gpt-4',
+						'openai/gpt-4-0314',
+						'openai/gpt-4-1106-preview',
+						'openai/gpt-4-32k-0314',
+					],
+				},
+				{ fromProvider: 'Groq' },
+				{ exactly: 'meta-llama/llama-3-70b-instruct' },
+				{ exactly: 'meta-llama/llama-3-8b-instruct' },
+				{ startsWith: 'mistralai/' },
+				{ startsWith: 'cohere/' },
+			];
+
+			function getPriorityIndex(model) {
+				for (let i = 0; i < priorityOrder.length; i++) {
+					const rule = priorityOrder[i];
+					if (rule.exactly && model.id === rule.exactly) {
+						return i;
+					}
+					if (rule.startsWith && model.id.startsWith(rule.startsWith)) {
+						if (rule.exactlyNot && rule.exactlyNot.includes(model.id)) {
+							continue;
+						}
+						return i;
+					}
+					if (rule.fromProvider && model.provider === rule.fromProvider) {
+						return i;
+					}
+				}
+				return priorityOrder.length;
+			}
+
+			externalModels.sort((a, b) => {
+				const aIndex = getPriorityIndex(a);
+				const bIndex = getPriorityIndex(b);
+
+				if (aIndex === bIndex) {
+					return a.id.localeCompare(b.id);
+				}
+				return aIndex - bIndex;
+			});
+
+			models = externalModels;
+		} catch (error) {
+			console.error('Error:', error);
+		}
+	}
 
 	onMount(async () => {
 		const params = new URLSearchParams(window.location.search);
@@ -387,9 +477,7 @@
 					const convoData = {
 						id,
 						shared: true,
-						local: false,
-						model: $convo.model || 'openchat/openchat-7b:free',
-						tmpl: 'none',
+						model: null,
 						messages,
 					};
 					$history.convoId = convoData.id;
@@ -401,116 +489,8 @@
 				});
 		}
 
-		fetch('https://openrouter.ai/api/v1/models', { method: 'GET' })
-			.then((response) => response.json())
-			.then((json) => {
-				const externalModels = json.data;
-				// Reorder the model list, by placing a few handpicked models at the start of the list:
-				const priorityOrder = [
-					{ exactly: 'openai/gpt-4-turbo' },
-					{ exactly: 'openai/gpt-3.5-turbo' },
-					{
-						startsWith: 'anthropic/',
-						exactlyNot: [
-							'anthropic/claude-2',
-							'anthropic/claude-2.1',
-							'anthropic/claude-2.0',
-							'anthropic/claude-instant-1',
-							'anthropic/claude-instant-1.0',
-							'anthropic/claude-instant-1.1',
-							'anthropic/claude-instant-1.2',
-							'anthropic/claude-1.2',
-							'anthropic/claude-1',
-							'anthropic/claude-2:beta',
-							'anthropic/claude-2.0:beta',
-							'anthropic/claude-2.1:beta',
-							'anthropic/claude-instant-1:beta',
-						],
-					},
-					{
-						startsWith: 'openai/',
-						exactlyNot: [
-							'openai/gpt-3.5-turbo-0125',
-							'openai/gpt-3.5-turbo-0301',
-							'openai/gpt-3.5-turbo-0613',
-							'openai/gpt-3.5-turbo-1106',
-							'openai/gpt-3.5-turbo-instruct',
-							'openai/gpt-4',
-							'openai/gpt-4-0314',
-							'openai/gpt-4-1106-preview',
-							'openai/gpt-4-32k-0314',
-						],
-					},
-					{ exactly: 'meta-llama/llama-3-70b-instruct' },
-					{ exactly: 'meta-llama/llama-3-8b-instruct' },
-					{ startsWith: 'mistralai/' },
-					{ startsWith: 'cohere/' },
-				];
-
-				// Function to determine the priority index of a model
-				function getPriorityIndex(modelID) {
-					for (let i = 0; i < priorityOrder.length; i++) {
-						const rule = priorityOrder[i];
-						if (rule.exactly && modelID === rule.exactly) {
-							return i;
-						}
-						if (rule.startsWith && modelID.startsWith(rule.startsWith)) {
-							if (rule.exactlyNot && rule.exactlyNot.includes(modelID)) {
-								continue; // Skip this rule if the model is in the exactlyNot list
-							}
-							return i;
-						}
-					}
-					return priorityOrder.length; // Return a default high index for non-matching models
-				}
-
-				// Sorting external models based on the defined priority rules
-				externalModels.sort((a, b) => {
-					const aIndex = getPriorityIndex(a.id);
-					const bIndex = getPriorityIndex(b.id);
-
-					if (aIndex === bIndex) {
-						return a.id.localeCompare(b.id); // Sort alphabetically if same priority
-					}
-					return aIndex - bIndex;
-				});
-
-				// Then append external models to the local models (if any):
-				models = models.concat(externalModels).map((m) => {
-					return {
-						id: m.id,
-						name: m.name,
-						local: false,
-					};
-				});
-			})
-			.catch((error) => {
-				console.error('Error:', error);
-			});
-
-		try {
-			const modelsData = await (
-				await fetch('http://localhost:8081/models', { method: 'GET' })
-			).json();
-			models = modelsData.models.map((m) => {
-				return {
-					id: m,
-					name: m,
-					local: true,
-				};
-			});
-
-			// Get the model that is currently loaded on the llama.cpp server, if any:
-			const modelData = await (
-				await fetch('http://localhost:8081/model', { method: 'GET' })
-			).json();
-			setModel(modelData.model || null);
-		} catch (error) {
-			console.warn('Local llama.cpp server is not running, running in external mode only.');
-		}
+		await fetchModels();
 	});
-
-	$: console.log(`$convo.messages:`, $convo.messages);
 </script>
 
 <svelte:window on:touchstart={closeSidebars} on:click={closeSidebars} />
@@ -1011,7 +991,7 @@
 						</Button>
 					{/if}
 				</div>
-				{#if $convo.local && !hidingTokenCount && totalTokens > 0}
+				{#if $convo.model.provider === 'Local' && !hidingTokenCount && totalTokens > 0}
 					<span
 						class="absolute bottom-full right-3 mb-3 text-xs"
 						transition:fade={{ duration: 300 }}
@@ -1032,7 +1012,7 @@
 					on:input={async () => {
 						inputTextareaEl.style.height = 'auto';
 						inputTextareaEl.style.height = inputTextareaEl.scrollHeight + 2 + 'px';
-						if ($convo.local) {
+						if ($convo.model.provider === 'Local') {
 							currentTokens = await tokenizeCount(content);
 						}
 					}}
@@ -1045,7 +1025,7 @@
 			on:rerender={async () => {
 				$convo = $convo;
 				$convo.messages = $convo.messages;
-				if ($convo.local) {
+				if ($convo.model.provider === 'Local') {
 					totalTokens = await tokenizeCount(conversationToString($convo));
 				}
 			}}

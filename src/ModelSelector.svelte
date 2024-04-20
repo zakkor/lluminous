@@ -13,11 +13,11 @@
 	<select
 		class="{loading
 			? 'opacity-50'
-			: ''} max-w-[180px] !pr-7 rounded-lg border-slate-200 py-2 text-xs md:max-w-[250px]"
-		value={$convo.model}
+			: ''} max-w-[180px] rounded-lg border-slate-200 py-2 !pr-7 text-xs md:max-w-[250px]"
+		value={$convo.model.id}
 		disabled={loading}
 		on:change={(event) => {
-			loadModel(event.target.value);
+			loadModel(models.find((m) => m.id === event.target.value));
 		}}
 	>
 		<option value={null} disabled>No model loaded</option>
