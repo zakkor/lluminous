@@ -381,8 +381,7 @@
 			const externalModels = results.flat();
 
 			const priorityOrder = [
-				{ exactly: 'openai/gpt-4-turbo' },
-				{ exactly: 'openai/gpt-3.5-turbo' },
+				{ exactly: ['openai/gpt-4-turbo', 'openai/gpt-3.5-turbo'] },
 				{
 					startsWith: 'anthropic/',
 					exactlyNot: [
@@ -415,9 +414,8 @@
 						'openai/gpt-4-32k-0314',
 					],
 				},
-				{ fromProvider: 'Groq' },
-				{ exactly: 'meta-llama/llama-3-70b-instruct' },
-				{ exactly: 'meta-llama/llama-3-8b-instruct' },
+				{ fromProvider: 'Groq', exactlyNot: ['llama2-70b-4096', 'gemma-7b-it'] },
+				{ exactly: ['meta-llama/llama-3-70b-instruct', 'meta-llama/llama-3-8b-instruct'] },
 				{ startsWith: 'mistralai/' },
 				{ startsWith: 'cohere/' },
 			];
@@ -425,7 +423,7 @@
 			function getPriorityIndex(model) {
 				for (let i = 0; i < priorityOrder.length; i++) {
 					const rule = priorityOrder[i];
-					if (rule.exactly && model.id === rule.exactly) {
+					if (rule.exactly && rule.exactly.includes(model.id)) {
 						return i;
 					}
 					if (rule.startsWith && model.id.startsWith(rule.startsWith)) {
@@ -435,6 +433,9 @@
 						return i;
 					}
 					if (rule.fromProvider && model.provider === rule.fromProvider) {
+						if (rule.exactlyNot && rule.exactlyNot.includes(model.id)) {
+							continue;
+						}
 						return i;
 					}
 				}
