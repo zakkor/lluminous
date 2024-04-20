@@ -639,7 +639,7 @@
 			</div>
 			<section
 				bind:this={scrollableEl}
-				class="scrollable flex h-full w-full flex-col overflow-y-auto pb-[130px]"
+				class="scrollable flex h-full w-full flex-col overflow-y-auto pb-[130px] md:pb-[150px]"
 				on:scroll={() => {
 					if (
 						scrollableEl.scrollTop + scrollableEl.clientHeight >=
