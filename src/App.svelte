@@ -488,7 +488,7 @@
 					const convoData = {
 						id,
 						shared: true,
-						model: null,
+						model: { id: null, name: 'No model loaded', provider: null },
 						messages,
 					};
 					$history.convoId = convoData.id;
@@ -531,7 +531,9 @@
 				class="!absolute left-1/2 -translate-x-1/2"
 			/>
 		{:else}
-			<p class="mx-auto line-clamp-1 whitespace-nowrap text-sm font-semibold">
+			<p
+				class="!absolute left-1/2 line-clamp-1 -translate-x-1/2 whitespace-nowrap text-sm font-semibold"
+			>
 				Shared conversation
 			</p>
 		{/if}
@@ -620,7 +622,9 @@
 						class="!absolute left-1/2 -translate-x-1/2"
 					/>
 				{:else}
-					<p class="mx-auto text-sm font-semibold">Shared conversation</p>
+					<p class="!absolute left-1/2 -translate-x-1/2 text-sm font-semibold">
+						Shared conversation
+					</p>
 				{/if}
 
 				<button
@@ -1031,7 +1035,7 @@
 				<div class="relative flex">
 					<textarea
 						bind:this={inputTextareaEl}
-						class="h-[50px] w-full resize-none rounded-lg border border-slate-300 px-4 py-3 font-normal text-slate-800 shadow-sm transition-colors focus:border-slate-400 focus:ring-0 md:h-[74px]"
+						class="h-[50px] w-full resize-none rounded-xl border border-slate-300 px-4 py-3 font-normal text-slate-800 shadow-sm transition-colors focus:border-slate-400 focus:ring-0 md:h-[74px]"
 						rows={1}
 						bind:value={content}
 						on:keydown={(event) => {
@@ -1050,7 +1054,7 @@
 					/>
 					<button
 						disabled={content.length === 0}
-						class="group absolute right-3.5 bottom-2.5 rounded-md border border-slate-400 bg-white p-2 transition-colors disabled:border-slate-200 md:hidden"
+						class="group absolute bottom-2.5 right-3.5 rounded-md border border-slate-400 bg-white p-2 transition-colors disabled:border-slate-200 md:hidden"
 						on:click={sendMessage}
 					>
 						<Icon
