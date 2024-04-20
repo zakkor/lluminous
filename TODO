@@ -1,9 +1,0 @@
-- Add Katex extension to svelte markdown plugin
-- Make textarea input grow with content
-
-- Start to transition towards "server" -> "llama"
-- Create separate "tools" package
-- Create history side bar
-- Create settings side bar
-- Start adding knobs and params in client
-- Persist in localstorage
