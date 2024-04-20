@@ -17,7 +17,7 @@ var Tools = NewToolMap(
 
 // Evaluates the given JavaScript expression and returns the result of the evaluation.
 // - expression (string): The JavaScript code to execute.
-func javascript_interpreter(args Arguments) string {
+func javascript_interpreter(args Arguments, sandboxPath string) string {
 	expression := args.String("expression")
 	cmd := exec.Command("node", "-p", expression)
 	out, err := cmd.CombinedOutput()
@@ -29,10 +29,10 @@ func javascript_interpreter(args Arguments) string {
 
 // Compiles and runs the given file containing Go source code, returning the output of the program, or the compile errors if compilation was not successful.
 // - file (string): The path to the Go source code file to compile.
-func run_go_code(args Arguments) string {
+func run_go_code(args Arguments, sandboxPath string) string {
 	file := args.String("file")
 	cmd := exec.Command("go", "run", file)
-	cmd.Dir = "/Users/ed/src/lluminous/server/sandbox"
+	cmd.Dir = sandboxPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return err.Error()
@@ -43,10 +43,10 @@ func run_go_code(args Arguments) string {
 // Writes the given content to the file at the given path.
 // - path (string): The path to the file to write to.
 // - content (string): The content to write to the file.
-func write_file(args Arguments) string {
+func write_file(args Arguments, sandboxPath string) string {
 	path := args.String("path")
 	content := args.String("content")
-	f, err := os.OpenFile(filepath.Join("/Users/ed/src/lluminous/server/sandbox", path), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	f, err := os.OpenFile(filepath.Join(sandboxPath, path), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err.Error()
 	}
@@ -74,7 +74,7 @@ type Tool struct {
 	Schema Schema
 	Fn     Fn
 }
-type Fn func(Arguments) string
+type Fn func(args Arguments, sandboxPath string) (result string)
 type Arguments map[string]any
 
 func (args Arguments) String(name string) string { return args[name].(string) }
@@ -95,7 +95,7 @@ type Schema struct {
 	} `json:"function"`
 }
 
-func NewSchema(f func(Arguments) string) Schema {
+func NewSchema(f Fn) Schema {
 	schema := Schema{}
 	schema.Function.Name = strings.ToLower(funcreader.FuncName(f))
 

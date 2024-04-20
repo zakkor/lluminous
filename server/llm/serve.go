@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-const llamaPath = "/Users/ed/src/llama.cpp"
-
 var serverCount int32 = 8079
 
 type LlamaServer struct {
@@ -21,7 +19,7 @@ type LlamaServer struct {
 	ModelName string
 }
 
-func Serve(model string, options []string) *LlamaServer {
+func Serve(model string, options []string, llamaPath string) *LlamaServer {
 	port := int(atomic.AddInt32(&serverCount, 1))
 	path := filepath.Join(llamaPath, "server")
 

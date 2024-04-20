@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,9 +19,14 @@ import (
 	"github.com/zakkor/server/tools"
 )
 
-const llamaPath = "/Users/ed/src/llama.cpp"
+var (
+	LLAMAPath   = flag.String("llamapath", "/Users/ed/src/llama.cpp", "Path to LLAMA")
+	SandboxPath = flag.String("sandbox", "/Users/ed/src/lluminous/server/sandbox", "Sandbox directory")
+)
 
 func main() {
+	flag.Parse()
+
 	var activeLlama *llm.LlamaServer
 
 	// Start HTTP server
@@ -141,7 +147,7 @@ func main() {
 
 		// Call the tool
 		fn := tools.Tools[toolcall.Name].Fn
-		result := fn(toolcall.Arguments)
+		result := fn(toolcall.Arguments, *SandboxPath)
 
 		// Return the result
 		w.Write([]byte(result))
@@ -168,7 +174,7 @@ func main() {
 
 func listLocalModels() []string {
 	// Open models directory and get a list of file names inside it
-	dir, err := os.Open(filepath.Join(llamaPath, "models"))
+	dir, err := os.Open(filepath.Join(*LLAMAPath, "models"))
 	if err != nil {
 		panic(err)
 	}

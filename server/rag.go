@@ -11,8 +11,8 @@ import (
 	"github.com/zakkor/server/llm"
 )
 
-func embedddd() {
-	embedder := llm.Serve("ggml-sfr-embedding-mistral-q4_k_m.gguf", []string{"--embeddings"})
+func embedddd(llamapath string) {
+	embedder := llm.Serve("ggml-sfr-embedding-mistral-q4_k_m.gguf", []string{"--embeddings"}, llamapath)
 
 	embeddings, err := llm.EmbedFile(embedder, "./testdata/dune.txt")
 	if err != nil {
@@ -29,8 +29,8 @@ func embedddd() {
 	}
 }
 
-func rag(query string) string {
-	embedder := llm.Serve("ggml-sfr-embedding-mistral-q4_k_m.gguf", []string{"--embeddings"})
+func rag(query string, llamapath string) string {
+	embedder := llm.Serve("ggml-sfr-embedding-mistral-q4_k_m.gguf", []string{"--embeddings"}, llamapath)
 
 	f, err := os.Open("./testdata/dune.txt-embeddings.json")
 	if err != nil {
