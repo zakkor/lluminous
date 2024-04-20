@@ -1,7 +1,9 @@
 package tools
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/zakkor/server/funcreader"
@@ -9,6 +11,8 @@ import (
 
 var Tools = NewToolMap(
 	javascript_interpreter,
+	write_file,
+	run_go_code,
 )
 
 // Evaluates the given JavaScript expression and returns the result of the evaluation.
@@ -21,6 +25,37 @@ func javascript_interpreter(args Arguments) string {
 		return err.Error()
 	}
 	return string(out)
+}
+
+// Compiles and runs the given file containing Go source code, returning the output of the program, or the compile errors if compilation was not successful.
+// - file (string): The path to the Go source code file to compile.
+func run_go_code(args Arguments) string {
+	file := args.String("file")
+	cmd := exec.Command("go", "run", file)
+	cmd.Dir = "/Users/ed/src/lluminous/server/sandbox"
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return err.Error()
+	}
+	return string(out)
+}
+
+// Writes the given content to the file at the given path.
+// - path (string): The path to the file to write to.
+// - content (string): The content to write to the file.
+func write_file(args Arguments) string {
+	path := args.String("path")
+	content := args.String("content")
+	f, err := os.OpenFile(filepath.Join("/Users/ed/src/lluminous/server/sandbox", path), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err.Error()
+	}
+	defer f.Close()
+	_, err = f.WriteString(content)
+	if err != nil {
+		return err.Error()
+	}
+	return ""
 }
 
 func NewToolMap(fs ...Fn) map[string]Tool {

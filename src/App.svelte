@@ -516,7 +516,13 @@
 		</button>
 
 		{#if !$convo.shared}
-			<ModelSelector {convo} {models} {loading} {loadModel} class="mx-auto" />
+			<ModelSelector
+				{convo}
+				{models}
+				{loading}
+				{loadModel}
+				class="!absolute left-1/2 -translate-x-1/2"
+			/>
 		{:else}
 			<p class="mx-auto line-clamp-1 whitespace-nowrap text-sm font-semibold">
 				Shared conversation
@@ -524,7 +530,7 @@
 		{/if}
 
 		<button
-			class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
+			class="ml-auto flex rounded-full p-3 transition-colors hover:bg-gray-100"
 			on:click={shareConversation}
 		>
 			<Icon icon={faShareFromSquare} class="m-auto h-4 w-4 text-slate-700" />
@@ -595,18 +601,23 @@
 			</ol>
 		</aside>
 		<div class="flex flex-1 flex-col">
-			<div class="hidden items-center border-b border-slate-200 px-4 py-1 md:flex">
-				<div class="pointer-events-none w-20" />
+			<div class="relative hidden items-center border-b border-slate-200 px-4 py-1 md:flex">
 				<!-- <ToolSelector /> -->
 
 				{#if !$convo.shared}
-					<ModelSelector {convo} {models} {loading} {loadModel} class="mx-auto" />
+					<ModelSelector
+						{convo}
+						{models}
+						{loading}
+						{loadModel}
+						class="!absolute left-1/2 -translate-x-1/2"
+					/>
 				{:else}
 					<p class="mx-auto text-sm font-semibold">Shared conversation</p>
 				{/if}
 
 				<button
-					class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
+					class="ml-auto flex rounded-full p-3 transition-colors hover:bg-gray-100"
 					on:click={shareConversation}
 				>
 					<Icon icon={faShareFromSquare} class="m-auto h-4 w-4 text-slate-700" />
@@ -753,7 +764,7 @@
 														<button
 															class="{message.toolcall.expanded
 																? ''
-																: 'rounded-b-lg'} flex items-center gap-3 rounded-t-lg border border-slate-300 py-3 pl-4 pr-5 text-sm text-slate-700 transition-colors hover:bg-gray-50"
+																: 'rounded-b-lg'} flex items-center gap-3 rounded-t-lg border border-slate-200 py-3 pl-4 pr-5 text-sm text-slate-700 transition-colors hover:bg-gray-50"
 															on:click={() => {
 																$convo.messages[i].toolcall.expanded =
 																	!$convo.messages[i].toolcall.expanded;
@@ -782,7 +793,7 @@
 																<div
 																	class="{hasToolResponse
 																		? 'border-b-0'
-																		: 'rounded-b-lg'} whitespace-pre border border-t-0 border-slate-300 bg-white px-4 py-3 font-mono text-sm text-slate-800"
+																		: 'rounded-b-lg'} whitespace-pre-wrap border border-t-0 border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-800"
 																>
 																	{#if typeof message.toolcall.arguments === 'object'}
 																		{JSON.stringify(message.toolcall.arguments, null, 2)}
@@ -795,16 +806,20 @@
 																		class="h-px w-full border-t border-dashed border-slate-300"
 																	/>
 																	<div
-																		class="flex flex-col rounded-b-lg border border-t-0 border-slate-300"
+																		class="flex flex-col rounded-b-lg border border-t-0 border-slate-200"
 																	>
 																		<span
 																			class="px-4 pt-3 text-sm font-medium tracking-[0.01em] text-slate-700"
 																			>Result:</span
 																		>
 																		<div
-																			class="whitespace-pre rounded-[inherit] bg-white px-4 py-3 font-mono text-sm text-slate-800"
+																			class="whitespace-pre-wrap rounded-[inherit] bg-white px-4 py-3 font-mono text-sm text-slate-800"
 																		>
-																			{$convo.messages[i + 1].content}
+																			{#if $convo.messages[i + 1].content}
+																				{$convo.messages[i + 1].content}
+																			{:else}
+																				<span class="italic">blank</span>
+																			{/if}
 																		</div>
 																	</div>
 																{/if}
