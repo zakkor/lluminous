@@ -5,6 +5,7 @@
 	import Toolbar from './Toolbar.svelte';
 	import Button from './Button.svelte';
 	import {
+		faArrowUp,
 		faArrowsRotate,
 		faBarsStaggered,
 		faCheck,
@@ -215,24 +216,30 @@
 		textareaEls[0].focus();
 	}
 
-	async function onEnterMessage(event) {
-		if (event.key === 'Enter' && !event.shiftKey) {
-			event.preventDefault();
-			if (content.length > 0) {
-				$convo.messages.push({ role: 'user', content, submitted: true });
-				$convo.messages = $convo.messages;
-				await tick();
-				scrollableEl.scrollTop = scrollableEl.scrollHeight;
+	function autoresizeTextarea() {
+		inputTextareaEl.style.height = 'auto';
+		if (window.innerWidth > 880) {
+			inputTextareaEl.style.height = Math.max(74, inputTextareaEl.scrollHeight + 2) + 'px';
+		} else {
+			inputTextareaEl.style.height = inputTextareaEl.scrollHeight + 2 + 'px';
+		}
+	}
 
-				content = '';
-				currentTokens = 0;
+	async function sendMessage() {
+		if (content.length > 0) {
+			$convo.messages.push({ role: 'user', content, submitted: true });
+			$convo.messages = $convo.messages;
+			await tick();
+			scrollableEl.scrollTop = scrollableEl.scrollHeight;
 
-				await tick();
-				inputTextareaEl.style.height = 'auto';
-				inputTextareaEl.style.height = inputTextareaEl.scrollHeight + 2 + 'px';
+			content = '';
+			currentTokens = 0;
 
-				submitCompletion();
-			}
+			await tick();
+			inputTextareaEl.blur();
+			autoresizeTextarea();
+
+			submitCompletion();
 		}
 	}
 
@@ -632,7 +639,7 @@
 			</div>
 			<section
 				bind:this={scrollableEl}
-				class="scrollable flex h-full w-full flex-col overflow-y-auto pb-[160px]"
+				class="scrollable flex h-full w-full flex-col overflow-y-auto pb-[130px]"
 				on:scroll={() => {
 					if (
 						scrollableEl.scrollTop + scrollableEl.clientHeight >=
@@ -1021,25 +1028,40 @@
 						{totalTokens} tokens in total
 					</span>
 				{/if}
-				<textarea
-					bind:this={inputTextareaEl}
-					class="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 font-normal text-slate-800 shadow-sm transition-colors focus:border-slate-500 focus:ring-0"
-					rows={2}
-					enterkeyhint="send"
-					bind:value={content}
-					on:keydown={onEnterMessage}
-					on:input={async () => {
-						inputTextareaEl.style.height = 'auto';
-						inputTextareaEl.style.height = inputTextareaEl.scrollHeight + 2 + 'px';
-						if ($convo.model.provider === 'Local') {
-							currentTokens = await tokenizeCount(content);
-						}
-					}}
-				/>
+				<div class="relative flex">
+					<textarea
+						bind:this={inputTextareaEl}
+						class="h-[50px] w-full resize-none rounded-lg border border-slate-300 px-4 py-3 font-normal text-slate-800 shadow-sm transition-colors focus:border-slate-400 focus:ring-0 md:h-[74px]"
+						rows={1}
+						bind:value={content}
+						on:keydown={(event) => {
+							if (event.key === 'Enter' && !event.shiftKey && window.innerWidth > 880) {
+								event.preventDefault();
+								sendMessage();
+							}
+						}}
+						on:input={async () => {
+							autoresizeTextarea();
+
+							if ($convo.model.provider === 'Local') {
+								currentTokens = await tokenizeCount(content);
+							}
+						}}
+					/>
+					<button
+						disabled={content.length === 0}
+						class="group absolute right-3.5 bottom-2.5 rounded-md border border-slate-400 bg-white p-2 transition-colors disabled:border-slate-200 md:hidden"
+						on:click={sendMessage}
+					>
+						<Icon
+							icon={faArrowUp}
+							class="h-3 w-3 text-slate-800 transition-colors group-disabled:text-slate-400"
+						/>
+					</button>
+				</div>
 			</section>
 		</div>
 		<Toolbar
-			{convo}
 			{settingsOpen}
 			on:rerender={async () => {
 				$convo = $convo;

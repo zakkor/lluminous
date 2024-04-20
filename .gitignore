@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 
+server/sandbox
 server/server
 server/testdata
 

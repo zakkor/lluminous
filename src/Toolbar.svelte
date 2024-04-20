@@ -117,7 +117,7 @@
 		/></label
 	>
 	<Button
-		variant="small"
+		variant="outline"
 		class="self-start"
 		on:click={async () => {
 			const schema = await (
