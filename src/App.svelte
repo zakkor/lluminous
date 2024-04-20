@@ -1,7 +1,7 @@
 <script>
 	import { onMount, tick } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
-	import { complete, conversationToString, detectFormat, isModelLocal } from './convo.js';
+	import { complete, conversationToString } from './convo.js';
 	import Toolbar from './Toolbar.svelte';
 	import Button from './Button.svelte';
 	import {
