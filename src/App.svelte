@@ -356,6 +356,9 @@
 	async function fetchModels() {
 		try {
 			const promises = providers.map((provider) => {
+				if (!provider.apiKeyFn()) {
+					return [];
+				}
 				return fetch(`${provider.url}/v1/models`, {
 					method: 'GET',
 					headers: {
