@@ -773,7 +773,7 @@
 										? 'bg-yellow-50/40'
 										: message.role === 'assistant'
 											? 'bg-slate-50/75'
-											: ''} group relative px-5 pb-12 pt-6 ld:px-8 ld:pb-8"
+											: ''} group relative px-5 pb-10 pt-6 ld:px-8"
 									style="z-index: {$convo.messages.length - i};"
 									on:click={(event) => {
 										// Make click trigger hover on mobile:
@@ -1007,7 +1007,7 @@
 										{/if}
 										{#if !message.editing}
 											<div
-												class="absolute bottom-[-38px] right-1 flex gap-x-0.5 opacity-0 transition-opacity group-hover:opacity-100 ld:-right-2 ld:-top-2 ld:bottom-auto ld:translate-x-full"
+												class="absolute bottom-[-32px] right-0 flex gap-x-0.5 opacity-0 transition-opacity group-hover:opacity-100"
 											>
 												<button
 													class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
@@ -1020,10 +1020,7 @@
 														textareaEls[i].focus();
 													}}
 												>
-													<Icon
-														icon={faPen}
-														class="m-auto h-[11px] w-[11px] text-slate-500 md:h-3 md:w-3 md:text-slate-600"
-													/>
+													<Icon icon={faPen} class="m-auto h-[11px] w-[11px] text-slate-600" />
 												</button>
 												{#if message.role !== 'system'}
 													<button
@@ -1042,7 +1039,7 @@
 													>
 														<Icon
 															icon={faArrowsRotate}
-															class="m-auto h-3 w-3 text-slate-500 md:h-3.5 md:w-3.5 md:text-slate-600"
+															class="m-auto h-[12px] w-[12px] text-slate-600"
 														/>
 													</button>
 												{/if}
@@ -1055,10 +1052,7 @@
 															.concat($convo.messages.slice(i + 1));
 													}}
 												>
-													<Icon
-														icon={faXmark}
-														class="m-auto h-3.5 w-3.5 text-slate-500 md:h-4 md:w-4 md:text-slate-600"
-													/>
+													<Icon icon={faXmark} class="m-auto h-[14px] w-[14px] text-slate-600" />
 												</button>
 											</div>
 										{/if}
