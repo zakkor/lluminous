@@ -26,7 +26,7 @@ var Tools = NewToolMap(
 )
 
 // Searches the web for the given query and returns a list of search results, containing a pair of the page title and the page URL, formatted like `title => url`, with one search result per line.
-// After selecting which search result is relevant, use WebNavigate with the page URL to retrieve more detailed information about that page.
+// You can use WebNavigate with the page URL to retrieve more detailed information about that page.
 // - query (string): The search query to use.
 func WebSearch(args Arguments) string {
 	query := args.String("query")

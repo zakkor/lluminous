@@ -59,7 +59,7 @@ func htmlToText(htmlr io.Reader) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	doc.Find("*").Filter("head, style, iframe, noscript, script, nav, img, header, footer, button, a").Remove()
+	doc.Find("*").Filter("head, style, iframe, noscript, script, nav, img, header, footer").Remove()
 	return removeDuplicateWhitespace(doc.Text()), nil
 }
 
