@@ -1140,7 +1140,7 @@
 				<div class="relative flex">
 					<textarea
 						bind:this={inputTextareaEl}
-						class="h-[50px] w-full resize-none rounded-xl border border-slate-300 px-4 py-3 font-normal text-slate-800 shadow-sm transition-colors focus:border-slate-400 focus:outline-none md:h-[74px]"
+						class="h-[50px] w-full resize-none rounded-xl border border-slate-300 pl-4 pr-11 md:px-4 py-3 font-normal text-slate-800 shadow-sm transition-colors focus:border-slate-400 focus:outline-none md:h-[74px]"
 						rows={1}
 						bind:value={content}
 						on:keydown={(event) => {
@@ -1187,6 +1187,9 @@
 <style lang="postcss">
 	:global(.standalone .section-input-bottom) {
 		bottom: 32px;
+	}
+	:global(.standalone .scrollable) {
+		@apply pb-[140px];
 	}
 
 	:global(.markdown.prose :where(p):not(:where([class~='not-prose'], [class~='not-prose'] *))) {
