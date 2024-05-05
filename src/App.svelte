@@ -608,7 +608,7 @@
 	}}
 />
 
-<main class="flex h-full w-screen flex-col">
+<main class="flex h-dvh w-screen flex-col">
 	<div class="flex items-center border-b border-slate-200 px-2 py-1 md:hidden">
 		<button
 			on:click={newConversation}
@@ -1224,12 +1224,5 @@
 	}
 	:global(.noscrollbar::-webkit-scrollbar) {
 		display: none; /* Safari and Chrome */
-	}
-
-	:global(html),
-	:global(body) {
-		overflow-y: auto;
-		overflow-x: hidden;
-		position: fixed;
 	}
 </style>
