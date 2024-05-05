@@ -608,7 +608,7 @@
 	}}
 />
 
-<main class="flex h-[calc(100dvh)] w-screen flex-col">
+<main class="flex h-full w-screen flex-col">
 	<div class="flex items-center border-b border-slate-200 px-2 py-1 md:hidden">
 		<button
 			on:click={newConversation}
@@ -759,7 +759,7 @@
 			>
 				{#if $convo.messages.length > 0}
 					<ul
-						class="mb-3 flex w-full !list-none flex-col divide-y divide-slate-200 border-b border-slate-200"
+						class="mb-3 flex w-full !list-none flex-col divide-y divide-slate-200/50 border-b border-slate-200/50"
 					>
 						{#each $convo.messages as message, i}
 							{#if ['system', 'user', 'assistant'].includes(message.role)}
@@ -772,7 +772,7 @@
 									message.role !== 'tool'
 										? 'bg-yellow-50/40'
 										: message.role === 'assistant'
-											? 'bg-slate-50/75'
+											? 'bg-slate-50/30'
 											: ''} group relative px-5 pb-10 pt-6 ld:px-8"
 									style="z-index: {$convo.messages.length - i};"
 									on:click={(event) => {
@@ -1140,7 +1140,7 @@
 				<div class="relative flex">
 					<textarea
 						bind:this={inputTextareaEl}
-						class="h-[50px] w-full resize-none rounded-xl border border-slate-300 pl-4 pr-11 md:px-4 py-3 font-normal text-slate-800 shadow-sm transition-colors focus:border-slate-400 focus:outline-none md:h-[74px]"
+						class="h-[50px] w-full resize-none rounded-xl border border-slate-300 py-3 pl-4 pr-11 font-normal text-slate-800 shadow-sm transition-colors focus:border-slate-400 focus:outline-none md:h-[74px] md:px-4"
 						rows={1}
 						bind:value={content}
 						on:keydown={(event) => {
