@@ -11,6 +11,8 @@
 		faBarsStaggered,
 		faCheck,
 		faChevronDown,
+		faChevronLeft,
+		faChevronRight,
 		faCircleNotch,
 		faGear,
 		faPen,
@@ -31,6 +33,7 @@
 	import { compressAndEncode, decodeAndDecompress } from './share.js';
 	import { providers } from './providers.js';
 	import ModelSelector from './ModelSelector.svelte';
+	import CompanyLogo from './CompanyLogo.svelte';
 	import { remoteServer } from './stores.js';
 	import { get } from 'svelte/store';
 
@@ -94,13 +97,18 @@
 	let inputTextareaEl;
 
 	function submitEdit(i) {
+		const message = $convo.messages[i];
+		splitHistory(message, i);
+
 		$convo.messages = $convo.messages.slice(0, i + 1);
+
 		submitCompletion();
 	}
 
 	async function submitCompletion(insertUnclosed = true) {
 		if (!$convo.model.provider) {
 			$convo.messages.push({
+				id: Date.now(),
 				role: 'assistant',
 				error: 'No model selected. Please add at least one API key and select a model to begin.',
 				content: '',
@@ -120,7 +128,14 @@
 		}
 
 		if (insertUnclosed) {
-			$convo.messages.push({ role: 'assistant', content: '', unclosed: true, generated: true });
+			$convo.messages.push({
+				id: Date.now(),
+				role: 'assistant',
+				content: '',
+				unclosed: true,
+				generated: true,
+				model: $convo.model,
+			});
 			$convo.messages = $convo.messages;
 		}
 
@@ -209,6 +224,7 @@
 					});
 					const toolresponse = await resp.text();
 					$convo.messages.push({
+						id: Date.now(),
 						tool_call_id: $convo.messages[i].toolcall.id,
 						role: 'tool',
 						content: toolresponse,
@@ -252,6 +268,7 @@
 					});
 					const toolresponse = await resp.text();
 					$convo.messages.push({
+						id: Date.now(),
 						tool_call_id: $convo.messages[i].toolcall.id,
 						role: 'tool',
 						content: toolresponse,
@@ -295,7 +312,7 @@
 
 	async function sendMessage() {
 		if (content.length > 0) {
-			$convo.messages.push({ role: 'user', content, submitted: true });
+			$convo.messages.push({ id: Date.now(), role: 'user', content, submitted: true });
 			$convo.messages = $convo.messages;
 			await tick();
 			scrollableEl.scrollTop = scrollableEl.scrollHeight;
@@ -354,6 +371,25 @@
 		historyOpen = false;
 
 		inputTextareaEl.focus();
+	}
+
+	function splitHistory(message, i) {
+		// Split history at this point:
+		if (!$convo.versions) {
+			$convo.versions = {};
+		}
+		if (!$convo.versions[message.id]) {
+			$convo.versions[message.id] = [null];
+		}
+		const nullIdx = $convo.versions[message.id].findIndex((v) => v === null);
+		$convo.versions[message.id][nullIdx] = structuredClone($convo.messages.slice(i)).map((m) => {
+			return {
+				...m,
+				editing: false,
+				pendingContent: '',
+			};
+		});
+		$convo.versions[message.id].push(null);
 	}
 
 	function closeSidebars(event) {
@@ -745,7 +781,7 @@
 			</div>
 			<section
 				bind:this={scrollableEl}
-				class="scrollable noscrollbar flex h-full w-full flex-col overflow-y-auto pb-[130px] md:pb-[150px]"
+				class="scrollable slimscrollbar flex h-full w-full flex-col overflow-y-auto pb-[130px] md:pb-[150px]"
 				on:scroll={() => {
 					if (
 						scrollableEl.scrollTop + scrollableEl.clientHeight >=
@@ -827,7 +863,7 @@
 
 										{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === '' && !message.toolcall}
 											<div
-												class="mt-2 h-3 w-3 shrink-0 animate-pulse rounded-full bg-slate-700/75"
+												class="mt-2 h-3 w-3 shrink-0 animate-pulse rounded-full bg-slate-700/50"
 											/>
 										{/if}
 										<!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -854,7 +890,7 @@
 												on:input={(event) => {
 													// Resize textarea as content grows:
 													event.target.style.height = 'auto';
-													event.target.style.height = event.target.scrollHeight + 2 + 'px';
+													event.target.style.height = event.target.scrollHeight + 'px';
 												}}
 											/>
 										{:else}
@@ -953,9 +989,7 @@
 										{/if}
 
 										{#if message.editing}
-											<div
-												class="absolute -bottom-9 right-1 flex gap-x-0.5 md:bottom-2 md:right-0 md:translate-y-full"
-											>
+											<div class="absolute -bottom-8 right-1 flex gap-x-1 md:right-0">
 												{#if message.role !== 'assistant' && message.pendingContent && message.pendingContent !== message.content}
 													<button
 														class="flex items-center gap-x-1 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
@@ -974,7 +1008,7 @@
 														<Icon icon={faCheck} class="h-3.5 w-3.5 text-slate-600" />
 														<span class="text-xs text-slate-600">
 															{#if message.role === 'system'}
-																Accept
+																Set system prompt
 															{:else}
 																Submit
 															{/if}
@@ -1006,6 +1040,69 @@
 											</div>
 										{/if}
 										{#if !message.editing}
+											<div class="absolute bottom-[-28px] left-14 flex items-center gap-x-4">
+												{#if $convo.versions?.[message.id]}
+													{@const versions = $convo.versions[message.id]}
+													<div class="flex items-center gap-x-1">
+														<button
+															class="group flex h-3 w-3 shrink-0 rounded-full"
+															disabled={versions.findIndex((v) => v === null) === 0}
+															on:click={() => {
+																const activeVersionIndex = versions.findIndex((v) => v === null);
+																const newVersionIndex = activeVersionIndex - 1;
+
+																$convo.versions[message.id][activeVersionIndex] =
+																	$convo.messages.slice(i);
+
+																const newMessages = $convo.versions[message.id][newVersionIndex];
+
+																$convo.messages = $convo.messages.slice(0, i).concat(newMessages);
+
+																$convo.versions[message.id][newVersionIndex] = null;
+															}}
+														>
+															<Icon
+																icon={faChevronLeft}
+																class="m-auto h-2 w-2 text-slate-800 group-disabled:text-slate-500"
+															/>
+														</button>
+														<span class="text-xs tabular-nums">
+															{versions.findIndex((v) => v === null) + 1} / {versions.length}
+														</span>
+														<button
+															class="group flex h-3 w-3 shrink-0 rounded-full"
+															disabled={versions.findIndex((v) => v === null) ===
+																versions.length - 1}
+															on:click={() => {
+																const activeVersionIndex = versions.findIndex((v) => v === null);
+																const newVersionIndex = activeVersionIndex + 1;
+
+																$convo.versions[message.id][activeVersionIndex] =
+																	$convo.messages.slice(i);
+
+																const newMessages = $convo.versions[message.id][newVersionIndex];
+
+																$convo.messages = $convo.messages.slice(0, i).concat(newMessages);
+
+																$convo.versions[message.id][newVersionIndex] = null;
+															}}
+														>
+															<Icon
+																icon={faChevronRight}
+																class="m-auto h-2 w-2 text-slate-800 group-disabled:text-slate-500"
+															/>
+														</button>
+													</div>
+												{/if}
+
+												{#if (message.role === 'assistant' && i > 2 && $convo.messages[i - 2].role === 'assistant' && $convo.messages[i - 2].model.id !== message.model.id) || (message.role === 'assistant' && (i === 1 || i === 2) && $convo.model.id !== message.model.id)}
+													<div class="flex items-center gap-x-1.5">
+														<CompanyLogo model={message.model} size="h-2.5 w-2.5" />
+														<p class="text-[10px]">{message.model.name}</p>
+													</div>
+												{/if}
+											</div>
+
 											<div
 												class="absolute bottom-[-32px] right-0 flex gap-x-0.5 opacity-0 transition-opacity group-hover:opacity-100"
 											>
@@ -1016,7 +1113,7 @@
 														$convo.messages[i].pendingContent = $convo.messages[i].content;
 														await tick();
 														textareaEls[i].style.height = 'auto';
-														textareaEls[i].style.height = textareaEls[i].scrollHeight + 2 + 'px';
+														textareaEls[i].style.height = textareaEls[i].scrollHeight + 'px';
 														textareaEls[i].focus();
 													}}
 												>
@@ -1026,11 +1123,17 @@
 													<button
 														class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
 														on:click={() => {
-															// If user message, remove all messages after this one, then regenerate:
 															if (message.role === 'user') {
+																splitHistory(message, i);
+
+																// If user message, remove all messages after this one, then regenerate:
 																$convo.messages = $convo.messages.slice(0, i + 1);
 																submitCompletion();
 															} else {
+																// History is split on the user message, so get the message before this (which will be the user's):
+																const previousUserMessage = $convo.messages[i - 1];
+																splitHistory(previousUserMessage, i - 1);
+
 																// If assistant message, remove all messages after this one, including this one, then regenerate:
 																$convo.messages = $convo.messages.slice(0, i);
 																submitCompletion();
@@ -1105,6 +1208,10 @@
 						<Button
 							variant="outline"
 							on:click={() => {
+								const i = $convo.messages.length - 2;
+								// Split history on the last user message:
+								splitHistory($convo.messages[i], i);
+
 								// Remove last message and run completion again:
 								$convo.messages = $convo.messages.slice(0, $convo.messages.length - 1);
 								submitCompletion();
@@ -1140,7 +1247,7 @@
 				<div class="relative flex">
 					<textarea
 						bind:this={inputTextareaEl}
-						class="h-[50px] w-full resize-none rounded-xl border border-slate-300 py-3 pl-4 pr-11 font-normal text-slate-800 shadow-sm transition-colors focus:border-slate-400 focus:outline-none md:h-[74px] md:px-4"
+						class="slimscrollbar h-[50px] max-h-[90dvh] w-full resize-none rounded-xl border border-slate-300 py-3 pl-4 pr-11 font-normal text-slate-800 shadow-sm transition-colors focus:border-slate-400 focus:outline-none md:h-[74px] md:px-4"
 						rows={1}
 						bind:value={content}
 						on:keydown={(event) => {
@@ -1208,21 +1315,5 @@
 				:where(.prose > :last-child):not(:where([class~='not-prose'], [class~='not-prose'] *))
 		) {
 		@apply mb-0;
-	}
-
-	textarea {
-		-ms-overflow-style: none; /* Internet Explorer 10+ */
-		scrollbar-width: none; /* Firefox */
-	}
-	textarea::-webkit-scrollbar {
-		display: none; /* Safari and Chrome */
-	}
-
-	:global(.noscrollbar) {
-		-ms-overflow-style: none; /* Internet Explorer 10+ */
-		scrollbar-width: none; /* Firefox */
-	}
-	:global(.noscrollbar::-webkit-scrollbar) {
-		display: none; /* Safari and Chrome */
 	}
 </style>

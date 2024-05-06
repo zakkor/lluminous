@@ -73,9 +73,7 @@
 			type="text"
 			bind:value={$openrouterAPIKey}
 			placeholder="Enter your API key"
-			class="{!$openrouterAPIKey || $openrouterAPIKey.length === 0
-				? 'bg-red-50 placeholder:text-slate-800'
-				: ''} rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors focus:border-slate-400 focus:outline-none"
+			class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors focus:border-slate-400 focus:outline-none"
 			on:change={() => {
 				if ($openrouterAPIKey.length === 73 || $openrouterAPIKey.length === 0) {
 					dispatch('fetchModels');
