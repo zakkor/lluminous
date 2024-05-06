@@ -1040,7 +1040,7 @@
 											</div>
 										{/if}
 										{#if !message.editing}
-											<div class="absolute bottom-[-28px] left-14 flex items-center gap-x-4">
+											<div class="absolute bottom-[-28px] left-11 md:left-14 flex items-center gap-x-4">
 												{#if message.role === 'user' && $convo.versions?.[message.id]}
 													{@const versions = $convo.versions[message.id]}
 													<div class="flex items-center gap-x-1">
