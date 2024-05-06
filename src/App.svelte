@@ -1041,7 +1041,7 @@
 										{/if}
 										{#if !message.editing}
 											<div class="absolute bottom-[-28px] left-14 flex items-center gap-x-4">
-												{#if $convo.versions?.[message.id]}
+												{#if message.role === 'user' && $convo.versions?.[message.id]}
 													{@const versions = $convo.versions[message.id]}
 													<div class="flex items-center gap-x-1">
 														<button
@@ -1095,7 +1095,7 @@
 													</div>
 												{/if}
 
-												{#if (message.role === 'assistant' && i > 2 && $convo.messages[i - 2].role === 'assistant' && $convo.messages[i - 2].model.id !== message.model.id) || (message.role === 'assistant' && (i === 1 || i === 2) && $convo.model.id !== message.model.id)}
+												{#if (message.role === 'assistant' && i > 2 && $convo.messages[i - 2].role === 'assistant' && message.model && $convo.messages[i - 2].model && $convo.messages[i - 2].model.id !== message.model.id) || (message.role === 'assistant' && (i === 1 || i === 2) && message.model && $convo.model.id !== message.model.id)}
 													<div class="flex items-center gap-x-1.5">
 														<CompanyLogo model={message.model} size="h-2.5 w-2.5" />
 														<p class="text-[10px]">{message.model.name}</p>
