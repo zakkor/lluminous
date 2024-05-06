@@ -98,7 +98,7 @@
 
 	function submitEdit(i) {
 		const message = $convo.messages[i];
-		splitHistory(message, i);
+		saveVersion(message, i);
 
 		$convo.messages = $convo.messages.slice(0, i + 1);
 
@@ -373,8 +373,8 @@
 		inputTextareaEl.focus();
 	}
 
-	function splitHistory(message, i) {
-		// Split history at this point:
+	// Split history at this point:
+	function saveVersion(message, i) {
 		if (!$convo.versions) {
 			$convo.versions = {};
 		}
@@ -390,6 +390,19 @@
 			};
 		});
 		$convo.versions[message.id].push(null);
+	}
+
+	function shiftVersion(dir, message, i) {
+		const activeVersionIndex = $convo.versions[message.id].findIndex((v) => v === null);
+		const newVersionIndex = activeVersionIndex + dir;
+
+		$convo.versions[message.id][activeVersionIndex] = $convo.messages.slice(i);
+
+		const newMessages = $convo.versions[message.id][newVersionIndex];
+
+		$convo.messages = $convo.messages.slice(0, i).concat(newMessages);
+
+		$convo.versions[message.id][newVersionIndex] = null;
 	}
 
 	function closeSidebars(event) {
@@ -811,7 +824,7 @@
 											? 'bg-slate-50/30'
 											: ''} group relative px-5 pb-10 pt-6 ld:px-8"
 									style="z-index: {$convo.messages.length - i};"
-									on:click={(event) => {
+									on:touchstart={(event) => {
 										// Make click trigger hover on mobile:
 										event.target.dispatchEvent(new MouseEvent('mouseenter'));
 									}}
@@ -1040,56 +1053,38 @@
 											</div>
 										{/if}
 										{#if !message.editing}
-											<div class="absolute bottom-[-28px] left-11 md:left-14 flex items-center gap-x-4">
+											<div
+												class="absolute bottom-[-32px] left-11 flex items-center gap-x-4 md:bottom-[-28px] md:left-14"
+											>
 												{#if message.role === 'user' && $convo.versions?.[message.id]}
 													{@const versions = $convo.versions[message.id]}
-													<div class="flex items-center gap-x-1">
+													{@const versionIndex = versions.findIndex((v) => v === null)}
+													<div class="flex items-center md:gap-x-1">
 														<button
-															class="group flex h-3 w-3 shrink-0 rounded-full"
-															disabled={versions.findIndex((v) => v === null) === 0}
+															class="group flex h-6 w-6 shrink-0 rounded-full md:h-3 md:w-3"
+															disabled={versionIndex === 0}
 															on:click={() => {
-																const activeVersionIndex = versions.findIndex((v) => v === null);
-																const newVersionIndex = activeVersionIndex - 1;
-
-																$convo.versions[message.id][activeVersionIndex] =
-																	$convo.messages.slice(i);
-
-																const newMessages = $convo.versions[message.id][newVersionIndex];
-
-																$convo.messages = $convo.messages.slice(0, i).concat(newMessages);
-
-																$convo.versions[message.id][newVersionIndex] = null;
+																shiftVersion(-1, message, i);
 															}}
 														>
 															<Icon
 																icon={faChevronLeft}
-																class="m-auto h-2 w-2 text-slate-800 group-disabled:text-slate-500"
+																class="m-auto h-3 w-3 text-slate-800 group-disabled:text-slate-500 md:h-2 md:w-2"
 															/>
 														</button>
 														<span class="text-xs tabular-nums">
-															{versions.findIndex((v) => v === null) + 1} / {versions.length}
+															{versionIndex + 1} / {versions.length}
 														</span>
 														<button
-															class="group flex h-3 w-3 shrink-0 rounded-full"
-															disabled={versions.findIndex((v) => v === null) ===
-																versions.length - 1}
+															class="group flex h-6 w-6 shrink-0 rounded-full md:h-3 md:w-3"
+															disabled={versionIndex === versions.length - 1}
 															on:click={() => {
-																const activeVersionIndex = versions.findIndex((v) => v === null);
-																const newVersionIndex = activeVersionIndex + 1;
-
-																$convo.versions[message.id][activeVersionIndex] =
-																	$convo.messages.slice(i);
-
-																const newMessages = $convo.versions[message.id][newVersionIndex];
-
-																$convo.messages = $convo.messages.slice(0, i).concat(newMessages);
-
-																$convo.versions[message.id][newVersionIndex] = null;
+																shiftVersion(1, message, i);
 															}}
 														>
 															<Icon
 																icon={faChevronRight}
-																class="m-auto h-2 w-2 text-slate-800 group-disabled:text-slate-500"
+																class="m-auto h-3 w-3 text-slate-800 group-disabled:text-slate-500 md:h-2 md:w-2"
 															/>
 														</button>
 													</div>
@@ -1097,7 +1092,7 @@
 
 												{#if (message.role === 'assistant' && i > 2 && $convo.messages[i - 2].role === 'assistant' && message.model && $convo.messages[i - 2].model && $convo.messages[i - 2].model.id !== message.model.id) || (message.role === 'assistant' && (i === 1 || i === 2) && message.model && $convo.model.id !== message.model.id)}
 													<div class="flex items-center gap-x-1.5">
-														<CompanyLogo model={message.model} size="h-2.5 w-2.5" />
+														<CompanyLogo model={message.model} size="h-3 w-3" />
 														<p class="text-[10px]">{message.model.name}</p>
 													</div>
 												{/if}
@@ -1124,7 +1119,7 @@
 														class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
 														on:click={() => {
 															if (message.role === 'user') {
-																splitHistory(message, i);
+																saveVersion(message, i);
 
 																// If user message, remove all messages after this one, then regenerate:
 																$convo.messages = $convo.messages.slice(0, i + 1);
@@ -1132,7 +1127,7 @@
 															} else {
 																// History is split on the user message, so get the message before this (which will be the user's):
 																const previousUserMessage = $convo.messages[i - 1];
-																splitHistory(previousUserMessage, i - 1);
+																saveVersion(previousUserMessage, i - 1);
 
 																// If assistant message, remove all messages after this one, including this one, then regenerate:
 																$convo.messages = $convo.messages.slice(0, i);
@@ -1210,7 +1205,7 @@
 							on:click={() => {
 								const i = $convo.messages.length - 2;
 								// Split history on the last user message:
-								splitHistory($convo.messages[i], i);
+								saveVersion($convo.messages[i], i);
 
 								// Remove last message and run completion again:
 								$convo.messages = $convo.messages.slice(0, $convo.messages.length - 1);
