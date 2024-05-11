@@ -982,7 +982,7 @@
 															(msg) => msg.tool_call_id === toolcall.id
 														)}
 														{@const finished = toolcall.finished || toolResponse}
-														<div class="flex w-full flex-col bg-white">
+														<div class="flex w-full flex-col bg-white mb-1">
 															<button
 																class="{toolcall.expanded
 																	? ''
