@@ -477,7 +477,7 @@
 	async function shareConversation() {
 		const sharePromise = new Promise(async (resolve) => {
 			const encoded = await compressAndEncode({
-				name: $convo.model.name,
+				model: $convo.model,
 				messages: $convo.messages,
 			});
 			const share = `${window.location.protocol}//${window.location.host}/?s=${encoded}`;
@@ -680,7 +680,7 @@
 					const convoData = {
 						id,
 						shared: true,
-						model: { id: null, name: decoded.name, provider: null },
+						model: decoded.model,
 						messages: decoded.messages,
 					};
 					$history.convoId = convoData.id;
@@ -730,8 +730,9 @@
 			<ModelSelector {convo} {models} class="!absolute left-1/2 z-[99] -translate-x-1/2" />
 		{:else if $convo.model}
 			<p
-				class="!absolute left-1/2 line-clamp-1 -translate-x-1/2 whitespace-nowrap text-sm font-semibold"
+				class="!absolute left-1/2 line-clamp-1 flex -translate-x-1/2 items-center gap-x-2 whitespace-nowrap text-sm font-semibold"
 			>
+				<CompanyLogo model={$convo.model} size="w-4 h-4" />
 				{$convo.model.name}
 			</p>
 		{/if}
@@ -826,7 +827,10 @@
 				{#if !$convo.shared}
 					<ModelSelector {convo} {models} class="!absolute left-1/2 z-[99] -translate-x-1/2" />
 				{:else if $convo.model}
-					<p class="!absolute left-1/2 -translate-x-1/2 text-sm font-semibold">
+					<p
+						class="!absolute left-1/2 flex -translate-x-1/2 items-center gap-x-2 text-sm font-semibold"
+					>
+						<CompanyLogo model={$convo.model} size="w-4 h-4" />
 						{$convo.model.name}
 					</p>
 				{/if}
