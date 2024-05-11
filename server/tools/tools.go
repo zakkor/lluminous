@@ -23,7 +23,24 @@ var Tools = NewToolMap(
 	ReadFile,
 	WriteFile,
 	ListDirectory,
+	MailSearch,
+	MailRead,
 )
+
+// Searches the mail app for emails whose subject field contains the search query, and returns a list of email subjects, one per line.
+// The search results contain the email subject, a separator, followed by the email ID. You can use MailRead with the email ID to retrieve more detailed information about that email.
+// - subjectContains (string): The search query to use.
+func MailSearch(args Arguments) string {
+	subjectContains := args.String("subjectContains")
+	return run("osascript", "./tools/searchmail.scpt", subjectContains)
+}
+
+// Reads the email with the given ID and returns the email content.
+// - id (string): The ID of the email to read.
+func MailRead(args Arguments) string {
+	id := args.String("id")
+	return run("osascript", "./tools/getemail.scpt", id)
+}
 
 // Searches the web for the given query and returns a list of search results, containing a pair of the page title and the page URL, formatted like `title => url`, with one search result per line.
 // You can use WebNavigate with the page URL to retrieve more detailed information about that page.
@@ -157,6 +174,15 @@ func WriteFile(args Arguments) string {
 		return err.Error()
 	}
 	return ""
+}
+
+func run(args ...string) string {
+	cmd := exec.Command(args[0], args[1:]...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return err.Error() + "\n" + string(out)
+	}
+	return string(out)
 }
 
 func runSandboxed(args ...string) string {

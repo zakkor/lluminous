@@ -75,22 +75,24 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 				content: msg.content,
 			};
 			// Additional data for tool calls
-			if (msg.toolcall) {
-				msgOAI.tool_calls = [
-					{
-						id: msg.toolcall.id,
+			if (msg.toolcalls) {
+				msgOAI.tool_calls = msg.toolcalls.map((t) => {
+					return {
+						id: t.id,
 						type: 'function',
 						function: {
-							name: msg.toolcall.name,
-							arguments: JSON.stringify(msg.toolcall.arguments),
+							name: t.name,
+							arguments: JSON.stringify(t.arguments),
 						},
-					},
-				];
+					};
+				});
 			}
 			// Additional data for tool responses
-			if (msg.tool_call_id) {
+			if (msg.tool_call_id && msg.name) {
 				msgOAI.tool_call_id = msg.tool_call_id;
+				msgOAI.name = msg.name;
 			}
+
 			return msgOAI;
 		});
 

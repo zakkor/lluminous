@@ -162,35 +162,36 @@
 				$convo.messages[i].content += chunk.content;
 				totalTokens = await tokenizeCount(conversationToString($convo));
 			} else {
-				// FIXME: Parallel tool calls: loop through tool_calls
-				// FIXME: Parallel tool calls: loop through tool_calls
-				// FIXME: Parallel tool calls: loop through tool_calls
-				// FIXME: Parallel tool calls: loop through tool_calls
-				// FIXME: Parallel tool calls: loop through tool_calls
-				// FIXME: Parallel tool calls: loop through tool_calls
 				if (chunk.choices.length === 0) {
 					$convo.messages[i].error = 'Refused to respond';
 					generating = false;
 					return;
 				}
 
-				if (chunk.choices[0].delta.tool_calls) {
-					if (chunk.choices[0].delta.tool_calls[0].function.name) {
-						if (!$convo.messages[i].toolcall) {
-							$convo.messages[i].toolcall = {
-								id: chunk.choices[0].delta.tool_calls[0].id,
-								name: '',
+				const choice = chunk.choices[0];
+
+				if (choice.delta.content) {
+					$convo.messages[i].content += choice.delta.content;
+				}
+
+				if (choice.delta.tool_calls) {
+					if (!$convo.messages[i].toolcalls) {
+						$convo.messages[i].toolcalls = [];
+					}
+
+					for (const tool_call of choice.delta.tool_calls) {
+						const index = tool_call.index;
+						if (!$convo.messages[i].toolcalls[index]) {
+							$convo.messages[i].toolcalls[index] = {
+								id: tool_call.id,
+								name: tool_call.function.name,
 								arguments: '',
 								expanded: false,
 							};
+						} else {
+							$convo.messages[i].toolcalls[index].arguments += tool_call.function.arguments;
 						}
-						$convo.messages[i].toolcall.name += chunk.choices[0].delta.tool_calls[0].function.name;
 					}
-					$convo.messages[i].toolcall.arguments +=
-						chunk.choices[0].delta.tool_calls[0].function.arguments;
-				}
-				if (chunk.choices[0].delta.content) {
-					$convo.messages[i].content += chunk.choices[0].delta.content;
 				}
 			}
 
@@ -202,34 +203,54 @@
 				return;
 			}
 
+			// External tool calls:
 			if (
-				!($convo.model.provider === 'Local') &&
+				$convo.model.provider !== 'Local' &&
 				chunk.choices &&
 				(chunk.choices[0].finish_reason === 'stop' ||
 					chunk.choices[0].finish_reason === 'tool_calls')
 			) {
 				generating = false;
 
-				if ($convo.messages[i].toolcall) {
-					// Toolcall arguments are now finalized, we can parse them:
-					$convo.messages[i].toolcall.arguments = JSON.parse($convo.messages[i].toolcall.arguments);
+				// Toolcall arguments are now finalized, we can parse them:
+				if ($convo.messages[i].toolcalls) {
+					let toolPromises = [];
 
-					// Call the tool
-					const resp = await fetch(`${$remoteServer.address}/tool`, {
-						method: 'POST',
-						headers: {
-							Authorization: `Basic ${$remoteServer.password}`,
-						},
-						body: JSON.stringify($convo.messages[i].toolcall),
-					});
-					const toolresponse = await resp.text();
-					$convo.messages.push({
-						id: Date.now(),
-						tool_call_id: $convo.messages[i].toolcall.id,
-						role: 'tool',
-						content: toolresponse,
-					});
-					$convo.messages = $convo.messages;
+					for (let ti = 0; ti < $convo.messages[i].toolcalls.length; ti++) {
+						const toolcall = $convo.messages[i].toolcalls[ti];
+
+						toolcall.arguments = JSON.parse(toolcall.arguments);
+
+						// Call the tool
+						const promise = fetch(`${$remoteServer.address}/tool`, {
+							method: 'POST',
+							headers: {
+								Authorization: `Basic ${$remoteServer.password}`,
+							},
+							body: JSON.stringify(toolcall),
+						}).then((resp) => {
+							// Mark tool call as finished to we can display it nicely in the UI
+							// (still need to await all tool calls to deliver the final response).
+							$convo.messages[i].toolcalls[ti].finished = true;
+
+							return resp.text();
+						});
+
+						toolPromises.push(promise);
+					}
+
+					const toolResponses = await Promise.all(toolPromises);
+
+					for (let ti = 0; ti < toolResponses.length; ti++) {
+						$convo.messages.push({
+							id: Date.now(),
+							role: 'tool',
+							tool_call_id: $convo.messages[i].toolcalls[ti].id,
+							name: $convo.messages[i].toolcalls[ti].name,
+							content: toolResponses[ti],
+						});
+						$convo.messages = $convo.messages;
+					}
 
 					submitCompletion();
 				}
@@ -244,14 +265,26 @@
 
 		const ondirect = async (chatResp) => {
 			if ($convo.model.provider === 'Local') {
-				// ...
-			} else {
-				if (chatResp.choices[0].message.content) {
-					$convo.messages[i].content = chatResp.choices[0].message.content;
-					generating = false;
-				} else if (chatResp.choices[0].message.tool_calls) {
-					const toolcall = chatResp.choices[0].message.tool_calls[0];
-					$convo.messages[i].toolcall = {
+				// TODO:
+				return;
+			}
+
+			const choice = chatResp.choices[0];
+
+			if (choice.message.content) {
+				$convo.messages[i].content = choice.message.content;
+			}
+
+			let toolPromises = [];
+			if (choice.message.tool_calls) {
+				for (let ti = 0; ti < choice.message.tool_calls.length; ti++) {
+					const toolcall = choice.message.tool_calls[ti];
+
+					if (!$convo.messages[i].toolcalls) {
+						$convo.messages[i].toolcalls = [];
+					}
+
+					$convo.messages[i].toolcalls[ti] = {
 						id: toolcall.id,
 						name: toolcall.function.name,
 						arguments: JSON.parse(toolcall.function.arguments),
@@ -259,25 +292,44 @@
 					};
 
 					// Call the tool
-					const resp = await fetch(`${$remoteServer.address}/tool`, {
+					const promise = fetch(`${$remoteServer.address}/tool`, {
 						method: 'POST',
 						headers: {
 							Authorization: `Basic ${$remoteServer.password}`,
 						},
-						body: JSON.stringify($convo.messages[i].toolcall),
+						body: JSON.stringify({
+							name: $convo.messages[i].toolcalls[ti].name,
+							arguments: $convo.messages[i].toolcalls[ti].arguments,
+						}),
+					}).then((resp) => {
+						// Mark tool call as finished to we can display it nicely in the UI
+						// (still need to await all tool calls to deliver the final response).
+						$convo.messages[i].toolcalls[ti].finished = true;
+
+						return resp.text();
 					});
-					const toolresponse = await resp.text();
+
+					toolPromises.push(promise);
+				}
+
+				const toolResponses = await Promise.all(toolPromises);
+
+				for (let ti = 0; ti < toolResponses.length; ti++) {
+					const toolcall = choice.message.tool_calls[ti];
 					$convo.messages.push({
 						id: Date.now(),
-						tool_call_id: $convo.messages[i].toolcall.id,
 						role: 'tool',
-						content: toolresponse,
+						tool_call_id: toolcall.id,
+						name: toolcall.function.name,
+						content: toolResponses[ti],
 					});
 					$convo.messages = $convo.messages;
-
-					submitCompletion();
 				}
+
+				submitCompletion();
 			}
+
+			generating = false;
 		};
 
 		complete($convo, onupdate, onabort, ondirect);
@@ -558,6 +610,7 @@
 				},
 				{ startsWith: 'mistralai/' },
 				{ startsWith: 'cohere/' },
+				{ startsWith: 'nous' },
 			];
 
 			function getPriorityIndex(model) {
@@ -874,7 +927,7 @@
 											</span>
 										</button>
 
-										{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === '' && !message.toolcall}
+										{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === '' && !message.toolcalls}
 											<div
 												class="mt-2 h-3 w-3 shrink-0 animate-pulse rounded-full bg-slate-700/50"
 											/>
@@ -919,84 +972,86 @@
 												{/if}
 
 												<!-- OAI toolcalls will always be at the end -->
-												{#if message.toolcall}
-													{@const hasToolResponse =
-														i !== $convo.messages.length - 1 &&
-														message.toolcall &&
-														$convo.messages[i + 1].role === 'tool'}
-													<div class="flex w-full flex-col bg-white">
-														<button
-															class="{message.toolcall.expanded
-																? ''
-																: 'rounded-b-lg'} flex items-center gap-3 rounded-t-lg border border-slate-200 py-3 pl-4 pr-5 text-sm text-slate-700 transition-colors hover:bg-gray-50"
-															on:click={() => {
-																$convo.messages[i].toolcall.expanded =
-																	!$convo.messages[i].toolcall.expanded;
-															}}
-														>
-															{#if !hasToolResponse}
+												{#if message.toolcalls}
+													{#each message.toolcalls as toolcall, ti}
+														{@const toolResponse = $convo.messages.find(
+															(msg) => msg.tool_call_id === toolcall.id
+														)}
+														{@const finished = toolcall.finished || toolResponse}
+														<div class="flex w-full flex-col bg-white">
+															<button
+																class="{toolcall.expanded
+																	? ''
+																	: 'rounded-b-lg'} flex items-center gap-3 rounded-t-lg border border-slate-200 py-3 pl-4 pr-5 text-sm text-slate-700 transition-colors hover:bg-gray-50"
+																on:click={() => {
+																	$convo.messages[i].toolcalls[ti].expanded =
+																		!$convo.messages[i].toolcalls[ti].expanded;
+																}}
+															>
+																{#key finished}
+																	<span in:fade={{ duration: 300 }}>
+																		<Icon
+																			icon={finished ? faCheck : faCircleNotch}
+																			class="{finished
+																				? ''
+																				: 'animate-spin'} h-4 w-4 text-slate-700"
+																		/>
+																	</span>
+																{/key}
+																<span>
+																	{finished ? 'Used' : 'Using'} tool:
+																	<code class="ml-1 font-semibold">{toolcall.name}</code>
+																</span>
 																<Icon
-																	icon={faCircleNotch}
-																	class="h-4 w-4 animate-spin text-slate-700"
+																	icon={faChevronDown}
+																	class="{toolcall.expanded
+																		? 'rotate-180'
+																		: ''} ml-auto h-3 w-3 text-slate-700 transition-transform"
 																/>
-															{:else}
-																<Icon icon={faCheck} class="h-4 w-4 text-slate-700" />
-															{/if}
-															<span>
-																{hasToolResponse ? 'Used' : 'Using'} tool:
-																<code class="ml-1 font-semibold">{message.toolcall.name}</code>
-															</span>
-															<Icon
-																icon={faChevronDown}
-																class="{message.toolcall.expanded
-																	? 'rotate-180'
-																	: ''} ml-auto h-3 w-3 text-slate-700 transition-transform"
-															/>
-														</button>
-														{#if message.toolcall.expanded}
-															<div transition:slide={{ duration: 300 }}>
-																<div
-																	class="{hasToolResponse
-																		? 'border-b-0'
-																		: 'rounded-b-lg'} whitespace-pre-wrap break-all border border-t-0 border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-800"
-																>
-																	{#if typeof message.toolcall.arguments === 'object'}
-																		{#if Object.keys(message.toolcall.arguments).length === 1}
-																			{message.toolcall.arguments[
-																				Object.keys(message.toolcall.arguments)[0]
-																			]}
+															</button>
+															{#if toolcall.expanded}
+																<div transition:slide={{ duration: 300 }}>
+																	<div
+																		class="{toolResponse
+																			? 'border-b-0'
+																			: 'rounded-b-lg'} whitespace-pre-wrap break-all border border-t-0 border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-800"
+																	>
+																		{#if typeof toolcall.arguments === 'object'}
+																			{#if Object.keys(toolcall.arguments).length === 1}
+																				{toolcall.arguments[Object.keys(toolcall.arguments)[0]]}
+																			{:else}
+																				<JsonView json={toolcall.arguments} />
+																			{/if}
 																		{:else}
-																			<JsonView json={message.toolcall.arguments} />
+																			{toolcall.arguments}
 																		{/if}
-																	{:else}
-																		{message.toolcall.arguments}
+																	</div>
+																	{#if toolResponse}
+																		<div
+																			class="h-px w-full border-t border-dashed border-slate-300"
+																		/>
+																		<div
+																			class="flex flex-col rounded-b-lg border border-t-0 border-slate-200"
+																		>
+																			<span
+																				class="px-4 pt-3 text-sm font-medium tracking-[0.01em] text-slate-700"
+																				>Result:</span
+																			>
+																			<div
+																				class="whitespace-pre-wrap break-all rounded-[inherit] bg-white px-4 py-3 font-mono text-sm text-slate-800"
+																			>
+																				{#if toolResponse.content}
+																					{toolResponse.content}
+																				{:else}
+																					<span class="italic">blank</span>
+																				{/if}
+																			</div>
+																		</div>
 																	{/if}
 																</div>
-																{#if i !== $convo.messages.length - 1 && message.toolcall && $convo.messages[i + 1].role === 'tool'}
-																	<div
-																		class="h-px w-full border-t border-dashed border-slate-300"
-																	/>
-																	<div
-																		class="flex flex-col rounded-b-lg border border-t-0 border-slate-200"
-																	>
-																		<span
-																			class="px-4 pt-3 text-sm font-medium tracking-[0.01em] text-slate-700"
-																			>Result:</span
-																		>
-																		<div
-																			class="whitespace-pre-wrap break-all rounded-[inherit] bg-white px-4 py-3 font-mono text-sm text-slate-800"
-																		>
-																			{#if $convo.messages[i + 1].content}
-																				{$convo.messages[i + 1].content}
-																			{:else}
-																				<span class="italic">blank</span>
-																			{/if}
-																		</div>
-																	</div>
-																{/if}
-															</div>
-														{/if}
-													</div>
+															{/if}
+														</div>
+													{/each}
 												{/if}
 											</div>
 										{/if}
