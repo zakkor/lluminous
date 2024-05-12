@@ -15,6 +15,14 @@
 - Conversation sharing (if you choose to share, your conversation has to be stored on my server for the share link to be made available. Self-hosted share options coming soon. No, I will not view any of your stuff.)
 - Branching conversation history (like the left-right ChatGPT arrows that you can click to go back to a previous response)
 
+Coming soon:
+- Memory
+- File ingestion/embedding
+- Multimodal input/output
+- Prompt templates
+- Nicer settings UI
+
+
 ### Hosted instance (no need to install anything):
 
 Available at: https://lluminous.chat
