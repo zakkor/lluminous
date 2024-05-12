@@ -11,6 +11,7 @@
 - Multi-shot prompting
 - Support for all available models across all providers
 - Change model mid-conversation
+- Conversation sharing (if you choose to share, your conversation has to be stored on my server for the share link to be made available. Self-hosted share options coming soon. No, I will not view any of your stuff.)
 - Branching conversation history (like the left-right ChatGPT arrows that you can click to go back to a previous response)
 
 ### Hosted instance (no need to install anything):
