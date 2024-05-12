@@ -8,7 +8,7 @@
     - Or just directly use your OpenAI or Anthropic API keys (coming soon)
 
 - Tool use. Works with both OpenAI models as well as Groq models that support it. Parallel tool calls are supported.
-- Multi-shot prompting
+- Multi-shot prompting. Also edit, delete, regenerate messages, whatever. The world is your oyster
 - Support for all available models across all providers
 - Change model mid-conversation
 - Conversation sharing (if you choose to share, your conversation has to be stored on my server for the share link to be made available. Self-hosted share options coming soon. No, I will not view any of your stuff.)
