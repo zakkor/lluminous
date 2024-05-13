@@ -2,6 +2,8 @@
 	export let model;
 	export let size = 'h-3.5 w-3.5';
 	export let rounded = null;
+
+	// Remember to update hasCompanyLogo from convo.js when adding new logos.
 </script>
 
 {#if model && model.provider}

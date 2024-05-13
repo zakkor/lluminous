@@ -1,7 +1,7 @@
 <script>
 	import { onMount, tick } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
-	import { complete, conversationToString } from './convo.js';
+	import { complete, conversationToString, hasCompanyLogo } from './convo.js';
 	import Toolbar from './Toolbar.svelte';
 	import Button from './Button.svelte';
 	import {
@@ -869,6 +869,7 @@
 					>
 						{#each $convo.messages as message, i}
 							{#if ['system', 'user', 'assistant'].includes(message.role)}
+								{@const hasLogo = hasCompanyLogo(message.model)}
 								<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
 								<li
 									data-role={message.role}
@@ -914,9 +915,11 @@
 												? 'bg-blue-200'
 												: message.role === 'user'
 													? 'bg-red-200'
-													: ''}"
+													: message.role === 'assistant' && !hasLogo
+														? 'bg-teal-200'
+														: ''}"
 										>
-											{#if message.role === 'assistant'}
+											{#if message.role === 'assistant' && hasLogo}
 												<CompanyLogo
 													model={message.model}
 													size="w-full h-full"
@@ -926,6 +929,8 @@
 												<span class="m-auto text-base">
 													{#if message.role === 'system'}
 														S
+													{:else if message.role === 'assistant'}
+														A
 													{:else}
 														U
 													{/if}

@@ -2,6 +2,20 @@ import { get } from 'svelte/store';
 import { params, toolSchema, tools } from './stores.js';
 import { providers } from './providers.js';
 
+export function hasCompanyLogo(model) {
+	return (
+		model &&
+		model.provider &&
+		(model.id.startsWith('openai') ||
+			model.id.startsWith('anthropic') ||
+			model.id.startsWith('meta-llama') ||
+			model.id.startsWith('mistralai') ||
+			model.id.startsWith('cohere') ||
+			model.provider === 'Groq' ||
+			model.id.startsWith('nous'))
+	);
+}
+
 export function conversationToString(convo) {
 	let result = '';
 	convo.messages.forEach((msg) => {
