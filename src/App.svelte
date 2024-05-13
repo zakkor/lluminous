@@ -572,12 +572,16 @@
 			const externalModels = results.flat();
 
 			const priorityOrder = [
-				{ exactly: ['openai/gpt-4-turbo'] },
-				{ exactly: ['openai/gpt-3.5-turbo'] },
+				{ exactly: ['openai/gpt-4o', 'openai/gpt-4-turbo', 'openai/gpt-3.5-turbo'] },
 				{ fromProvider: 'Groq', exactlyNot: ['llama2-70b-4096', 'gemma-7b-it'] },
 				{ exactly: ['meta-llama/llama-3-70b-instruct', 'meta-llama/llama-3-8b-instruct'] },
 				{
-					startsWith: 'anthropic/',
+					startsWith: [
+						'anthropic/claude-2',
+						'anthropic/claude-2.1',
+						'anthropic/claude-2.0',
+						'anthropic/claude-instant-1',
+					],
 					exactlyNot: [
 						'anthropic/claude-2',
 						'anthropic/claude-2.1',
@@ -595,7 +599,7 @@
 					],
 				},
 				{
-					startsWith: 'openai/',
+					startsWith: ['openai/gpt-3.5-turbo', 'openai/gpt-4'],
 					exactlyNot: [
 						'openai/gpt-3.5-turbo-0125',
 						'openai/gpt-3.5-turbo-0301',
@@ -608,39 +612,47 @@
 						'openai/gpt-4-32k-0314',
 					],
 				},
-				{ startsWith: 'mistralai/' },
-				{ startsWith: 'cohere/' },
-				{ startsWith: 'nous' },
+				{ startsWith: ['mistralai/', 'cohere/', 'nous'] },
 			];
 
 			function getPriorityIndex(model) {
 				for (let i = 0; i < priorityOrder.length; i++) {
 					const rule = priorityOrder[i];
-					if (rule.exactly && rule.exactly.includes(model.id)) {
-						return i;
-					}
-					if (rule.startsWith && model.id.startsWith(rule.startsWith)) {
-						if (rule.exactlyNot && rule.exactlyNot.includes(model.id)) {
-							continue;
+					if (rule.exactly) {
+						const exactIndex = rule.exactly.indexOf(model.id);
+						if (exactIndex !== -1) {
+							return [i, exactIndex];
 						}
-						return i;
+					}
+					if (rule.startsWith) {
+						for (let j = 0; j < rule.startsWith.length; j++) {
+							if (model.id.startsWith(rule.startsWith[j])) {
+								if (rule.exactlyNot && rule.exactlyNot.includes(model.id)) {
+									continue;
+								}
+								return [i, j];
+							}
+						}
 					}
 					if (rule.fromProvider && model.provider === rule.fromProvider) {
 						if (rule.exactlyNot && rule.exactlyNot.includes(model.id)) {
 							continue;
 						}
-						return i;
+						return [i, -1];
 					}
 				}
-				return priorityOrder.length;
+				return [priorityOrder.length, -1];
 			}
 
 			externalModels.sort((a, b) => {
-				const aIndex = getPriorityIndex(a);
-				const bIndex = getPriorityIndex(b);
+				const [aIndex, aExactIndex] = getPriorityIndex(a);
+				const [bIndex, bExactIndex] = getPriorityIndex(b);
 
 				if (aIndex === bIndex) {
-					return a.id.localeCompare(b.id);
+					if (aExactIndex === bExactIndex) {
+						return a.id.localeCompare(b.id);
+					}
+					return aExactIndex - bExactIndex;
 				}
 				return aIndex - bIndex;
 			});
