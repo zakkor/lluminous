@@ -910,25 +910,27 @@
 												}
 											}}
 											class="flex h-8 w-8 shrink-0 rounded-md md:h-9 md:w-9 md:rounded-[7px] {message.role ===
-											'assistant'
-												? 'bg-teal-300'
-												: message.role === 'system'
-													? 'bg-blue-200'
-													: message.role === 'tool'
-														? 'border-1 border-dashed border-slate-300 bg-blue-100'
-														: 'bg-red-200'}"
+											'system'
+												? 'bg-blue-200'
+												: message.role === 'user'
+													? 'bg-red-200'
+													: ''}"
 										>
-											<span class="m-auto text-base">
-												{#if message.role === 'system'}
-													S
-												{:else if message.role === 'assistant'}
-													A
-												{:else if message.role === 'tool'}
-													T
-												{:else}
-													U
-												{/if}
-											</span>
+											{#if message.role === 'assistant'}
+												<CompanyLogo
+													model={message.model}
+													size="w-full h-full"
+													rounded="rounded-[inherit]"
+												/>
+											{:else}
+												<span class="m-auto text-base">
+													{#if message.role === 'system'}
+														S
+													{:else}
+														U
+													{/if}
+												</span>
+											{/if}
 										</button>
 
 										{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === '' && !message.toolcalls}
@@ -982,7 +984,7 @@
 															(msg) => msg.tool_call_id === toolcall.id
 														)}
 														{@const finished = toolcall.finished || toolResponse}
-														<div class="flex w-full flex-col bg-white mb-1">
+														<div class="mb-1 flex w-full flex-col bg-white">
 															<button
 																class="{toolcall.expanded
 																	? ''
@@ -1150,10 +1152,7 @@
 												{/if}
 
 												{#if (message.role === 'assistant' && i > 2 && $convo.messages[i - 2].role === 'assistant' && message.model && $convo.messages[i - 2].model && $convo.messages[i - 2].model.id !== message.model.id) || (message.role === 'assistant' && (i === 1 || i === 2) && message.model && $convo.model.id !== message.model.id)}
-													<div class="flex items-center gap-x-1.5">
-														<CompanyLogo model={message.model} size="h-3 w-3" />
-														<p class="text-[10px]">{message.model.name}</p>
-													</div>
+													<p class="text-[10px]">{message.model.name}</p>
 												{/if}
 											</div>
 
