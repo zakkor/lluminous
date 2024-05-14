@@ -10,10 +10,12 @@
 		faArrowsRotate,
 		faBarsStaggered,
 		faCheck,
+		faCheckDouble,
 		faChevronDown,
 		faChevronLeft,
 		faChevronRight,
 		faCircleNotch,
+		faEllipsis,
 		faGear,
 		faPen,
 		faPlus,
@@ -100,7 +102,9 @@
 
 	function submitEdit(i) {
 		const message = $convo.messages[i];
-		saveVersion(message, i);
+		if (message.submitted || message.generated) {
+			saveVersion(message, i);
+		}
 
 		$convo.messages = $convo.messages.slice(0, i + 1);
 
@@ -147,6 +151,7 @@
 			}
 			$convo.messages[i].pendingContent = '';
 			$convo.messages[i].editing = false;
+			$convo.messages[i].submitted = true;
 		}
 		await tick();
 		scrollableEl.scrollTop = scrollableEl.scrollHeight;
@@ -1100,6 +1105,17 @@
 
 										{#if message.editing}
 											<div class="absolute -bottom-8 right-1 flex gap-x-1 md:right-0">
+												{#if $convo.messages.filter((msg) => msg.role !== 'system' && !msg.submitted).length >= 2 && i === $convo.messages.length - 1 && message.role !== 'assistant'}
+													<button
+														class="flex items-center gap-x-1 rounded-full bg-green-100 px-3 py-2"
+														on:click={() => {
+															submitCompletion();
+														}}
+													>
+														<Icon icon={faCheckDouble} class="h-3.5 w-3.5 text-slate-600" />
+														<span class="text-xs text-slate-600"> Submit all </span>
+													</button>
+												{/if}
 												{#if message.role !== 'assistant' && message.pendingContent && message.pendingContent !== message.content}
 													<button
 														class="flex items-center gap-x-1 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
@@ -1127,14 +1143,14 @@
 												{/if}
 												{#if message.role === 'assistant' && message.pendingContent && message.pendingContent !== message.content && message.content !== '...' && i === $convo.messages.length - 1}
 													<button
-														class="flex items-center gap-x-1 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
+														class="flex items-center gap-x-1.5 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
 														on:click={async () => {
 															$convo.messages[i].unclosed = true;
 															submitCompletion(false);
 														}}
 													>
-														<Icon icon={faCheck} class="h-3.5 w-3.5 text-slate-600" />
-														<span class="text-xs text-slate-600">Continue generation</span>
+														<Icon icon={faEllipsis} class="h-3.5 w-3.5 text-slate-600" />
+														<span class="text-xs text-slate-600">Pre-filled response</span>
 													</button>
 												{/if}
 												<button
@@ -1250,10 +1266,23 @@
 										{/if}
 									</div>
 									<button
-										on:click={() => {
+										on:click={async () => {
 											// Insert a blank message inbetween the next message and the next next message:
-											$convo.messages.splice(i + 1, 0, { role: 'assistant', content: '...' });
+											let role;
+											if (message.role === 'assistant' || message.role === 'system') {
+												role = 'user';
+											} else {
+												role = 'assistant';
+											}
+											$convo.messages.splice(i + 1, 0, {
+												id: Date.now(),
+												role,
+												content: '',
+												editing: true,
+											});
 											$convo.messages = $convo.messages;
+											await tick();
+											textareaEls[i + 1].focus();
 										}}
 										class="z-1 absolute bottom-0 left-1/2 flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-md border border-gray-300 bg-white opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100"
 									>
@@ -1282,17 +1311,6 @@
 				class="section-input-bottom fixed bottom-4 left-1/2 z-[99] flex w-full max-w-[680px] -translate-x-1/2 flex-col px-5 md:left-[calc((100vw+230px)*0.5)] lg:px-0 ld:max-w-[768px] xl:left-1/2"
 			>
 				<div class="absolute bottom-full mb-3 flex gap-4 self-center">
-					{#if $convo.messages.find((msg) => msg.editing) && $convo.messages.findIndex((msg) => msg.editing) !== $convo.messages.length - 1 && $convo.messages[$convo.messages.length - 1].role !== 'assistant'}
-						<Button
-							variant="outline"
-							class="!border-green-300/80 hover:!border-green-300"
-							on:click={() => {
-								submitCompletion();
-							}}
-						>
-							Submit all edits
-						</Button>
-					{/if}
 					{#if !generating && $convo.messages.filter((msg) => msg.generated).length > 0}
 						<Button
 							variant="outline"
