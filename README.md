@@ -1,4 +1,7 @@
-# lluminous - a fully free, libre, fast, chatbot frontend
+# lluminous
+
+### a fast, light, open chat UI
+
 
 ![Screenshot](ss.png)
 
