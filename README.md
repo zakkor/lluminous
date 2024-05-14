@@ -1,5 +1,7 @@
 # lluminous - a fully free, libre, fast, chatbot frontend
 
+![Screenshot](ss.png)
+
 ### Key features:
 
 - Multiple providers, plug in your API keys (stored entirely locally) and you're good to go
