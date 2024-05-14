@@ -5,6 +5,7 @@
 	import { tick } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import CompanyLogo from './CompanyLogo.svelte';
+	import { formatModelName } from './convo.js';
 
 	export let convo;
 	export let models = [];
@@ -61,7 +62,7 @@
 		>
 			<CompanyLogo model={$convo.model} />
 			<p class="line-clamp-1 text-xs text-slate-800">
-				{$convo.model.name.includes(': ') ? $convo.model.name.split(': ')[1] : $convo.model.name}
+				{formatModelName($convo.model)}
 			</p>
 			<Icon
 				icon={faChevronDown}
@@ -96,7 +97,7 @@
 				>
 					<ul
 						transition:fade={{ duration: 100 }}
-						class="scrollbar-none flex h-auto w-auto min-w-[250px] flex-col self-start overflow-y-auto rounded-lg border border-slate-300 bg-white py-1.5"
+						class="flex h-auto w-auto min-w-[250px] flex-col self-start overflow-y-auto rounded-lg border border-slate-300 bg-white py-1.5 scrollbar-none"
 					>
 						<!-- <p class="mb-2 ml-3 mt-1 text-xs font-medium text-slate-800">Tool use:</p> -->
 						{#each $toolSchema as schema, i}
@@ -147,7 +148,7 @@
 						}
 					}}
 				/>
-				<ul class="scrollbar-none flex max-h-[400px] w-full flex-col overflow-y-auto">
+				<ul class="flex max-h-[400px] w-full flex-col overflow-y-auto scrollbar-none">
 					{#each filteredModels as model, i}
 						<li>
 							<button
@@ -159,7 +160,7 @@
 								}}
 							>
 								<CompanyLogo {model} />
-								{model.name.includes(': ') ? model.name.split(': ')[1] : model.name}
+								{formatModelName(model)}
 							</button>
 						</li>
 					{:else}

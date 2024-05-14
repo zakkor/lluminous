@@ -4,6 +4,7 @@ export const params = persisted('params', {
 	temperature: 0.3,
 });
 
+export const openaiAPIKey = persisted('openaiAPIKey', '');
 export const openrouterAPIKey = persisted('openrouterkey', '');
 export const groqAPIKey = persisted('groqAPIKey', '');
 

@@ -1,12 +1,13 @@
 import { get } from 'svelte/store';
-import { params, toolSchema, tools } from './stores.js';
+import { openaiAPIKey, openrouterAPIKey, params, toolSchema, tools } from './stores.js';
 import { providers } from './providers.js';
 
 export function hasCompanyLogo(model) {
 	return (
 		model &&
 		model.provider &&
-		(model.id.startsWith('openai') ||
+		(model.provider === 'OpenAI' ||
+			model.id.startsWith('openai') ||
 			model.id.startsWith('anthropic') ||
 			model.id.startsWith('meta-llama') ||
 			model.id.startsWith('mistralai') ||
@@ -14,6 +15,37 @@ export function hasCompanyLogo(model) {
 			model.provider === 'Groq' ||
 			model.id.startsWith('nous'))
 	);
+}
+
+export function formatModelName(model) {
+	let name = model.name;
+
+	// If providers clash, disambiguate provider name
+	const disambiguate = get(openaiAPIKey).length > 0 && get(openrouterAPIKey).length > 0;
+
+	if (model.provider === 'OpenAI') {
+		name = name
+			.split('-')
+			.map((word) => {
+				if (word.startsWith('gpt')) {
+					return word.toUpperCase();
+				}
+				return word.charAt(0).toUpperCase() + word.slice(1);
+			})
+			.join(' ');
+	}
+
+	if (model.provider === 'Groq') {
+		return model.provider + ': ' + name;
+	}
+	if (disambiguate && model.provider === 'OpenRouter' && name.includes(': ')) {
+		return model.provider + ': ' + name.split(': ')[1];
+	}
+	if (disambiguate) {
+		return model.provider + ': ' + name;
+	}
+
+	return name;
 }
 
 export function conversationToString(convo) {
@@ -131,8 +163,8 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 			stream = false;
 		}
 
-		if (stream) {
-			const response = await fetch(`${provider.url}/v1/chat/completions`, {
+		const completions = async (signal) => {
+			return fetch(`${provider.url}/v1/chat/completions`, {
 				method: 'POST',
 				headers: {
 					Authorization: `Bearer ${provider.apiKeyFn()}`,
@@ -140,7 +172,7 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 					'X-Title': 'lluminous',
 					'Content-Type': 'application/json',
 				},
-				signal: convo.controller.signal,
+				signal,
 				body: JSON.stringify({
 					stream,
 					model: convo.model.id,
@@ -149,25 +181,13 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 					messages,
 				}),
 			});
+		};
+
+		if (stream) {
+			const response = await completions(convo.controller.signal);
 			streamResponse(response.body, onupdate, onabort);
 		} else {
-			const response = await fetch(`${provider.url}/v1/chat/completions`, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${provider.apiKeyFn()}`,
-					'HTTP-Referer': 'https://lluminous.chat',
-					'X-Title': 'lluminous',
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					stream,
-					model: convo.model.id,
-					temperature: get(params).temperature,
-					tools: activeSchema.length > 0 ? activeSchema : undefined,
-					tool_choice: 'auto',
-					messages,
-				}),
-			});
+			const response = await completions();
 			ondirect(await response.json());
 		}
 	}

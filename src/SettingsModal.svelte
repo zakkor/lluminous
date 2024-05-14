@@ -10,15 +10,22 @@
 		faKey,
 		faXmark,
 	} from '@fortawesome/free-solid-svg-icons';
-	import { groqAPIKey, openrouterAPIKey, remoteServer, toolSchema } from './stores.js';
+	import {
+		groqAPIKey,
+		openaiAPIKey,
+		openrouterAPIKey,
+		remoteServer,
+		toolSchema,
+	} from './stores.js';
 	import Button from './Button.svelte';
 
 	const dispatch = createEventDispatcher();
 
-	export let open = $groqAPIKey === '' && $openrouterAPIKey === '';
+	export let open = $openaiAPIKey === '' && $groqAPIKey === '' && $openrouterAPIKey === '';
 	export let trigger = '';
 
-	let activeTab = $groqAPIKey === '' && $openrouterAPIKey === '' ? 'api-keys' : 'tools';
+	let activeTab =
+		$openaiAPIKey === '' && $groqAPIKey === '' && $openrouterAPIKey === '' ? 'api-keys' : 'tools';
 </script>
 
 <svelte:window
@@ -81,6 +88,20 @@
 			</div>
 			<div class="flex flex-col gap-y-4 pt-1 sm:w-[410px]">
 				{#if activeTab === 'api-keys'}
+					<label class="flex flex-col text-[10px] uppercase tracking-wide">
+						<span class="mb-2 ml-[3px]">OpenAI API Key</span>
+						<input
+							type="text"
+							bind:value={$openaiAPIKey}
+							placeholder="Enter your API key"
+							class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
+							on:change={() => {
+								if ($openaiAPIKey.length === 56 || $openaiAPIKey.length === 0) {
+									dispatch('fetchModels');
+								}
+							}}
+						/></label
+					>
 					<label class="flex flex-col text-[10px] uppercase tracking-wide">
 						<span class="mb-2 ml-[3px]">OpenRouter API Key</span>
 						<input

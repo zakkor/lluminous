@@ -1,6 +1,6 @@
 # lluminous
 
-### a fast, light, open chat UI
+### A fast, light, open chat UI
 
 
 ![Screenshot](ss.png)
@@ -8,13 +8,15 @@
 ### Key features:
 
 - Multiple providers, plug in your API keys (stored entirely locally) and you're good to go
-    - OpenRouter (which lets you use all models: OpenAI, Anthropic, 50+ others)
+    - OpenAI
+    - OpenRouter (which lets you use ALL models across many providers: OpenAI, Anthropic, OSS, 50+ others)
     - Groq
-    - Or just directly use your OpenAI or Anthropic API keys (coming soon)
+    - Anthropic (coming soon)
 
 - Tool use. Works with both OpenAI models as well as Groq models that support it. Parallel tool calls are supported.
     - Check out `server/tools/tools.go`. You only need to write functions. The function comment is the description the model receives, so it knows what to use. Click the `Sync` button in the web UI to refresh your tools.
 - Multi-shot prompting. Also edit, delete, regenerate messages, whatever. The world is your oyster
+- Pre-filled responses (where supported by provider)
 - Support for all available models across all providers
 - Change model mid-conversation
 - Conversation sharing (if you choose to share, your conversation has to be stored on an external server for the share link to be made available. Self-hosted share options coming soon. No, I will not view any of your stuff.)

@@ -1,7 +1,7 @@
 <script>
 	import { onMount, tick } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
-	import { complete, conversationToString, hasCompanyLogo } from './convo.js';
+	import { complete, conversationToString, formatModelName, hasCompanyLogo } from './convo.js';
 	import KnobsSidebar from './KnobsSidebar.svelte';
 	import Button from './Button.svelte';
 	import {
@@ -564,7 +564,7 @@
 					.then((json) => {
 						const externalModels = json.data.map((m) => ({
 							id: m.id,
-							name: m.name || `${provider.name}: ${m.id}`,
+							name: m.name || m.id,
 							provider: provider.name,
 						}));
 						return externalModels;
@@ -575,10 +575,27 @@
 					});
 			});
 
+			const ignoreIds = [
+				'dall-e-3',
+				'dall-e-2',
+				'whisper-1',
+				'davinci-002',
+				'tts-1-hd-1106',
+				'tts-1-hd',
+				'tts-1',
+				'babbage-002',
+				'tts-1-1106',
+				'text-embedding-3-large',
+				'text-embedding-3-small',
+				'text-embedding-ada-002',
+			];
+
 			const results = await Promise.all(promises);
-			const externalModels = results.flat();
+			const externalModels = results.flat().filter((m) => !ignoreIds.includes(m.id));
 
 			const priorityOrder = [
+				{ exactly: ['gpt-4o'] },
+				{ fromProvider: 'OpenAI' },
 				{ exactly: ['openai/gpt-4o', 'openai/gpt-4-turbo', 'openai/gpt-3.5-turbo'] },
 				{ fromProvider: 'Groq', exactlyNot: ['llama2-70b-4096', 'gemma-7b-it'] },
 				{ exactly: ['meta-llama/llama-3-70b-instruct', 'meta-llama/llama-3-8b-instruct'] },
@@ -752,7 +769,7 @@
 				class="!absolute left-1/2 line-clamp-1 flex -translate-x-1/2 items-center gap-x-2 whitespace-nowrap text-sm font-semibold"
 			>
 				<CompanyLogo model={$convo.model} size="w-4 h-4" />
-				{$convo.model.name}
+				{formatModelName($convo.model)}
 			</p>
 		{/if}
 
@@ -867,7 +884,7 @@
 						class="!absolute left-1/2 flex -translate-x-1/2 items-center gap-x-2 text-sm font-semibold"
 					>
 						<CompanyLogo model={$convo.model} size="w-4 h-4" />
-						{$convo.model.name}
+						{formatModelName($convo.model)}
 					</p>
 				{/if}
 
@@ -1204,7 +1221,7 @@
 												{/if}
 
 												{#if (message.role === 'assistant' && i > 2 && $convo.messages[i - 2].role === 'assistant' && message.model && $convo.messages[i - 2].model && $convo.messages[i - 2].model.id !== message.model.id) || (message.role === 'assistant' && (i === 1 || i === 2) && message.model && $convo.model.id !== message.model.id)}
-													<p class="text-[10px]">{message.model.name}</p>
+													<p class="text-[10px]">{formatModelName(message.model)}</p>
 												{/if}
 											</div>
 
