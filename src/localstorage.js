@@ -30,32 +30,3 @@ export function persisted(key, initial) {
 		},
 	};
 }
-
-export function persistedPicked(parentStore, getFn) {
-	const { subscribe, set } = writable(getFn(get(parentStore)));
-
-	const unsubscribe = parentStore.subscribe((value) => {
-		set(getFn(value));
-	});
-
-	return {
-		subscribe,
-		set: (value) => {
-			parentStore.update((current) => {
-				const parent = { ...current };
-				const updatedValue = getFn(parent);
-				Object.assign(updatedValue, value);
-				return parent;
-			});
-		},
-		update: (updateFn) => {
-			parentStore.update((current) => {
-				const parent = { ...current };
-				const updatedValue = getFn(parent);
-				Object.assign(updatedValue, updateFn(updatedValue));
-				return parent;
-			});
-		},
-		unsubscribe,
-	};
-}

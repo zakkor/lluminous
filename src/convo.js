@@ -1,6 +1,17 @@
 import { get } from 'svelte/store';
-import { openaiAPIKey, openrouterAPIKey, params, toolSchema, tools } from './stores.js';
+import { controller, openaiAPIKey, openrouterAPIKey, params, toolSchema, tools } from './stores.js';
 import { providers } from './providers.js';
+
+export const multimodalModels = [
+	// OpenRouter
+	'openai/gpt-4o',
+	'openai/gpt-4-turbo',
+	'openai/gpt-4-turbo-2024-04-09',
+	// OpenAI
+	'gpt-4o',
+	'gpt-4-turbo',
+	'gpt-4-turbo-2024-04-09',
+];
 
 export function hasCompanyLogo(model) {
 	return (
@@ -93,7 +104,7 @@ function messageToString(message, template) {
 }
 
 export async function complete(convo, onupdate, onabort, ondirect) {
-	convo.controller = new AbortController();
+	controller.set(new AbortController());
 
 	if (convo.local) {
 		const response = await fetch('http://localhost:8080/completion', {
@@ -101,7 +112,7 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 			headers: {
 				'Content-Type': 'application/json',
 			},
-			signal: convo.controller.signal,
+			signal: get(controller).signal,
 			body: JSON.stringify({
 				stream: true,
 				prompt: conversationToString(convo),
@@ -118,8 +129,20 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 		const messages = convo.messages.map((msg) => {
 			const msgOAI = {
 				role: msg.role,
-				content: msg.content,
 			};
+
+			if (msg.contentParts) {
+				msgOAI.content = [
+					{
+						type: 'text',
+						text: msg.content,
+					},
+					...msg.contentParts,
+				];
+			} else {
+				msgOAI.content = msg.content;
+			}
+
 			// Additional data for tool calls
 			if (msg.toolcalls) {
 				msgOAI.tool_calls = msg.toolcalls.map((t) => {
@@ -184,7 +207,7 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 		};
 
 		if (stream) {
-			const response = await completions(convo.controller.signal);
+			const response = await completions(get(controller).signal);
 			streamResponse(response.body, onupdate, onabort);
 		} else {
 			const response = await completions();
@@ -224,6 +247,9 @@ async function streamResponse(readableStream, onupdate, onabort) {
 				if (line[0] === ':') {
 					continue;
 				}
+
+				// OpenAI and only OpenAI sometimes sends "\ndata:"
+				line = line.trim();
 
 				if (line.startsWith('data: ')) {
 					// Strip "data: " from the start of the url
@@ -266,4 +292,13 @@ async function streamResponse(readableStream, onupdate, onabort) {
 			throw error;
 		}
 	}
+}
+
+export function readFileAsDataURL(file) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result);
+		reader.onerror = () => reject(reader.error);
+		reader.readAsDataURL(file);
+	});
 }

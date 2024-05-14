@@ -1,7 +1,14 @@
 <script>
 	import { onMount, tick } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
-	import { complete, conversationToString, formatModelName, hasCompanyLogo } from './convo.js';
+	import {
+		complete,
+		conversationToString,
+		formatModelName,
+		hasCompanyLogo,
+		multimodalModels,
+		readFileAsDataURL,
+	} from './convo.js';
 	import KnobsSidebar from './KnobsSidebar.svelte';
 	import Button from './Button.svelte';
 	import {
@@ -17,6 +24,7 @@
 		faCircleNotch,
 		faEllipsis,
 		faGear,
+		faPaperclip,
 		faPen,
 		faPlus,
 		faSliders,
@@ -31,14 +39,14 @@
 	import JsonView from './svelte-json-view/JsonView.svelte';
 
 	import Icon from './Icon.svelte';
-	import { persisted, persistedPicked } from './localstorage.js';
+	import { persisted } from './indexeddb.js';
 	import { getRelativeDate } from './date.js';
 	import { compressAndEncode, decodeAndDecompress } from './share.js';
 	import { providers } from './providers.js';
 	import ModelSelector from './ModelSelector.svelte';
 	import CompanyLogo from './CompanyLogo.svelte';
-	import { remoteServer } from './stores.js';
-	import { get } from 'svelte/store';
+	import { pick, controller, remoteServer } from './stores.js';
+	import { writable } from 'svelte/store';
 	import SettingsModal from './SettingsModal.svelte';
 
 	marked.use(
@@ -47,22 +55,15 @@
 		})
 	);
 
-	const history = persisted('history');
-	if (!$history) {
-		$history = {
-			convoId: null,
-			entries: {},
-		};
-	}
-	if (!$history.convoId) {
-		const convoData = {
-			id: Date.now(),
-			model: { id: null, name: 'No model loaded', provider: null },
-			messages: [],
-		};
-		$history.convoId = convoData.id;
-		$history.entries[convoData.id] = convoData;
-	}
+	// Initialize history and convo with a blank slate while we wait for IndexedDB to start
+	let history = writable({
+		convoId: null,
+		entries: {},
+	});
+	let convo = writable({
+		model: {},
+		messages: [],
+	});
 
 	let historyBuckets = [];
 	$: {
@@ -84,9 +85,10 @@
 		historyBuckets.sort((a, b) => b.convos[0].id - a.convos[0].id);
 	}
 
-	let convo = persistedPicked(history, (h) => h.entries[h.convoId]);
-
 	let content = '';
+	let imageUrls = [];
+	let imageUrlsBlacklist = [];
+	const imageUrlRegex = /https?:\/\/[^\s]+?\.(png|jpe?g)(?=\s|$)/gi;
 	let generating = false;
 
 	let currentTokens = 0;
@@ -99,6 +101,7 @@
 	let scrollableEl = null;
 	let textareaEls = [];
 	let inputTextareaEl;
+	let fileInputEl;
 
 	function submitEdit(i) {
 		const message = $convo.messages[i];
@@ -124,7 +127,7 @@
 		}
 
 		if (generating) {
-			$convo.controller.abort();
+			$controller.abort();
 		}
 
 		generating = true;
@@ -371,12 +374,33 @@
 
 	async function sendMessage() {
 		if (content.length > 0) {
-			$convo.messages.push({ id: Date.now(), role: 'user', content, submitted: true });
+			const msg = {
+				id: Date.now(),
+				role: 'user',
+				content: content,
+				submitted: true,
+			};
+
+			const imageUrlMapper = (url) => ({
+				type: 'image_url',
+				image_url: {
+					url,
+					detail: 'low',
+				},
+			});
+
+			if (imageUrls.length > 0) {
+				msg.contentParts = [...imageUrls.map(imageUrlMapper)];
+			}
+
+			$convo.messages.push(msg);
 			$convo.messages = $convo.messages;
 			await tick();
 			scrollableEl.scrollTop = scrollableEl.scrollHeight;
 
 			content = '';
+			imageUrls = [];
+			imageUrlsBlacklist = [];
 			currentTokens = 0;
 
 			await tick();
@@ -411,7 +435,7 @@
 		if (existingNewConvo) {
 			const oldModel = $convo.model;
 			$history.convoId = existingNewConvo.id;
-			convo = persistedPicked(history, (h) => h.entries[h.convoId]);
+			convo = pick(history, (h) => h.entries[h.convoId]);
 			$convo.model = oldModel;
 			historyOpen = false;
 			inputTextareaEl.focus();
@@ -425,7 +449,7 @@
 		};
 		$history.convoId = convoData.id;
 		$history.entries[convoData.id] = convoData;
-		convo = persistedPicked(history, (h) => h.entries[h.convoId]);
+		convo = pick(history, (h) => h.entries[h.convoId]);
 
 		historyOpen = false;
 
@@ -514,6 +538,44 @@
 		} catch (err) {
 			await navigator.clipboard.writeText(await sharePromise);
 		}
+	}
+
+	async function restoreConversation() {
+		const params = new URLSearchParams(window.location.search);
+		let share;
+		if (params.has('s')) {
+			share = params.get('s');
+		} else if (params.has('sl')) {
+			const response = await fetch(`https://zak.oni2025.ro/p/${params.get('sl')}/`);
+			share = await response.text();
+		}
+		if (!share) {
+			return;
+		}
+
+		decodeAndDecompress(share)
+			.then((decoded) => {
+				if (Array.isArray(decoded)) {
+					decoded = { name: 'Shared conversation', messages: decoded };
+				}
+				let id = Date.now();
+				const existingShared = Object.values($history.entries).find((convo) => convo.shared);
+				if (existingShared) {
+					id = existingShared.id;
+				}
+				const convoData = {
+					id,
+					shared: true,
+					model: decoded.model,
+					messages: decoded.messages,
+				};
+				$history.convoId = convoData.id;
+				$history.entries[convoData.id] = convoData;
+				convo = pick(history, (h) => h.entries[h.convoId]);
+			})
+			.catch((err) => {
+				console.error('Error decoding shared conversation:', err);
+			});
 	}
 
 	let loading = false;
@@ -689,44 +751,35 @@
 		}
 	}
 
-	onMount(async () => {
+	function initializePWAStyles() {
 		if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
 			document.body.classList.add('standalone');
 		}
+	}
 
-		const params = new URLSearchParams(window.location.search);
-		let share;
-		if (params.has('s')) {
-			share = params.get('s');
-		} else if (params.has('sl')) {
-			const response = await fetch(`https://zak.oni2025.ro/p/${params.get('sl')}/`);
-			share = await response.text();
-		}
-		if (share) {
-			decodeAndDecompress(share)
-				.then((decoded) => {
-					if (Array.isArray(decoded)) {
-						decoded = { name: 'Shared conversation', messages: decoded };
-					}
-					let id = Date.now();
-					const existingShared = Object.values($history.entries).find((convo) => convo.shared);
-					if (existingShared) {
-						id = existingShared.id;
-					}
-					const convoData = {
-						id,
-						shared: true,
-						model: decoded.model,
-						messages: decoded.messages,
-					};
-					$history.convoId = convoData.id;
-					$history.entries[convoData.id] = convoData;
-					convo = persistedPicked(history, (h) => h.entries[h.convoId]);
-				})
-				.catch((err) => {
-					console.error('Error decoding shared conversation:', err);
-				});
-		}
+	onMount(async () => {
+		persisted('history', {
+			convoId: null,
+			entries: {},
+		}).then((store) => {
+			history = store;
+
+			if (!$history.convoId) {
+				const convoData = {
+					id: Date.now(),
+					model: { id: null, name: 'No model loaded', provider: null },
+					messages: [],
+				};
+				$history.convoId = convoData.id;
+				$history.entries[convoData.id] = convoData;
+			}
+
+			convo = pick(history, (h) => h.entries[h.convoId]);
+		});
+
+		initializePWAStyles();
+
+		await restoreConversation();
 
 		await fetchModels();
 	});
@@ -741,7 +794,7 @@
 			generating &&
 			$convo.messages.filter((msg) => msg.generated).length > 0
 		) {
-			$convo.controller.abort();
+			$controller.abort();
 		}
 	}}
 />
@@ -815,13 +868,13 @@
 							<button
 								on:click={() => {
 									if (generating) {
-										get(convo).controller.abort();
+										$controller.abort();
 									}
 
 									historyOpen = false;
 
 									$history.convoId = convo.id;
-									convo = persistedPicked(history, (h) => h.entries[h.convoId]);
+									convo = pick(history, (h) => h.entries[h.convoId]);
 
 									cleanShareLink();
 								}}
@@ -1029,8 +1082,13 @@
 													<span class="text-slate-600">{message.error}</span>
 												{:else if message.content}
 													<div
-														class="markdown prose prose-slate flex w-full max-w-none flex-col break-words prose-p:whitespace-pre-wrap prose-p:text-slate-800 prose-code:break-all prose-pre:my-0 prose-pre:whitespace-pre-wrap prose-pre:break-all prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white prose-pre:text-slate-800"
+														class="markdown prose prose-slate flex w-full max-w-none flex-col break-words prose-p:whitespace-pre-wrap prose-p:text-slate-800 prose-code:break-all prose-pre:my-0 prose-pre:whitespace-pre-wrap prose-pre:break-all prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white prose-pre:text-slate-800 prose-img:mb-2"
 													>
+														{#if message.contentParts}
+															{#each message.contentParts as part}
+																<img src={part.image_url.url} alt="" class="w-min max-h-[400px] rounded-lg" />
+															{/each}
+														{/if}
 														<Markdown source={message.content} />
 													</div>
 												{/if}
@@ -1349,7 +1407,7 @@
 						<Button
 							variant="outline"
 							on:click={() => {
-								$convo.controller.abort();
+								$controller.abort();
 							}}
 						>
 							<Icon icon={faStop} class="mr-2 h-3.5 w-3.5 text-slate-500" />
@@ -1369,11 +1427,86 @@
 					</span>
 				{/if}
 				<div class="relative flex">
+					{#if imageUrls.length > 0}
+						<div class="absolute left-[50px] top-2.5 flex gap-x-3">
+							{#each imageUrls as url, i}
+								<div class="relative">
+									<img
+										src={url}
+										alt=""
+										class="h-16 w-16 rounded-lg border border-slate-300 object-cover"
+									/>
+									<button
+										on:click={() => {
+											imageUrls.splice(i, 1);
+											imageUrls = imageUrls;
+											imageUrlsBlacklist.push(url);
+											tick().then(() => {
+												autoresizeTextarea();
+											});
+										}}
+										class="absolute -right-1 -top-1 flex h-3 w-3 rounded-full bg-black"
+									>
+										<Icon icon={faXmark} class="m-auto h-2.5 w-2.5 text-white" />
+									</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
+					{#if multimodalModels.includes($convo.model.id)}
+						<button
+							class="absolute left-3 top-2.5 rounded-md border border-slate-300 bg-white p-2 transition-colors"
+							on:click={() => fileInputEl.click()}
+						>
+							<input
+								type="file"
+								accept="image/*"
+								class="hidden"
+								bind:this={fileInputEl}
+								on:change={async (event) => {
+									const files = event.target.files;
+									for (let i = 0; i < files.length; i++) {
+										const file = files[i];
+										if (file.type.startsWith('image/')) {
+											const dataUrl = await readFileAsDataURL(file);
+											imageUrls.push(dataUrl);
+											imageUrls = imageUrls;
+											tick().then(() => {
+												autoresizeTextarea();
+											});
+										}
+									}
+								}}
+							/>
+							<Icon
+								icon={faPaperclip}
+								class="h-3 w-3 text-slate-800 transition-colors group-disabled:text-slate-400"
+							/>
+						</button>
+					{/if}
 					<textarea
 						bind:this={inputTextareaEl}
-						class="h-[50px] max-h-[90dvh] w-full resize-none rounded-xl border border-slate-300 py-3 pl-4 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:h-[74px] md:px-4"
+						class="{multimodalModels.includes($convo.model.id)
+							? '!pl-[50px]'
+							: ''} {imageUrls.length > 0
+							? '!pt-[88px]'
+							: ''} h-[50px] max-h-[90dvh] w-full resize-none rounded-xl border border-slate-300 py-3 pl-4 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:h-[74px] md:px-4"
 						rows={1}
 						bind:value={content}
+						on:paste={async (event) => {
+							const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+							for (let i = 0; i < items.length; i++) {
+								if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
+									const file = items[i].getAsFile();
+									const dataUrl = await readFileAsDataURL(file);
+									imageUrls.push(dataUrl);
+									imageUrls = imageUrls;
+									tick().then(() => {
+										autoresizeTextarea();
+									});
+								}
+							}
+						}}
 						on:keydown={(event) => {
 							if (event.key === 'Enter' && !event.shiftKey && window.innerWidth > 880) {
 								event.preventDefault();
@@ -1382,6 +1515,17 @@
 						}}
 						on:input={async () => {
 							autoresizeTextarea();
+
+							const imageLinkedUrls = content.match(imageUrlRegex) || [];
+							for (const url of imageLinkedUrls) {
+								if (!imageUrls.includes(url) && !imageUrlsBlacklist.includes(url)) {
+									imageUrls.push(url);
+									imageUrls = imageUrls;
+									tick().then(() => {
+										autoresizeTextarea();
+									});
+								}
+							}
 
 							if ($convo.model.provider === 'Local') {
 								currentTokens = await tokenizeCount(content);
