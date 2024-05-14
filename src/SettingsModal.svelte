@@ -48,7 +48,7 @@
 			<Icon icon={faXmark} class="ml-auto h-4 w-4 text-slate-700" />
 		</button>
 
-		<div class="flex flex-col gap-x-6 gap-y-4 sm:flex-row">
+		<div class="flex flex-col gap-x-8 gap-y-4 sm:flex-row">
 			<div class="flex flex-col">
 				<h1 class="mb-4 ml-3 text-xl font-semibold sm:mb-5">Settings</h1>
 
