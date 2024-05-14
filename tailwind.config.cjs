@@ -1,5 +1,48 @@
 const typography = require('@tailwindcss/typography');
 
+function scrollbarsPlugin({ addUtilities }) {
+	addUtilities({
+		'.scrollbar-white': {
+			'&::-webkit-scrollbar-track': {
+				background: 'white',
+			},
+			'&::-webkit-scrollbar-thumb': {
+				background: 'white',
+			},
+		},
+		'.scrollbar-slim': {
+			'&::-webkit-scrollbar': {
+				width: '6px',
+				height: '6px',
+			},
+			'&::-webkit-scrollbar-track': {
+				background: "theme('colors.gray.200 / 70%')",
+				'-webkit-border-radius': '10px',
+				'border-radius': '10px',
+			},
+			'&::-webkit-scrollbar-thumb': {
+				background: "theme('colors.gray.400 / 50%')",
+				'-webkit-border-radius': '10px',
+				'border-radius': '10px',
+			},
+		},
+		'.scrollbar-none': {
+			'-ms-overflow-style': 'none',
+			'scrollbar-width': 'none',
+			'&::-webkit-scrollbar': {
+				display: 'none',
+			},
+		},
+		'.scrollbar-default': {
+			'-ms-overflow-style': 'auto',
+			'scrollbar-width': 'auto',
+			'&::-webkit-scrollbar': {
+				display: 'block',
+			},
+		},
+	});
+}
+
 /** @type {import('tailwindcss').Config}*/
 const config = {
 	content: ['./src/**/*.{html,js,svelte,ts}'],
@@ -18,7 +61,7 @@ const config = {
 		},
 	},
 
-	plugins: [typography],
+	plugins: [typography, scrollbarsPlugin],
 };
 
 module.exports = config;

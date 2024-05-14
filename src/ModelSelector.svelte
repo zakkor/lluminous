@@ -96,7 +96,7 @@
 				>
 					<ul
 						transition:fade={{ duration: 100 }}
-						class="noscrollbar flex h-auto w-auto min-w-[250px] flex-col self-start overflow-y-auto rounded-lg border border-slate-300 bg-white py-1.5"
+						class="scrollbar-none flex h-auto w-auto min-w-[250px] flex-col self-start overflow-y-auto rounded-lg border border-slate-300 bg-white py-1.5"
 					>
 						<!-- <p class="mb-2 ml-3 mt-1 text-xs font-medium text-slate-800">Tool use:</p> -->
 						{#each $toolSchema as schema, i}
@@ -147,7 +147,7 @@
 						}
 					}}
 				/>
-				<ul class="noscrollbar flex max-h-[400px] w-full flex-col overflow-y-auto">
+				<ul class="scrollbar-none flex max-h-[400px] w-full flex-col overflow-y-auto">
 					{#each filteredModels as model, i}
 						<li>
 							<button

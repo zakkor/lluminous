@@ -2,7 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { complete, conversationToString, hasCompanyLogo } from './convo.js';
-	import Toolbar from './Toolbar.svelte';
+	import KnobsSidebar from './KnobsSidebar.svelte';
 	import Button from './Button.svelte';
 	import {
 		faArrowUp,
@@ -17,6 +17,7 @@
 		faGear,
 		faPen,
 		faPlus,
+		faSliders,
 		faStop,
 		faVial,
 		faXmark,
@@ -36,6 +37,7 @@
 	import CompanyLogo from './CompanyLogo.svelte';
 	import { remoteServer } from './stores.js';
 	import { get } from 'svelte/store';
+	import SettingsModal from './SettingsModal.svelte';
 
 	marked.use(
 		markedKatex({
@@ -90,7 +92,7 @@
 	let hidingTokenCount = false;
 
 	let historyOpen = false;
-	let settingsOpen = false;
+	let knobsOpen = false;
 
 	let scrollableEl = null;
 	let textareaEls = [];
@@ -466,11 +468,11 @@
 			historyOpen = false;
 		}
 		if (
-			settingsOpen &&
-			!event.target.closest('[data-trigger="settings"]') &&
-			!event.target.closest('[data-sidebar="settings"]')
+			knobsOpen &&
+			!event.target.closest('[data-trigger="knobs"]') &&
+			!event.target.closest('[data-sidebar="knobs"]')
 		) {
-			settingsOpen = false;
+			knobsOpen = false;
 		}
 	}
 
@@ -756,11 +758,11 @@
 			<Icon icon={faArrowUpRightFromSquare} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 		<button
-			data-trigger="settings"
+			data-trigger="knobs"
 			class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
-			on:click={() => (settingsOpen = !settingsOpen)}
+			on:click={() => (knobsOpen = !knobsOpen)}
 		>
-			<Icon icon={faGear} class="m-auto h-4 w-4 text-slate-700" />
+			<Icon icon={faSliders} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 	</div>
 	<div class="relative flex h-full flex-1 overflow-hidden">
@@ -768,18 +770,22 @@
 			data-sidebar="history"
 			class="{historyOpen
 				? ''
-				: '-translate-x-full'} fixed top-0 z-[100] flex h-full w-[230px] flex-col border-r bg-white px-3 py-4 transition-transform duration-300 ease-in-out md:static md:translate-x-0"
+				: '-translate-x-full'} fixed top-0 z-[100] flex h-full w-[230px] flex-col border-r bg-white pl-3 pt-4 transition-transform duration-300 ease-in-out md:static md:translate-x-0"
 		>
-			<button
-				on:click={newConversation}
-				class="mb-1 flex w-full items-center rounded-lg border py-2.5 pl-3 pr-4 text-left text-sm font-medium hover:bg-gray-100"
+			<div class="mb-1 pr-3">
+				<button
+					on:click={newConversation}
+					class="flex w-full items-center rounded-lg border py-2.5 pl-3 pr-4 text-left text-sm font-medium hover:bg-gray-100"
+				>
+					New chat
+					<Icon icon={faPlus} class="ml-auto h-3.5 w-3.5 text-slate-700" />
+				</button>
+			</div>
+			<ol
+				class="flex list-none flex-col overflow-y-auto pb-3 pr-3 pt-5 !scrollbar-white scrollbar-slim hover:!scrollbar-slim"
 			>
-				New chat
-				<Icon icon={faPlus} class="ml-auto h-3.5 w-3.5 text-slate-700" />
-			</button>
-			<ol class="flex list-none flex-col">
 				{#each historyBuckets as { relativeDate, convos } (relativeDate)}
-					<li class="mb-2 ml-3 mt-6 text-xs font-medium text-slate-600">
+					<li class="mb-2 ml-3 text-xs font-medium text-slate-600 [&:not(:first-child)]:mt-6">
 						{relativeDate}
 					</li>
 					{#each convos as convo (convo.id)}
@@ -833,6 +839,19 @@
 					{/each}
 				{/each}
 			</ol>
+
+			<div class="-ml-3 mt-auto flex pb-3">
+				<button
+					data-trigger="settings"
+					class="mx-3 flex flex-1 items-center gap-x-4 rounded-lg border border-slate-200 px-4 py-3 text-left text-sm font-medium hover:bg-gray-100"
+					on:click={() => {
+						historyOpen = false;
+					}}
+				>
+					Settings
+					<Icon icon={faGear} class="ml-auto h-4 w-4 text-slate-700" />
+				</button>
+			</div>
 		</aside>
 		<div class="flex flex-1 flex-col">
 			<div class="relative hidden items-center border-b border-slate-200 px-2 py-1 md:flex">
@@ -854,16 +873,16 @@
 					<Icon icon={faArrowUpRightFromSquare} class="m-auto h-4 w-4 text-slate-700" />
 				</button>
 				<button
-					data-trigger="settings"
+					data-trigger="knobs"
 					class="flex rounded-full p-3 transition-colors hover:bg-gray-100 xl:hidden"
-					on:click={() => (settingsOpen = !settingsOpen)}
+					on:click={() => (knobsOpen = !knobsOpen)}
 				>
-					<Icon icon={faGear} class="m-auto h-4 w-4 text-slate-700" />
+					<Icon icon={faSliders} class="m-auto h-4 w-4 text-slate-700" />
 				</button>
 			</div>
 			<section
 				bind:this={scrollableEl}
-				class="scrollable slimscrollbar flex h-full w-full flex-col overflow-y-auto pb-[130px] md:pb-[150px]"
+				class="scrollable flex h-full w-full flex-col overflow-y-auto pb-[130px] scrollbar-slim md:pb-[150px]"
 				on:scroll={() => {
 					if (
 						scrollableEl.scrollTop + scrollableEl.clientHeight >=
@@ -901,8 +920,8 @@
 								>
 									{#if i === 0 && message.role !== 'system'}
 										<Button
-											variant="outline-small"
-											class="absolute left-1/2 top-0 z-[98] -translate-x-1/2 rounded-t-none !border-t-0  border-dashed opacity-0 transition-opacity group-hover:opacity-100"
+											variant="outline"
+											class="absolute left-1/2 top-0 z-[98] -translate-x-1/2 rounded-t-none !border-t-0 border-dashed text-xs opacity-0 transition-opacity group-hover:opacity-100"
 											on:click={insertSystemPrompt}
 										>
 											<Icon icon={faVial} class="mr-2 h-3 w-3 text-slate-600" />
@@ -1246,8 +1265,8 @@
 					</ul>
 				{:else}
 					<Button
-						variant="outline-small"
-						class="z-[98] mx-auto rounded-t-none !border-t-0 border-dashed"
+						variant="outline"
+						class="z-[98] mx-auto rounded-t-none !border-t-0 border-dashed text-xs"
 						on:click={insertSystemPrompt}
 					>
 						<Icon icon={faVial} class="mr-2 h-3 w-3 text-slate-600" />
@@ -1317,7 +1336,7 @@
 				<div class="relative flex">
 					<textarea
 						bind:this={inputTextareaEl}
-						class="slimscrollbar h-[50px] max-h-[90dvh] w-full resize-none rounded-xl border border-slate-300 py-3 pl-4 pr-11 font-normal text-slate-800 shadow-sm transition-colors focus:border-slate-400 focus:outline-none md:h-[74px] md:px-4"
+						class="h-[50px] max-h-[90dvh] w-full resize-none rounded-xl border border-slate-300 py-3 pl-4 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:h-[74px] md:px-4"
 						rows={1}
 						bind:value={content}
 						on:keydown={(event) => {
@@ -1347,19 +1366,12 @@
 				</div>
 			</section>
 		</div>
-		<Toolbar
-			{settingsOpen}
-			on:rerender={async () => {
-				$convo = $convo;
-				$convo.messages = $convo.messages;
-				if ($convo.model.provider === 'Local') {
-					totalTokens = await tokenizeCount(conversationToString($convo));
-				}
-			}}
-			on:fetchModels={fetchModels}
-		/>
+
+		<KnobsSidebar {knobsOpen} />
 	</div>
 </main>
+
+<SettingsModal trigger="settings" on:fetchModels={fetchModels} />
 
 <style lang="postcss">
 	:global(.standalone .section-input-bottom) {
