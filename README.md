@@ -15,6 +15,7 @@
 
 - Tool use. Works with both OpenAI models as well as Groq models that support it. Parallel tool calls are supported.
     - Check out `server/tools/tools.go`. You only need to write functions. The function comment is the description the model receives, so it knows what to use. Click the `Sync` button in the web UI to refresh your tools.
+- Multimodal input: upload, paste, or share links to images
 - Multi-shot prompting. Also edit, delete, regenerate messages, whatever. The world is your oyster
 - Pre-filled responses (where supported by provider)
 - Support for all available models across all providers
@@ -25,10 +26,7 @@
 Coming soon:
 - Memory
 - File ingestion/embedding
-- Multimodal input/output
 - Prompt templates
-- Nicer settings UI
-
 
 ### Hosted instance (no need to install anything):
 
