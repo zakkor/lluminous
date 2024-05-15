@@ -28,15 +28,7 @@ var Tools = NewToolMap(
 	MailRead,
 	EnterMaze,
 	Move,
-	GetPhoneOffer,
 )
-
-// Gets a special offer to purchase a smartphone.
-// - phone (string): The phone model to get an offer for.
-func GetPhoneOffer(args Arguments) string {
-	phone := args.String("phone")
-	return "Here is your special offer for " + phone + "!"
-}
 
 var maze [][]int = [][]int{
 	{1, 3, 1, 1, 1},
