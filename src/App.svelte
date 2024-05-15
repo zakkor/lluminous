@@ -6,7 +6,7 @@
 		conversationToString,
 		formatModelName,
 		hasCompanyLogo,
-		multimodalModels,
+		additionalModelsMultimodal,
 		readFileAsDataURL,
 	} from './convo.js';
 	import KnobsSidebar from './KnobsSidebar.svelte';
@@ -64,6 +64,9 @@
 		model: {},
 		messages: [],
 	});
+
+	$: isMultimodal =
+		$convo.model.modality === 'multimodal' || additionalModelsMultimodal.includes($convo.model.id);
 
 	let historyBuckets = [];
 	$: {
@@ -628,6 +631,7 @@
 							id: m.id,
 							name: m.name || m.id,
 							provider: provider.name,
+							modality: m.architecture?.modality,
 						}));
 						return externalModels;
 					})
@@ -661,6 +665,13 @@
 				{ exactly: ['openai/gpt-4o', 'openai/gpt-4-turbo', 'openai/gpt-3.5-turbo'] },
 				{ fromProvider: 'Groq', exactlyNot: ['llama2-70b-4096', 'gemma-7b-it'] },
 				{ exactly: ['meta-llama/llama-3-70b-instruct', 'meta-llama/llama-3-8b-instruct'] },
+				{
+					exactly: [
+						'perplexity/llama-3-sonar-large-32k-online',
+						'perplexity/llama-3-sonar-small-32k-online',
+					],
+				},
+				{ exactly: ['google/gemini-flash-1.5', 'google/gemini-pro-1.5'] },
 				{
 					startsWith: [
 						'anthropic/claude-2',
@@ -1457,7 +1468,7 @@
 							{/each}
 						</div>
 					{/if}
-					{#if multimodalModels.includes($convo.model.id)}
+					{#if isMultimodal}
 						<button
 							class="absolute left-3 top-2.5 rounded-md border border-slate-300 bg-white p-2 transition-colors"
 							on:click={() => fileInputEl.click()}
@@ -1490,9 +1501,7 @@
 					{/if}
 					<textarea
 						bind:this={inputTextareaEl}
-						class="{multimodalModels.includes($convo.model.id)
-							? '!pl-[50px]'
-							: ''} {imageUrls.length > 0
+						class="{isMultimodal ? '!pl-[50px]' : ''} {imageUrls.length > 0
 							? '!pt-[88px]'
 							: ''} h-[50px] max-h-[90dvh] w-full resize-none rounded-xl border border-slate-300 py-3 pl-4 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:h-[74px] md:px-4"
 						rows={1}

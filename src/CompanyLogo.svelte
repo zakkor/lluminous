@@ -26,5 +26,14 @@
 		<img src="/logos/groq.png" loading="lazy" class="{size} {rounded || 'rounded-sm'}" alt="" />
 	{:else if model.id.startsWith('nous')}
 		<img src="/logos/nous.png" loading="lazy" class={size} alt="" />
+	{:else if model.id.startsWith('google')}
+		<img src="/logos/google.png" loading="lazy" class={size} alt="" />
+	{:else if model.id.startsWith('perplexity')}
+		<img
+			src="/logos/perplexity.svg"
+			loading="lazy"
+			class="{size} {rounded || 'rounded-sm'}"
+			alt=""
+		/>
 	{/if}
 {/if}

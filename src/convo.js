@@ -2,16 +2,8 @@ import { get } from 'svelte/store';
 import { controller, openaiAPIKey, openrouterAPIKey, params, toolSchema, tools } from './stores.js';
 import { providers } from './providers.js';
 
-export const multimodalModels = [
-	// OpenRouter
-	'openai/gpt-4o',
-	'openai/gpt-4-turbo',
-	'openai/gpt-4-turbo-2024-04-09',
-	// OpenAI
-	'gpt-4o',
-	'gpt-4-turbo',
-	'gpt-4-turbo-2024-04-09',
-];
+// OpenAI doesn't provide any metadata for their models, so we have to harddcode which ones are multimodal
+export const additionalModelsMultimodal = ['gpt-4o', 'gpt-4-turbo', 'gpt-4-turbo-2024-04-09'];
 
 export function hasCompanyLogo(model) {
 	return (
@@ -24,7 +16,9 @@ export function hasCompanyLogo(model) {
 			model.id.startsWith('mistralai') ||
 			model.id.startsWith('cohere') ||
 			model.provider === 'Groq' ||
-			model.id.startsWith('nous'))
+			model.id.startsWith('nous') ||
+			model.id.startsWith('google') ||
+			model.id.startsWith('perplexity'))
 	);
 }
 
