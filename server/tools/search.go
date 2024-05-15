@@ -1,14 +1,17 @@
 package tools
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/chromedp/chromedp"
 )
 
 func GoogleResults(query string) []string {
@@ -52,6 +55,28 @@ func GoogleResults(query string) []string {
 	})
 
 	return results
+}
+
+func fetchPage(url string) string {
+	opts := append(chromedp.DefaultExecAllocatorOptions[:]) // chromedp.UserDataDir(""),
+	// chromedp.Flag("disable-extensions", false),
+
+	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer cancel()
+
+	ctx, cancel := chromedp.NewContext(allocCtx)
+	defer cancel()
+
+	var res string
+	err := chromedp.Run(ctx,
+		chromedp.Navigate(url),
+		chromedp.InnerHTML(`body`, &res),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return res
 }
 
 func htmlToText(htmlr io.Reader) (string, error) {

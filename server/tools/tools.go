@@ -16,6 +16,7 @@ var sandboxPath = flag.String("sandbox", "", "Path to the sandbox directory.")
 var Tools = NewToolMap(
 	WebSearch,
 	WebNavigate,
+	WebNavigateChrome,
 	Shell,
 	ShellSandboxed,
 	CodeInterpreter,
@@ -25,7 +26,100 @@ var Tools = NewToolMap(
 	ListDirectory,
 	MailSearch,
 	MailRead,
+	EnterMaze,
+	Move,
+	GetPhoneOffer,
 )
+
+// Gets a special offer to purchase a smartphone.
+// - phone (string): The phone model to get an offer for.
+func GetPhoneOffer(args Arguments) string {
+	phone := args.String("phone")
+	return "Here is your special offer for " + phone + "!"
+}
+
+var maze [][]int = [][]int{
+	{1, 3, 1, 1, 1},
+	{1, 0, 0, 0, 1},
+	{1, 0, 1, 1, 1},
+	{1, 0, 0, 0, 1},
+	{1, 1, 1, 2, 1},
+}
+var y int = 4
+var x int = 3
+
+func describeCell(value int) string {
+	switch value {
+	case 0:
+		return "a walkable space"
+	case 1:
+		return "a wall"
+	case 2:
+		return "the maze entrance"
+	case 3:
+		return "the maze exit"
+	}
+	return "unknown"
+}
+
+func describeLocation() string {
+	desc := "You are on " + describeCell(maze[y][x]) + "."
+	if y > 0 {
+		desc += "\nTo the north is " + describeCell(maze[y-1][x]) + "."
+	}
+	if y < len(maze)-1 {
+		desc += "\nTo the south is " + describeCell(maze[y+1][x]) + "."
+	}
+	if x > 0 {
+		desc += "\nTo the west is " + describeCell(maze[y][x-1]) + "."
+	}
+	if x < len(maze[0])-1 {
+		desc += "\nTo the east is " + describeCell(maze[y][x+1]) + "."
+	}
+	return desc
+}
+
+// Enters the maze and returns the initial description of what is around you. Continue to navigate the maze using Move. Only call this function once.
+func EnterMaze(args Arguments) string {
+	return "You have entered the maze.\n" + describeLocation()
+}
+
+// Navigate through the maze. After each move you'll receive a new description of what is around you after you moved. You cannot move into walls. If you navigate in the direction of the exit, you will finish the maze.
+// - direction (string): The direction to move in. Can be "north", "south", "east", or "west".
+func Move(args Arguments) string {
+	direction := args.String("direction")
+	switch direction {
+	case "north":
+		if y > 0 && maze[y-1][x] != 1 {
+			y--
+		} else {
+			return "You cannot move in that direction."
+		}
+	case "south":
+		if y < len(maze)-1 && maze[y+1][x] != 1 {
+			y++
+		} else {
+			return "You cannot move in that direction."
+		}
+	case "west":
+		if x > 0 && maze[y][x-1] != 1 {
+			x--
+		} else {
+			return "You cannot move in that direction."
+		}
+	case "east":
+		if x < len(maze[0])-1 && maze[y][x+1] != 1 {
+			x++
+		} else {
+			return "You cannot move in that direction."
+		}
+	}
+	desc := describeLocation()
+	if maze[y][x] == 3 {
+		return "You have finished the maze!"
+	}
+	return desc
+}
 
 // Searches the mail app for emails whose subject field contains the search query, and returns a list of email subjects, one per line.
 // The search results contain the email subject, a separator, followed by the email ID. You can use MailRead with the email ID to retrieve more detailed information about that email.
@@ -63,6 +157,23 @@ func WebNavigate(args Arguments) string {
 	defer resp.Body.Close()
 
 	pageText, err := htmlToText(resp.Body)
+	if err != nil {
+		return err.Error()
+	}
+
+	return pageText
+}
+
+// Navigates to the given URL and returns the text content of the page.
+// - url (string): The URL to navigate to.
+func WebNavigateChrome(args Arguments) string {
+	url := args.String("url")
+
+	pageHtml := fetchPage(url)
+
+	pageHtmlReader := strings.NewReader(pageHtml)
+
+	pageText, err := htmlToText(pageHtmlReader)
 	if err != nil {
 		return err.Error()
 	}

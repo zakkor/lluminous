@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,6 +20,10 @@ import (
 	"github.com/zakkor/server/llm"
 	"github.com/zakkor/server/tools"
 )
+
+//go:embed dist-client/*
+//go:embed dist-client/**/*
+var staticFiles embed.FS
 
 var llamaPath = flag.String("llama", "", "Path to the llama.cpp directory. You only need this if you want to run local models using llama.cpp.")
 
@@ -41,6 +47,18 @@ func main() {
 			next.ServeHTTP(w, r)
 		})
 	})
+
+	// Serve client:
+	if embedStaticFiles {
+		staticFS, err := fs.Sub(staticFiles, "dist-client")
+		if err != nil {
+			panic(err)
+		}
+		fileServer := http.FileServer(http.FS(staticFS))
+		router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
+			fileServer.ServeHTTP(w, r)
+		})
+	}
 
 	// FIXME: Use a ping to check if the server is up
 	// router.Get("/models", func(w http.ResponseWriter, r *http.Request) {
@@ -160,6 +178,7 @@ func main() {
 		w.Write([]byte(result))
 	})
 
+	fmt.Println("Running at http://localhost:8081")
 	httpServer := &http.Server{Addr: ":8081", Handler: router}
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
