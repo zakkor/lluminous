@@ -45,7 +45,14 @@
 	import { providers } from './providers.js';
 	import ModelSelector from './ModelSelector.svelte';
 	import CompanyLogo from './CompanyLogo.svelte';
-	import { pick, controller, remoteServer } from './stores.js';
+	import {
+		pick,
+		controller,
+		remoteServer,
+		openaiAPIKey,
+		groqAPIKey,
+		openrouterAPIKey,
+	} from './stores.js';
 	import { writable } from 'svelte/store';
 	import SettingsModal from './SettingsModal.svelte';
 
@@ -63,6 +70,8 @@
 	let convo = writable({
 		model: {},
 		messages: [],
+		// Set initial conversation `shared` to true, to prevent the SettingsModal from popping up on first render.
+		shared: true,
 	});
 
 	$: isMultimodal =
@@ -663,6 +672,13 @@
 				{ exactly: ['gpt-4o'] },
 				{ fromProvider: 'OpenAI' },
 				{ exactly: ['openai/gpt-4o', 'openai/gpt-4-turbo', 'openai/gpt-3.5-turbo'] },
+				{
+					exactly: [
+						'anthropic/claude-3-opus',
+						'anthropic/claude-3-sonnet',
+						'anthropic/claude-3-haiku',
+					],
+				},
 				{ fromProvider: 'Groq', exactlyNot: ['llama2-70b-4096', 'gemma-7b-it'] },
 				{ exactly: ['meta-llama/llama-3-70b-instruct', 'meta-llama/llama-3-8b-instruct'] },
 				{
@@ -1563,7 +1579,11 @@
 	</div>
 </main>
 
-<SettingsModal trigger="settings" on:fetchModels={fetchModels} />
+<SettingsModal
+	open={!$convo.shared && $openaiAPIKey === '' && $groqAPIKey === '' && $openrouterAPIKey === ''}
+	trigger="settings"
+	on:fetchModels={fetchModels}
+/>
 
 <style lang="postcss">
 	:global(.standalone .section-input-bottom) {

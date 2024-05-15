@@ -11,6 +11,7 @@
 		faXmark,
 	} from '@fortawesome/free-solid-svg-icons';
 	import {
+		config,
 		groqAPIKey,
 		openaiAPIKey,
 		openrouterAPIKey,
@@ -21,7 +22,7 @@
 
 	const dispatch = createEventDispatcher();
 
-	export let open = $openaiAPIKey === '' && $groqAPIKey === '' && $openrouterAPIKey === '';
+	export let open = false;
 	export let trigger = '';
 
 	let activeTab =
@@ -136,6 +137,15 @@
 						sent to or stored on any remote server.
 					</p>
 				{:else if activeTab === 'tools'}
+					<label class="mb-2 flex items-center gap-x-3 text-sm tracking-[-0.25px] text-slate-800">
+						<input
+							type="checkbox"
+							bind:checked={$config.compactToolsView}
+							class="h-5 w-5 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
+						/>
+						Use compact view for tools:
+					</label>
+
 					<label class="flex flex-col text-[10px] uppercase tracking-wide">
 						<span class="mb-2 ml-[3px] flex items-center"
 							>Server address
@@ -167,7 +177,7 @@
 						/></label
 					>
 
-					<label class="mt-3 flex flex-col text-[10px] uppercase tracking-wide">
+					<label class="mt-1 flex flex-col text-[10px] uppercase tracking-wide">
 						<span class="mb-2 ml-[3px]">Tool schema</span>
 						<textarea
 							value={JSON.stringify($toolSchema)}
