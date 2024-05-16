@@ -21,8 +21,6 @@ import (
 	"github.com/zakkor/server/tools"
 )
 
-//go:embed dist-client/*
-//go:embed dist-client/**/*
 var staticFiles embed.FS
 
 var llamaPath = flag.String("llama", "", "Path to the llama.cpp directory. You only need this if you want to run local models using llama.cpp.")
