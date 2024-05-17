@@ -1,5 +1,10 @@
-//go:build !release
+//go:build release
 
 package main
 
-var embedStaticFiles = false
+import "embed"
+
+//go:embed dist-client/*
+//go:embed dist-client/**/*
+var staticFiles embed.FS
+var embedStaticFiles = true

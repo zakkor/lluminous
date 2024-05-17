@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -20,10 +19,6 @@ import (
 	"github.com/zakkor/server/llm"
 	"github.com/zakkor/server/tools"
 )
-
-//go:embed dist-client/*
-//go:embed dist-client/**/*
-var staticFiles embed.FS
 
 var llamaPath = flag.String("llama", "", "Path to the llama.cpp directory. You only need this if you want to run local models using llama.cpp.")
 
@@ -73,6 +68,7 @@ func main() {
 	// 	w.Write(data)
 	// })
 
+	// TODO: Add llama.cpp support back in
 	// FIXME: Getting the active llama model should not set the active model in client.
 	// router.Get("/model", func(w http.ResponseWriter, r *http.Request) {
 	// 	if activeLlama == nil {

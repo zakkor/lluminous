@@ -1,5 +1,8 @@
-//go:build release
+//go:build !release
 
 package main
 
-var embedStaticFiles = true
+import "io/fs"
+
+var staticFiles fs.FS = nil
+var embedStaticFiles = false
