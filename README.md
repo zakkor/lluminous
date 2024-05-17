@@ -37,27 +37,6 @@ If you don't want to use tools, you don't need to install anything. A hosted ins
 
 If you want to use tools, proceed below. 
 
-## Single binary:
-
-The server and client are available prebuilt as a single binary. [Download prebuilt packages from the releases page.](https://github.com/zakkor/lluminous/releases)
-
-Download the binary for your platform, then run it, which will start both the client and the server:
-
-```
-./lluminous-darwin-amd64
-Running at http://localhost:8081
-```
-
-Open the link in your browser and you're good to go!
-
-If you want to **build your own tools** and recompile into a single client+server binary, download `dist-client.tar.gz` from the releases page and unzip it into `server/dist-client`, then run:
-
-```
-go build -tags release
-```
-
-This will get you a new binary which contains the tools you just added, and works just like before.
-
 ### Separate installation of both client and server:
 
 1. Clone the repository
