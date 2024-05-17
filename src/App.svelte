@@ -208,7 +208,7 @@
 								id: tool_call.id,
 								name: tool_call.function.name,
 								arguments: '',
-								expanded: false,
+								expanded: true,
 							};
 						} else {
 							$convo.messages[i].toolcalls[index].arguments += tool_call.function.arguments;
@@ -310,7 +310,7 @@
 						id: toolcall.id,
 						name: toolcall.function.name,
 						arguments: JSON.parse(toolcall.function.arguments),
-						expanded: false,
+						expanded: true,
 					};
 
 					// Call the tool
