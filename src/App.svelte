@@ -52,9 +52,14 @@
 		openaiAPIKey,
 		groqAPIKey,
 		openrouterAPIKey,
+		config,
 	} from './stores.js';
 	import { writable } from 'svelte/store';
 	import SettingsModal from './SettingsModal.svelte';
+	import ToolcallButton from './ToolcallButton.svelte';
+	import MessageContent from './MessageContent.svelte';
+	import Toolcall from './Toolcall.svelte';
+	import Modal from './Modal.svelte';
 
 	marked.use(
 		markedKatex({
@@ -109,6 +114,8 @@
 
 	let historyOpen = false;
 	let knobsOpen = false;
+
+	let activeToolcall = null;
 
 	let scrollableEl = null;
 	let textareaEls = [];
@@ -670,7 +677,6 @@
 
 			const priorityOrder = [
 				{ exactly: ['gpt-4o'] },
-				{ fromProvider: 'OpenAI' },
 				{ exactly: ['openai/gpt-4o', 'openai/gpt-4-turbo', 'openai/gpt-3.5-turbo'] },
 				{
 					exactly: [
@@ -688,6 +694,7 @@
 					],
 				},
 				{ exactly: ['google/gemini-flash-1.5', 'google/gemini-pro-1.5'] },
+				{ fromProvider: 'OpenAI' },
 				{
 					startsWith: [
 						'anthropic/claude-2',
@@ -810,6 +817,68 @@
 
 		await fetchModels();
 	});
+
+	// For displaying compact tools, we need to collapse sequences of Assistant and Tool messages into a single message
+	// inside which we'll display all the tool calls.
+	// Returns a list of ranges of messages containing the start and end indices of messages that should be collapsed.
+	let collapsedRanges = [];
+	$: if ($config.compactToolsView) {
+		collapsedRanges = [];
+		let range = { starti: null, endi: null };
+		for (let i = $convo.messages.length - 1; i >= 0; i--) {
+			if (
+				$convo.messages[i].role === 'tool' ||
+				($convo.messages[i].role === 'assistant' &&
+					$convo.messages[i].toolcalls &&
+					i !== $convo.messages.length - 1)
+			) {
+				if (range.endi === null) {
+					range.endi = i + 1;
+				}
+			} else {
+				if (range.endi !== null) {
+					range.starti = i + 1;
+					// if (range.endi - range.starti === 1) {
+					// 	range = { starti: null, endi: null };
+					// 	continue;
+					// }
+					collapsedRanges.push(range);
+					collapsedRanges = collapsedRanges;
+					range = { starti: null, endi: null };
+				}
+			}
+		}
+	}
+
+	// Sequences of tool calls which are not interrupted by messages also containing text content will be displayed on the same line.
+	function collapsedToolcalls(collapsedRange, collapsedMessages, ci, message) {
+		if (ci < collapsedMessages.length - 1) {
+			// Don't show duplicated toolcalls if these toolcalls will
+			// be collapsed into a single line in a later message.
+			const nextMessage = collapsedMessages[ci + 1];
+			if (nextMessage.role === 'assistant' && nextMessage.toolcalls && !nextMessage.content) {
+				return [];
+			}
+		}
+
+		const i = $convo.messages.findIndex((m) => m.id === message.id);
+
+		// Starting from the message `i`, and going backwards, collect all `.toolcalls` until
+		// we are interrupted by a message that contains `.content`, or we reach `collapsedRange.starti`
+		const toolcalls = [];
+		for (let j = i; j >= collapsedRange.starti; j--) {
+			const msgIter = $convo.messages[j];
+			if (msgIter.role === 'assistant' && msgIter.toolcalls) {
+				toolcalls.push(msgIter.toolcalls);
+			}
+			if (msgIter.role === 'assistant' && msgIter.content) {
+				break;
+			}
+		}
+		return toolcalls.reverse().flat();
+	}
+
+	$: window.messages = $convo.messages;
 </script>
 
 <svelte:window
@@ -1001,7 +1070,7 @@
 						class="mb-3 flex w-full !list-none flex-col divide-y divide-slate-200/50 border-b border-slate-200/50"
 					>
 						{#each $convo.messages as message, i}
-							{#if ['system', 'user', 'assistant'].includes(message.role)}
+							{#if ['system', 'user', 'assistant'].includes(message.role) && (!$config.compactToolsView || !collapsedRanges.some((r) => i >= r.starti && i < r.endi))}
 								{@const hasLogo = hasCompanyLogo(message.model)}
 								<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
 								<li
@@ -1071,11 +1140,6 @@
 											{/if}
 										</button>
 
-										{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === '' && !message.toolcalls}
-											<div
-												class="mt-2 h-3 w-3 shrink-0 animate-pulse rounded-full bg-slate-700/50"
-											/>
-										{/if}
 										<!-- svelte-ignore a11y-no-static-element-interactions -->
 										{#if message.editing}
 											<textarea
@@ -1105,105 +1169,85 @@
 											/>
 										{:else}
 											<div class="flex w-full flex-col gap-6">
-												{#if message.error}
-													<span class="text-slate-600">{message.error}</span>
-												{:else if message.content}
-													<div
-														class="markdown prose prose-slate flex w-full max-w-none flex-col break-words prose-p:whitespace-pre-wrap prose-p:text-slate-800 prose-a:break-all prose-code:break-all prose-pre:my-0 prose-pre:whitespace-pre-wrap prose-pre:break-all prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white prose-pre:text-slate-800 prose-img:mb-2"
-													>
-														{#if message.contentParts}
-															{#each message.contentParts as part}
-																<img
-																	src={part.image_url.url}
-																	alt=""
-																	class="max-h-[400px] w-min rounded-lg"
-																/>
+												{#if $config.compactToolsView}
+													{@const collapsedRange = collapsedRanges.find((r) => i === r.endi)}
+													<!-- collapsedRange :{JSON.stringify(collapsedRange)} -->
+													{#if collapsedRange}
+														{@const collapsedMessages = $convo.messages
+															.slice(collapsedRange.starti, collapsedRange.endi)
+															.filter((m) => m.role === 'assistant')}
+														{#if collapsedMessages.length > 0}
+															{#each collapsedMessages as message, ci}
+																{@const toolcallsOnLine = collapsedToolcalls(
+																	collapsedRange,
+																	collapsedMessages,
+																	ci,
+																	message
+																)}
+
+																<MessageContent {message} />
+
+																{#if toolcallsOnLine?.length > 0}
+																	<div class="-mb-1 flex gap-x-3 [&:first-child]:mt-1">
+																		{#each toolcallsOnLine as toolcall, ti}
+																			{@const toolresponse = $convo.messages.find(
+																				(msg) => msg.tool_call_id === toolcall.id
+																			)}
+																			<ToolcallButton
+																				i={ti}
+																				{toolresponse}
+																				on:click={() => {
+																					activeToolcall = toolcall;
+																				}}
+																			/>
+																		{/each}
+																	</div>
+																{/if}
 															{/each}
 														{/if}
-														<Markdown source={message.content} />
+													{/if}
+												{/if}
+
+												{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === '' && !message.toolcalls}
+													<div
+														class="mt-2 h-3 w-3 shrink-0 animate-pulse rounded-full bg-slate-700/50"
+													/>
+												{/if}
+
+												<MessageContent {message} />
+
+												{#if message.toolcalls?.length > 0}
+													<div class="-mb-1 flex gap-x-3 [&:first-child]:mt-1">
+														{#each message.toolcalls as toolcall, ti}
+															{@const toolresponse = $convo.messages.find(
+																(msg) => msg.tool_call_id === toolcall.id
+															)}
+															<ToolcallButton
+																i={ti}
+																{toolresponse}
+																on:click={() => {
+																	activeToolcall = toolcall;
+																}}
+															/>
+														{/each}
 													</div>
 												{/if}
 
 												<!-- OAI toolcalls will always be at the end -->
-												{#if message.toolcalls}
+												{#if message.toolcalls && !$config.compactToolsView}
 													{#each message.toolcalls as toolcall, ti}
-														{@const toolResponse = $convo.messages.find(
+														{@const toolresponse = $convo.messages.find(
 															(msg) => msg.tool_call_id === toolcall.id
 														)}
-														{@const finished = toolcall.finished || toolResponse}
-														<div class="mb-1 flex w-full flex-col bg-white">
-															<button
-																class="{toolcall.expanded
-																	? ''
-																	: 'rounded-b-lg'} flex items-center gap-3 rounded-t-lg border border-slate-200 py-3 pl-4 pr-5 text-sm text-slate-700 transition-colors hover:bg-gray-50"
-																on:click={() => {
-																	$convo.messages[i].toolcalls[ti].expanded =
-																		!$convo.messages[i].toolcalls[ti].expanded;
-																}}
-															>
-																{#key finished}
-																	<span in:fade={{ duration: 300 }}>
-																		<Icon
-																			icon={finished ? faCheck : faCircleNotch}
-																			class="{finished
-																				? ''
-																				: 'animate-spin'} h-4 w-4 text-slate-700"
-																		/>
-																	</span>
-																{/key}
-																<span>
-																	{finished ? 'Used' : 'Using'} tool:
-																	<code class="ml-1 font-semibold">{toolcall.name}</code>
-																</span>
-																<Icon
-																	icon={faChevronDown}
-																	class="{toolcall.expanded
-																		? 'rotate-180'
-																		: ''} ml-auto h-3 w-3 text-slate-700 transition-transform"
-																/>
-															</button>
-															{#if toolcall.expanded}
-																<div transition:slide={{ duration: 300 }}>
-																	<div
-																		class="{toolResponse
-																			? 'border-b-0'
-																			: 'rounded-b-lg'} whitespace-pre-wrap break-all border border-t-0 border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-800"
-																	>
-																		{#if typeof toolcall.arguments === 'object'}
-																			{#if Object.keys(toolcall.arguments).length === 1}
-																				{toolcall.arguments[Object.keys(toolcall.arguments)[0]]}
-																			{:else}
-																				<JsonView json={toolcall.arguments} />
-																			{/if}
-																		{:else}
-																			{toolcall.arguments}
-																		{/if}
-																	</div>
-																	{#if toolResponse}
-																		<div
-																			class="h-px w-full border-t border-dashed border-slate-300"
-																		/>
-																		<div
-																			class="flex flex-col rounded-b-lg border border-t-0 border-slate-200"
-																		>
-																			<span
-																				class="px-4 pt-3 text-sm font-medium tracking-[0.01em] text-slate-700"
-																				>Result:</span
-																			>
-																			<div
-																				class="whitespace-pre-wrap break-all rounded-[inherit] bg-white px-4 py-3 font-mono text-sm text-slate-800"
-																			>
-																				{#if toolResponse.content}
-																					{toolResponse.content}
-																				{:else}
-																					<span class="italic">blank</span>
-																				{/if}
-																			</div>
-																		</div>
-																	{/if}
-																</div>
-															{/if}
-														</div>
+														<Toolcall
+															{toolcall}
+															{toolresponse}
+															class="mb-1"
+															on:click={() => {
+																$convo.messages[i].toolcalls[ti].expanded =
+																	!$convo.messages[i].toolcalls[ti].expanded;
+															}}
+														/>
 													{/each}
 												{/if}
 											</div>
@@ -1584,6 +1628,24 @@
 	trigger="settings"
 	on:fetchModels={fetchModels}
 />
+
+{#if $config.compactToolsView}
+	<Modal
+		trigger="toolcall"
+		class="!p-0"
+		buttonClass="!top-2 !right-2 !p-2"
+		on:close={() => {
+			activeToolcall = null;
+		}}
+	>
+		<Toolcall
+			toolcall={activeToolcall}
+			toolresponse={$convo.messages.find((msg) => msg.tool_call_id === activeToolcall.id)}
+			collapsable={false}
+			class="!rounded-xl"
+		/>
+	</Modal>
+{/if}
 
 <style lang="postcss">
 	:global(.standalone .section-input-bottom) {
