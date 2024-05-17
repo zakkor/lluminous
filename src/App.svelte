@@ -71,7 +71,7 @@
 		model: {},
 		messages: [],
 		// Set initial conversation `shared` to true, to prevent the SettingsModal from popping up on first render.
-		shared: true,
+		shared: false,
 	});
 
 	$: isMultimodal =
@@ -114,6 +114,8 @@
 	let textareaEls = [];
 	let inputTextareaEl;
 	let fileInputEl;
+
+	let settingsModalOpen = false;
 
 	function submitEdit(i) {
 		const message = $convo.messages[i];
@@ -807,6 +809,10 @@
 		initializePWAStyles();
 
 		await restoreConversation();
+
+		if (!$convo.shared && $openaiAPIKey === '' && $groqAPIKey === '' && $openrouterAPIKey === '') {
+			settingsModalOpen = true;
+		}
 
 		await fetchModels();
 	});
@@ -1579,11 +1585,7 @@
 	</div>
 </main>
 
-<SettingsModal
-	open={!$convo.shared && $openaiAPIKey === '' && $groqAPIKey === '' && $openrouterAPIKey === ''}
-	trigger="settings"
-	on:fetchModels={fetchModels}
-/>
+<SettingsModal open={settingsModalOpen} trigger="settings" on:fetchModels={fetchModels} />
 
 <style lang="postcss">
 	:global(.standalone .section-input-bottom) {
