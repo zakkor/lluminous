@@ -28,16 +28,37 @@ Coming soon:
 - File ingestion/embedding
 - Prompt templates
 
-### Hosted instance (no need to install anything):
-
-Available at: https://lluminous.chat
-
-Note: If you want to use tool calls, you *will* need to have the lluminous server running on your machine.
-
 ### Privacy:
 - Completely private and transparent. All your conversation history and keys are stored entirely locally, and kept only in your browser, on your device.
 
-### Installation:
+## How to install?
+
+If you don't want to use tools, you don't need to install anything. A hosted instance is available at: https://lluminous.chat
+
+If you want to use tools, proceed below. 
+
+## Single binary:
+
+The server and client are available prebuilt as a single binary. [Download prebuilt packages from the releases page.](https://github.com/zakkor/lluminous/releases)
+
+Download the binary for your platform, then run it, which will start both the client and the server:
+
+```
+./lluminous-darwin-amd64
+Running at http://localhost:8081
+```
+
+Open the link in your browser and you're good to go!
+
+If you want to **build your own tools** and recompile into a single client+server binary, download `dist-client.tar.gz` from the releases page and unzip it into `server/dist-client`, then run:
+
+```
+go build -tags release
+```
+
+This will get you a new binary which contains the tools you just added, and works just like before.
+
+### Separate installation of both client and server:
 
 1. Clone the repository
 2. Install and start the client: `npm i && npm run dev`. The client will be accessible at http://localhost:5173
