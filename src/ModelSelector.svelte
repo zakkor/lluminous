@@ -84,7 +84,7 @@
 				<Icon icon={faHammer} class="m-auto h-3 w-3 text-slate-700" />
 				{#if $tools.length > 0}
 					<span
-						class="absolute -bottom-1 -right-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-teal-300 text-[10px]"
+						class="absolute -bottom-1 -right-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-800 text-white text-[10px]"
 					>
 						{$tools.length}
 					</span>
