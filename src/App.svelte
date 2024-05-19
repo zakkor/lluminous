@@ -1195,6 +1195,7 @@
 																			)}
 																			<ToolcallButton
 																				i={ti}
+																				{toolcall}
 																				{toolresponse}
 																				on:click={() => {
 																					activeToolcall = toolcall;
@@ -1224,6 +1225,7 @@
 															)}
 															<ToolcallButton
 																i={ti}
+																{toolcall}
 																{toolresponse}
 																on:click={() => {
 																	activeToolcall = toolcall;
