@@ -211,7 +211,15 @@
 					}
 
 					for (const tool_call of choice.delta.tool_calls) {
-						const index = tool_call.index;
+						let index = tool_call.index;
+						// Watch out! Anthropic tool call indices are 1-based, not 0-based, when message.content is involved.
+						if (
+							($convo.model.provider === 'Anthropic' || $convo.model.id.startsWith('anthropic/')) &&
+							$convo.messages[i].content
+						) {
+							index--;
+						}
+
 						if (!$convo.messages[i].toolcalls[index]) {
 							$convo.messages[i].toolcalls[index] = {
 								id: tool_call.id,
@@ -1223,7 +1231,7 @@
 
 												<MessageContent {message} />
 
-												{#if message.toolcalls?.length > 0}
+												{#if $config.compactToolsView && message.toolcalls?.length > 0}
 													<div class="-mb-1 flex gap-x-3 [&:first-child]:mt-1">
 														{#each message.toolcalls as toolcall, ti}
 															{@const toolresponse = $convo.messages.find(
