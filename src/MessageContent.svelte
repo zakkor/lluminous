@@ -21,4 +21,10 @@
 		{/if}
 		<Markdown source={message.content} />
 	</div>
+{:else if message.generatedImageUrl}
+	<img
+		src={message.generatedImageUrl}
+		alt=""
+		class="max-h-[550px] w-min rounded-lg object-contain"
+	/>
 {/if}

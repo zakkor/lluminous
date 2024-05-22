@@ -4,6 +4,7 @@ import { providers } from './providers.js';
 
 // OpenAI doesn't provide any metadata for their models, so we have to harddcode which ones are multimodal
 export const additionalModelsMultimodal = ['gpt-4o', 'gpt-4-turbo', 'gpt-4-turbo-2024-04-09'];
+export const imageGenerationModels = ['dall-e-3'];
 
 export function hasCompanyLogo(model) {
 	return (
@@ -29,15 +30,7 @@ export function formatModelName(model) {
 	const disambiguate = get(openaiAPIKey).length > 0 && get(openrouterAPIKey).length > 0;
 
 	if (model.provider === 'OpenAI') {
-		name = name
-			.split('-')
-			.map((word) => {
-				if (word.startsWith('gpt')) {
-					return word.toUpperCase();
-				}
-				return word.charAt(0).toUpperCase() + word.slice(1);
-			})
-			.join(' ');
+		name = name.replace('gpt', 'GPT').replace('dall-e-3', 'DALL-E 3');
 	}
 
 	if (model.provider === 'Groq') {
@@ -295,4 +288,28 @@ export function readFileAsDataURL(file) {
 		reader.onerror = () => reject(reader.error);
 		reader.readAsDataURL(file);
 	});
+}
+
+export async function generateImage(convo, { oncomplete }) {
+	const provider = providers.find((p) => p.name === convo.model.provider);
+	const userMessages = convo.messages.filter((msg) => msg.role === 'user');
+	const lastMessage = userMessages[userMessages.length - 1];
+
+	const resp = await fetch(`${provider.url}/v1/images/generations`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${provider.apiKeyFn()}`,
+			'HTTP-Referer': 'https://lluminous.chat',
+			'X-Title': 'lluminous',
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({
+			model: convo.model.id,
+			prompt: lastMessage.content,
+			n: 1,
+			size: '1024x1024',
+		}),
+	});
+	const json = await resp.json();
+	oncomplete(json);
 }

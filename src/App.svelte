@@ -8,6 +8,8 @@
 		hasCompanyLogo,
 		additionalModelsMultimodal,
 		readFileAsDataURL,
+		imageGenerationModels,
+		generateImage,
 	} from './convo.js';
 	import KnobsSidebar from './KnobsSidebar.svelte';
 	import Button from './Button.svelte';
@@ -181,6 +183,16 @@
 		scrollableEl.scrollTop = scrollableEl.scrollHeight;
 
 		const i = $convo.messages.length - 1;
+
+		if ($convo.model.modality === 'image-generation') {
+			await generateImage($convo, {
+				oncomplete: (resp) => {
+					$convo.messages[i].generatedImageUrl = resp.data[0].url;
+					generating = false;
+				},
+			});
+			return;
+		}
 
 		const onupdate = async (chunk) => {
 			if (chunk.error) {
@@ -657,7 +669,9 @@
 							id: m.id,
 							name: m.name || m.id,
 							provider: provider.name,
-							modality: m.architecture?.modality,
+							modality:
+								m.architecture?.modality ||
+								(imageGenerationModels.includes(m.id) ? 'image-generation' : undefined),
 						}));
 						return externalModels;
 					})
@@ -668,7 +682,6 @@
 			});
 
 			const ignoreIds = [
-				'dall-e-3',
 				'dall-e-2',
 				'whisper-1',
 				'davinci-002',
@@ -688,6 +701,7 @@
 			const priorityOrder = [
 				{ exactly: ['gpt-4o'] },
 				{ exactly: ['openai/gpt-4o', 'openai/gpt-4-turbo', 'openai/gpt-3.5-turbo'] },
+				{ exactly: ['dall-e-3'] },
 				{
 					exactly: [
 						'anthropic/claude-3-opus',
@@ -1225,7 +1239,7 @@
 
 												{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === '' && !message.toolcalls}
 													<div
-														class="mt-2 h-3 w-3 shrink-0 animate-pulse rounded-full bg-slate-700/50"
+														class="mt-2 h-3 w-3 shrink-0 animate-bounce rounded-full bg-slate-700"
 													/>
 												{/if}
 

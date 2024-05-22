@@ -1,5 +1,9 @@
 <script>
-	import { faChevronDown, faHammer } from '@fortawesome/free-solid-svg-icons';
+	import {
+		faChevronDown,
+		faHammer,
+		faImage,
+	} from '@fortawesome/free-solid-svg-icons';
 	import Icon from './Icon.svelte';
 	import { toolSchema, tools } from './stores.js';
 	import { tick } from 'svelte';
@@ -61,8 +65,11 @@
 			}}
 		>
 			<CompanyLogo model={$convo.model} />
-			<p class="line-clamp-1 text-xs text-slate-800">
+			<p class="line-clamp-1 flex items-center gap-x-1.5 text-xs text-slate-800">
 				{formatModelName($convo.model)}
+				{#if $convo.model.modality === 'image-generation'}
+					<Icon icon={faImage} class="mt-px h-3 text-slate-800" />
+				{/if}
 			</p>
 			<Icon
 				icon={faChevronDown}
@@ -84,7 +91,7 @@
 				<Icon icon={faHammer} class="m-auto h-3 w-3 text-slate-700" />
 				{#if $tools.length > 0}
 					<span
-						class="absolute -bottom-1 -right-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-800 text-white text-[10px]"
+						class="absolute -bottom-1 -right-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[10px] text-white"
 					>
 						{$tools.length}
 					</span>
@@ -161,6 +168,9 @@
 							>
 								<CompanyLogo {model} />
 								{formatModelName(model)}
+								{#if model.modality === 'image-generation'}
+									<Icon icon={faImage} class="mt-px h-3 text-slate-800" />
+								{/if}
 							</button>
 						</li>
 					{:else}
