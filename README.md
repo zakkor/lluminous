@@ -13,9 +13,10 @@
     - Groq
     - Anthropic (coming soon)
 
-- Tool use. Works with both OpenAI models as well as Groq models that support it. Parallel tool calls are supported.
+- Tool use. Works with OpenAI, Anthropic, and Groq models. Parallel tool calls are supported.
     - Check out `server/tools/tools.go`. You only need to write functions. The function comment is the description the model receives, so it knows what to use. Click the `Sync` button in the web UI to refresh your tools.
 - Multimodal input: upload, paste, or share links to images
+- Image generation using DALL-E 3
 - Multi-shot prompting. Also edit, delete, regenerate messages, whatever. The world is your oyster
 - Pre-filled responses (where supported by provider)
 - Support for all available models across all providers
@@ -24,8 +25,9 @@
 - Branching conversation history (like the left-right ChatGPT arrows that you can click to go back to a previous response)
 
 Coming soon:
-- Memory
+- Memory tool
 - File ingestion/embedding
+- Embeddings-based web search (a-la Perplexity)
 - Prompt templates
 
 ### Privacy:
