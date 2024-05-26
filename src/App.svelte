@@ -1,6 +1,6 @@
 <script>
 	import { onMount, tick } from 'svelte';
-	import { slide, fade } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import {
 		complete,
 		conversationToString,
@@ -20,10 +20,8 @@
 		faBarsStaggered,
 		faCheck,
 		faCheckDouble,
-		faChevronDown,
 		faChevronLeft,
 		faChevronRight,
-		faCircleNotch,
 		faEllipsis,
 		faGear,
 		faPaperclip,
@@ -37,8 +35,6 @@
 	import { faLightbulb, faTrashCan } from '@fortawesome/free-regular-svg-icons';
 	import { marked } from 'marked';
 	import markedKatex from './marked-katex-extension';
-	import Markdown from './svelte-marked/markdown/Markdown.svelte';
-	import JsonView from './svelte-json-view/JsonView.svelte';
 
 	import Icon from './Icon.svelte';
 	import { persisted } from './indexeddb.js';
