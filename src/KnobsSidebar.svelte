@@ -29,14 +29,14 @@
 	</label>
 
 	<!-- FIXME: -->
-	<!-- {#if $convo.local}
+	<!-- {#if convo.local}
 		<select
 			class="{autodetectedFormat
 				? 'border-green-300/80 bg-green-50/75'
 				: 'border-red-300 bg-red-50/75'} rounded-lg text-sm"
-			value={$convo.tmpl}
+			value={convo.tmpl}
 			on:change={(event) => {
-				$convo.tmpl = event.target.value;
+				convo.tmpl = event.target.value;
 			}}
 		>
 			<option value={null} disabled>Select a prompt format</option>

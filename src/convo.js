@@ -24,6 +24,10 @@ export function hasCompanyLogo(model) {
 }
 
 export function formatModelName(model) {
+	if (model.id === null) {
+		return model.name;
+	}
+
 	let name = model.name;
 
 	// If providers clash, disambiguate provider name

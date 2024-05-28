@@ -1,6 +1,7 @@
 <script>
+	import { v4 as uuidv4 } from 'uuid';
 	import { onMount, tick } from 'svelte';
-	import { slide, fade } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import {
 		complete,
 		conversationToString,
@@ -20,10 +21,8 @@
 		faBarsStaggered,
 		faCheck,
 		faCheckDouble,
-		faChevronDown,
 		faChevronLeft,
 		faChevronRight,
-		faCircleNotch,
 		faEllipsis,
 		faGear,
 		faPaperclip,
@@ -37,18 +36,15 @@
 	import { faLightbulb, faTrashCan } from '@fortawesome/free-regular-svg-icons';
 	import { marked } from 'marked';
 	import markedKatex from './marked-katex-extension';
-	import Markdown from './svelte-marked/markdown/Markdown.svelte';
-	import JsonView from './svelte-json-view/JsonView.svelte';
 
 	import Icon from './Icon.svelte';
-	import { persisted } from './indexeddb.js';
+	import { persisted } from './localstorage.js';
 	import { getRelativeDate } from './date.js';
 	import { compressAndEncode, decodeAndDecompress } from './share.js';
 	import { providers } from './providers.js';
 	import ModelSelector from './ModelSelector.svelte';
 	import CompanyLogo from './CompanyLogo.svelte';
 	import {
-		pick,
 		controller,
 		remoteServer,
 		openaiAPIKey,
@@ -56,7 +52,6 @@
 		openrouterAPIKey,
 		config,
 	} from './stores.js';
-	import { writable } from 'svelte/store';
 	import SettingsModal from './SettingsModal.svelte';
 	import ToolcallButton from './ToolcallButton.svelte';
 	import MessageContent from './MessageContent.svelte';
@@ -69,30 +64,186 @@
 		})
 	);
 
+	const convoId = persisted('convoId');
+	let convos = {};
+
 	// Initialize history and convo with a blank slate while we wait for IndexedDB to start
-	let history = writable({
-		convoId: null,
-		entries: {},
-	});
-	let convo = writable({
-		model: {},
+	const defaultConvo = {
+		id: uuidv4(),
+		time: Date.now(),
+		model: { id: null, name: 'Select a model', provider: null },
 		messages: [],
-		// Set initial conversation `shared` to true, to prevent the SettingsModal from popping up on first render.
-		shared: false,
-	});
+		versions: {},
+	};
+	let convo = defaultConvo;
+
+	let db;
+	const request = indexedDB.open('lluminous', 2);
+	request.onupgradeneeded = (event) => {
+		const db = event.target.result;
+		if (!db.objectStoreNames.contains('messages')) {
+			db.createObjectStore('messages', { keyPath: 'id' });
+		}
+		if (!db.objectStoreNames.contains('conversations')) {
+			db.createObjectStore('conversations', { keyPath: 'id' });
+		}
+	};
+	request.onsuccess = async (event) => {
+		db = event.target.result;
+		await fetchAllConversations();
+		if (!$convoId) {
+			newConversation();
+		} else {
+			const initConvo = convos[$convoId];
+			if (!initConvo) {
+				newConversation();
+			} else {
+				convo = convos[$convoId];
+			}
+		}
+	};
+	request.onerror = (event) => {
+		console.error(event.target.error);
+	};
+
+	async function fetchAllConversations() {
+		const transaction = db.transaction(['conversations', 'messages'], 'readonly');
+		const conversationsStore = transaction.objectStore('conversations');
+		const messagesStore = transaction.objectStore('messages');
+
+		const fetchConversations = new Promise((resolve, reject) => {
+			const conversationsRequest = conversationsStore.getAll();
+			conversationsRequest.onsuccess = (event) => {
+				const conversations = event.target.result;
+				const convosData = {};
+				conversations.forEach((conversation) => {
+					convosData[conversation.id] = conversation;
+				});
+				resolve(convosData);
+			};
+			conversationsRequest.onerror = (event) => {
+				reject(event.target.error);
+			};
+		});
+
+		const fetchMessages = (convosData) => {
+			return new Promise((resolve, reject) => {
+				const messagesRequest = messagesStore.getAll();
+				messagesRequest.onsuccess = (event) => {
+					const messages = event.target.result;
+					messages.forEach((message) => {
+						for (let cid in convosData) {
+							const index = convosData[cid].messages.indexOf(message.id);
+							if (index !== -1) {
+								// Replace the message ID with the actual message object
+								convosData[cid].messages[index] = message;
+							}
+							// Handle versions
+							for (let versionKey in convosData[cid].versions) {
+								const versionIndex = convosData[cid].versions[versionKey].indexOf(message.id);
+								if (versionIndex !== -1) {
+									// Replace the message ID with the actual message object
+									convosData[cid].versions[versionKey][versionIndex] = message;
+								}
+							}
+						}
+					});
+					resolve(convosData);
+				};
+				messagesRequest.onerror = (event) => {
+					reject(event.target.error);
+				};
+			});
+		};
+
+		try {
+			const convosData = await fetchConversations;
+			const updatedConvos = await fetchMessages(convosData);
+			convos = updatedConvos;
+		} catch (error) {
+			console.error('Error fetching history:', error);
+		}
+	}
+
+	function debounce(func, wait) {
+		const timers = new Map();
+
+		return function (...args) {
+			const id = args[0].id; // Assuming the first argument has an `id` property
+
+			if (timers.has(id)) {
+				clearTimeout(timers.get(id));
+			}
+
+			const timer = setTimeout(() => {
+				func.apply(this, args);
+				timers.delete(id);
+			}, wait);
+
+			timers.set(id, timer);
+		};
+	}
+
+	const saveConversation = debounce((convo) => {
+		const transaction = db.transaction(['conversations'], 'readwrite');
+		const store = transaction.objectStore('conversations');
+		store.put({
+			...convo,
+			messages: convo.messages.map((msg) => msg.id),
+			versions: Object.fromEntries(
+				Object.entries(convo.versions).map(([key, value]) => [
+					key,
+					value.map((messages) => {
+						if (!messages) {
+							return null;
+						}
+						return messages.map((msg) => {
+							return msg.id;
+						});
+					}),
+				])
+			),
+		});
+
+		transaction.onerror = () => {
+			console.error('Conversation save failed', transaction.error);
+		};
+	}, 100);
+
+	function deleteConversation(convo) {
+		const transaction = db.transaction(['conversations'], 'readwrite');
+		const store = transaction.objectStore('conversations');
+
+		store.delete(convo.id);
+
+		transaction.onerror = () => {
+			console.error('Conversation delete failed', transaction.error);
+		};
+	}
+
+	const saveMessage = debounce((msg) => {
+		const transaction = db.transaction(['messages'], 'readwrite');
+		const store = transaction.objectStore('messages');
+
+		store.put(msg);
+
+		transaction.onerror = () => {
+			console.error('Message save failed', transaction.error);
+		};
+	}, 100);
 
 	$: isMultimodal =
-		$convo.model.modality === 'multimodal' || additionalModelsMultimodal.includes($convo.model.id);
+		convo.model.modality === 'multimodal' || additionalModelsMultimodal.includes(convo.model.id);
 
 	let historyBuckets = [];
 	$: {
 		historyBuckets = [];
-		for (const entry of Object.values($history.entries).sort((a, b) => b.id - a.id)) {
-			if (entry.shared || isNaN(new Date(entry.id).getTime())) {
+		for (const entry of Object.values(convos).sort((a, b) => b.time - a.time)) {
+			if (entry.shared || isNaN(new Date(entry.time).getTime())) {
 				continue;
 			}
 
-			const bucketKey = getRelativeDate(entry.id);
+			const bucketKey = getRelativeDate(entry.time);
 
 			const existingBucket = historyBuckets.find((bucket) => bucket.relativeDate === bucketKey);
 			if (!existingBucket) {
@@ -101,7 +252,7 @@
 				existingBucket.convos.push(entry);
 			}
 		}
-		historyBuckets.sort((a, b) => b.convos[0].id - a.convos[0].id);
+		historyBuckets.sort((a, b) => b.convos[0].time - a.convos[0].time);
 	}
 
 	let content = '';
@@ -127,25 +278,30 @@
 	let settingsModalOpen = false;
 
 	function submitEdit(i) {
-		const message = $convo.messages[i];
+		const message = convo.messages[i];
 		if (message.submitted || message.generated) {
 			saveVersion(message, i);
 		}
 
-		$convo.messages = $convo.messages.slice(0, i + 1);
+		convo.messages = convo.messages.slice(0, i + 1);
+		saveConversation(convo);
+		// FIXME: Should delete message
 
 		submitCompletion();
 	}
 
 	async function submitCompletion(insertUnclosed = true) {
-		if (!$convo.model.provider) {
-			$convo.messages.push({
-				id: Date.now(),
+		if (!convo.model.provider) {
+			const msg = {
+				id: uuidv4(),
 				role: 'assistant',
 				error: 'No model selected. Please add at least one API key and select a model to begin.',
 				content: '',
-			});
-			$convo.messages = $convo.messages;
+			};
+			saveMessage(msg);
+			convo.messages.push(msg);
+			convo.messages = convo.messages;
+			saveConversation(convo);
 			return;
 		}
 
@@ -155,40 +311,47 @@
 
 		generating = true;
 
-		if ($convo.model.provider === 'Local') {
-			totalTokens = await tokenizeCount(conversationToString($convo));
+		if (convo.model.provider === 'Local') {
+			totalTokens = await tokenizeCount(conversationToString(convo));
 		}
 
 		if (insertUnclosed) {
-			$convo.messages.push({
-				id: Date.now(),
+			const msg = {
+				id: uuidv4(),
 				role: 'assistant',
 				content: '',
 				unclosed: true,
 				generated: true,
-				model: $convo.model,
-			});
-			$convo.messages = $convo.messages;
+				model: convo.model,
+			};
+			convo.messages.push(msg);
+			convo.messages = convo.messages;
+
+			saveMessage(msg);
+			saveConversation(convo);
 		}
 
-		for (let i = 0; i < $convo.messages.length; i++) {
-			if ($convo.messages[i].editing) {
-				$convo.messages[i].content = $convo.messages[i].pendingContent;
+		for (let i = 0; i < convo.messages.length; i++) {
+			if (convo.messages[i].editing) {
+				convo.messages[i].content = convo.messages[i].pendingContent;
 			}
-			$convo.messages[i].pendingContent = '';
-			$convo.messages[i].editing = false;
-			$convo.messages[i].submitted = true;
+			convo.messages[i].pendingContent = '';
+			convo.messages[i].editing = false;
+			convo.messages[i].submitted = true;
+
+			saveMessage(convo.messages[i]);
 		}
 		await tick();
 		scrollableEl.scrollTop = scrollableEl.scrollHeight;
 
-		const i = $convo.messages.length - 1;
+		const i = convo.messages.length - 1;
 
-		if ($convo.model.modality === 'image-generation') {
-			await generateImage($convo, {
+		if (convo.model.modality === 'image-generation') {
+			await generateImage(convo, {
 				oncomplete: (resp) => {
-					$convo.messages[i].generatedImageUrl = resp.data[0].url;
+					convo.messages[i].generatedImageUrl = resp.data[0].url;
 					generating = false;
+					saveMessage(convo.messages[i]);
 				},
 			});
 			return;
@@ -196,52 +359,58 @@
 
 		const onupdate = async (chunk) => {
 			if (chunk.error) {
-				$convo.messages[i].error = chunk.error.message || chunk.error;
+				convo.messages[i].error = chunk.error.message || chunk.error;
 				generating = false;
+				saveMessage(convo.messages[i]);
 				return;
 			}
 
-			if ($convo.model.provider === 'Local') {
-				$convo.messages[i].content += chunk.content;
-				totalTokens = await tokenizeCount(conversationToString($convo));
+			if (convo.model.provider === 'Local') {
+				convo.messages[i].content += chunk.content;
+				totalTokens = await tokenizeCount(conversationToString(convo));
+				saveMessage(convo.messages[i]);
 			} else {
 				if (chunk.choices.length === 0) {
-					$convo.messages[i].error = 'Refused to respond';
+					convo.messages[i].error = 'Refused to respond';
 					generating = false;
+					saveMessage(convo.messages[i]);
 					return;
 				}
 
 				const choice = chunk.choices[0];
 
 				if (choice.delta.content) {
-					$convo.messages[i].content += choice.delta.content;
+					convo.messages[i].content += choice.delta.content;
+					saveMessage(convo.messages[i]);
 				}
 
 				if (choice.delta.tool_calls) {
-					if (!$convo.messages[i].toolcalls) {
-						$convo.messages[i].toolcalls = [];
+					if (!convo.messages[i].toolcalls) {
+						convo.messages[i].toolcalls = [];
+						saveMessage(convo.messages[i]);
 					}
 
 					for (const tool_call of choice.delta.tool_calls) {
 						let index = tool_call.index;
 						// Watch out! Anthropic tool call indices are 1-based, not 0-based, when message.content is involved.
 						if (
-							($convo.model.provider === 'Anthropic' || $convo.model.id.startsWith('anthropic/')) &&
-							$convo.messages[i].content
+							(convo.model.provider === 'Anthropic' || convo.model.id.startsWith('anthropic/')) &&
+							convo.messages[i].content
 						) {
 							index--;
 						}
 
-						if (!$convo.messages[i].toolcalls[index]) {
-							$convo.messages[i].toolcalls[index] = {
+						if (!convo.messages[i].toolcalls[index]) {
+							convo.messages[i].toolcalls[index] = {
 								id: tool_call.id,
 								name: tool_call.function.name,
 								arguments: '',
 								expanded: true,
 							};
 						} else {
-							$convo.messages[i].toolcalls[index].arguments += tool_call.function.arguments;
+							convo.messages[i].toolcalls[index].arguments += tool_call.function.arguments;
 						}
+						saveMessage(convo.messages[i]);
 					}
 				}
 			}
@@ -249,14 +418,14 @@
 			// Check for stoppage:
 			// For local models, `.stop` will be true.
 			// For external models, `.choices[0].finish_reason` will be 'stop'.
-			if ($convo.model.provider === 'Local' && chunk.stop) {
+			if (convo.model.provider === 'Local' && chunk.stop) {
 				generating = false;
 				return;
 			}
 
 			// External tool calls:
 			if (
-				$convo.model.provider !== 'Local' &&
+				convo.model.provider !== 'Local' &&
 				chunk.choices &&
 				(chunk.choices[0].finish_reason === 'stop' ||
 					chunk.choices[0].finish_reason === 'tool_calls')
@@ -264,11 +433,11 @@
 				generating = false;
 
 				// Toolcall arguments are now finalized, we can parse them:
-				if ($convo.messages[i].toolcalls) {
+				if (convo.messages[i].toolcalls) {
 					let toolPromises = [];
 
-					for (let ti = 0; ti < $convo.messages[i].toolcalls.length; ti++) {
-						const toolcall = $convo.messages[i].toolcalls[ti];
+					for (let ti = 0; ti < convo.messages[i].toolcalls.length; ti++) {
+						const toolcall = convo.messages[i].toolcalls[ti];
 
 						toolcall.arguments = JSON.parse(toolcall.arguments);
 
@@ -282,7 +451,8 @@
 						}).then((resp) => {
 							// Mark tool call as finished to we can display it nicely in the UI
 							// (still need to await all tool calls to deliver the final response).
-							$convo.messages[i].toolcalls[ti].finished = true;
+							convo.messages[i].toolcalls[ti].finished = true;
+							saveMessage(convo.messages[i]);
 
 							return resp.text();
 						});
@@ -293,14 +463,17 @@
 					const toolResponses = await Promise.all(toolPromises);
 
 					for (let ti = 0; ti < toolResponses.length; ti++) {
-						$convo.messages.push({
-							id: Date.now(),
+						const msg = {
+							id: uuidv4(),
 							role: 'tool',
-							tool_call_id: $convo.messages[i].toolcalls[ti].id,
-							name: $convo.messages[i].toolcalls[ti].name,
+							tool_call_id: convo.messages[i].toolcalls[ti].id,
+							name: convo.messages[i].toolcalls[ti].name,
 							content: toolResponses[ti],
-						});
-						$convo.messages = $convo.messages;
+						};
+						convo.messages.push(msg);
+						convo.messages = convo.messages;
+						saveMessage(msg);
+						saveConversation(convo);
 					}
 
 					submitCompletion();
@@ -315,7 +488,7 @@
 		};
 
 		const ondirect = async (chatResp) => {
-			if ($convo.model.provider === 'Local') {
+			if (convo.model.provider === 'Local') {
 				// TODO:
 				return;
 			}
@@ -323,7 +496,8 @@
 			const choice = chatResp.choices[0];
 
 			if (choice.message.content) {
-				$convo.messages[i].content = choice.message.content;
+				convo.messages[i].content = choice.message.content;
+				saveMessage(convo.messages[i]);
 			}
 
 			let toolPromises = [];
@@ -331,16 +505,18 @@
 				for (let ti = 0; ti < choice.message.tool_calls.length; ti++) {
 					const toolcall = choice.message.tool_calls[ti];
 
-					if (!$convo.messages[i].toolcalls) {
-						$convo.messages[i].toolcalls = [];
+					if (!convo.messages[i].toolcalls) {
+						convo.messages[i].toolcalls = [];
 					}
 
-					$convo.messages[i].toolcalls[ti] = {
+					convo.messages[i].toolcalls[ti] = {
 						id: toolcall.id,
 						name: toolcall.function.name,
 						arguments: JSON.parse(toolcall.function.arguments),
 						expanded: true,
 					};
+
+					saveMessage(convo.messages[i]);
 
 					// Call the tool
 					const promise = fetch(`${$remoteServer.address}/tool`, {
@@ -349,13 +525,14 @@
 							Authorization: `Basic ${$remoteServer.password}`,
 						},
 						body: JSON.stringify({
-							name: $convo.messages[i].toolcalls[ti].name,
-							arguments: $convo.messages[i].toolcalls[ti].arguments,
+							name: convo.messages[i].toolcalls[ti].name,
+							arguments: convo.messages[i].toolcalls[ti].arguments,
 						}),
 					}).then((resp) => {
 						// Mark tool call as finished to we can display it nicely in the UI
 						// (still need to await all tool calls to deliver the final response).
-						$convo.messages[i].toolcalls[ti].finished = true;
+						convo.messages[i].toolcalls[ti].finished = true;
+						saveMessage(convo.messages[i]);
 
 						return resp.text();
 					});
@@ -367,14 +544,17 @@
 
 				for (let ti = 0; ti < toolResponses.length; ti++) {
 					const toolcall = choice.message.tool_calls[ti];
-					$convo.messages.push({
-						id: Date.now(),
+					const msg = {
+						id: uuidv4(),
 						role: 'tool',
 						tool_call_id: toolcall.id,
 						name: toolcall.function.name,
 						content: toolResponses[ti],
-					});
-					$convo.messages = $convo.messages;
+					};
+					convo.messages.push(msg);
+					convo.messages = convo.messages;
+					saveMessage(msg);
+					saveConversation(convo);
 				}
 
 				submitCompletion();
@@ -383,7 +563,7 @@
 			generating = false;
 		};
 
-		complete($convo, onupdate, onabort, ondirect);
+		complete(convo, onupdate, onabort, ondirect);
 	}
 
 	async function tokenizeCount(content) {
@@ -398,10 +578,14 @@
 	}
 
 	async function insertSystemPrompt() {
-		$convo.messages.unshift({ role: 'system', content: '', editing: true });
-		$convo.messages = $convo.messages;
+		const msg = { id: uuidv4(), role: 'system', content: '', editing: true };
+		convo.messages.unshift(msg);
+		convo.messages = convo.messages;
 		await tick();
 		textareaEls[0].focus();
+
+		saveMessage(msg);
+		saveConversation(convo);
 	}
 
 	function autoresizeTextarea() {
@@ -416,7 +600,7 @@
 	async function sendMessage() {
 		if (content.length > 0) {
 			const msg = {
-				id: Date.now(),
+				id: uuidv4(),
 				role: 'user',
 				content: content,
 				submitted: true,
@@ -434,10 +618,13 @@
 				msg.contentParts = [...imageUrls.map(imageUrlMapper)];
 			}
 
-			$convo.messages.push(msg);
-			$convo.messages = $convo.messages;
+			convo.messages.push(msg);
+			convo.messages = convo.messages;
 			await tick();
 			scrollableEl.scrollTop = scrollableEl.scrollHeight;
+
+			saveMessage(msg);
+			saveConversation(convo);
 
 			content = '';
 			imageUrls = [];
@@ -464,69 +651,76 @@
 	function newConversation() {
 		cleanShareLink();
 
-		if ($convo.messages.length === 0) {
-			historyOpen = false;
-			inputTextareaEl.focus();
-			return;
-		}
+		// if (convo.messages.length === 0) {
+		// 	historyOpen = false;
+		// 	inputTextareaEl.focus();
+		// 	return;
+		// }
 
-		const existingNewConvo = Object.values($history.entries).find(
-			(convo) => convo.messages.length === 0
-		);
+		const existingNewConvo = Object.values(convos).find((convo) => convo.messages.length === 0);
 		if (existingNewConvo) {
-			const oldModel = $convo.model;
-			$history.convoId = existingNewConvo.id;
-			convo = pick(history, (h) => h.entries[h.convoId]);
-			$convo.model = oldModel;
+			const oldModel = convo.model;
+			$convoId = existingNewConvo.id;
+			convo = convos[$convoId];
+			convo.model = oldModel;
+
 			historyOpen = false;
 			inputTextareaEl.focus();
 			return;
 		}
 
 		const convoData = {
-			id: Date.now(),
-			model: $convo.model || models.find((m) => m.id === 'meta-llama/llama-3-8b-instruct'),
+			id: uuidv4(),
+			time: Date.now(),
+			model: convo.model || models.find((m) => m.id === 'meta-llama/llama-3-8b-instruct'),
 			messages: [],
+			versions: {},
 		};
-		$history.convoId = convoData.id;
-		$history.entries[convoData.id] = convoData;
-		convo = pick(history, (h) => h.entries[h.convoId]);
+		$convoId = convoData.id;
+		convos[convoData.id] = convoData;
+		convo = convoData;
+
+		saveConversation(convo);
 
 		historyOpen = false;
-
-		inputTextareaEl.focus();
+		if (window.innerWidth > 880) {
+			inputTextareaEl.focus();
+		}
 	}
 
 	// Split history at this point:
 	function saveVersion(message, i) {
-		if (!$convo.versions) {
-			$convo.versions = {};
+		if (!convo.versions) {
+			convo.versions = {};
 		}
-		if (!$convo.versions[message.id]) {
-			$convo.versions[message.id] = [null];
+		if (!convo.versions[message.id]) {
+			convo.versions[message.id] = [null];
 		}
-		const nullIdx = $convo.versions[message.id].findIndex((v) => v === null);
-		$convo.versions[message.id][nullIdx] = structuredClone($convo.messages.slice(i)).map((m) => {
+		const nullIdx = convo.versions[message.id].findIndex((v) => v === null);
+		convo.versions[message.id][nullIdx] = structuredClone(convo.messages.slice(i)).map((m) => {
 			return {
 				...m,
 				editing: false,
 				pendingContent: '',
 			};
 		});
-		$convo.versions[message.id].push(null);
+		convo.versions[message.id].push(null);
+		saveConversation(convo);
 	}
 
 	function shiftVersion(dir, message, i) {
-		const activeVersionIndex = $convo.versions[message.id].findIndex((v) => v === null);
+		const activeVersionIndex = convo.versions[message.id].findIndex((v) => v === null);
 		const newVersionIndex = activeVersionIndex + dir;
 
-		$convo.versions[message.id][activeVersionIndex] = $convo.messages.slice(i);
+		convo.versions[message.id][activeVersionIndex] = convo.messages.slice(i);
 
-		const newMessages = $convo.versions[message.id][newVersionIndex];
+		const newMessages = convo.versions[message.id][newVersionIndex];
 
-		$convo.messages = $convo.messages.slice(0, i).concat(newMessages);
+		convo.messages = convo.messages.slice(0, i).concat(newMessages);
 
-		$convo.versions[message.id][newVersionIndex] = null;
+		convo.versions[message.id][newVersionIndex] = null;
+
+		saveConversation(convo);
 	}
 
 	function closeSidebars(event) {
@@ -549,8 +743,8 @@
 	async function shareConversation() {
 		const sharePromise = new Promise(async (resolve) => {
 			const encoded = await compressAndEncode({
-				model: $convo.model,
-				messages: $convo.messages,
+				model: convo.model,
+				messages: convo.messages,
 			});
 			const share = `${window.location.protocol}//${window.location.host}/?s=${encoded}`;
 			if (share.length > 200) {
@@ -599,20 +793,23 @@
 				if (Array.isArray(decoded)) {
 					decoded = { name: 'Shared conversation', messages: decoded };
 				}
-				let id = Date.now();
-				const existingShared = Object.values($history.entries).find((convo) => convo.shared);
+				let id = uuidv4();
+				const existingShared = Object.values(convos).find((convo) => convo.shared);
 				if (existingShared) {
 					id = existingShared.id;
 				}
 				const convoData = {
 					id,
+					time: Date.now(),
 					shared: true,
 					model: decoded.model,
 					messages: decoded.messages,
+					versions: {},
 				};
-				$history.convoId = convoData.id;
-				$history.entries[convoData.id] = convoData;
-				convo = pick(history, (h) => h.entries[h.convoId]);
+				$convoId = convoData.id;
+				convos[convoData.id] = convoData;
+				convo = convoData;
+				// FIXME: Do we need to save shared convo?
 			})
 			.catch((err) => {
 				console.error('Error decoding shared conversation:', err);
@@ -640,11 +837,8 @@
 			loading = false;
 		}
 
-		setModel(newModel);
-	}
-
-	function setModel(newModel) {
-		$convo.model = newModel;
+		convo.model = newModel;
+		saveConversation(convo);
 	}
 
 	let models = [];
@@ -816,30 +1010,11 @@
 	}
 
 	onMount(async () => {
-		persisted('history', {
-			convoId: null,
-			entries: {},
-		}).then((store) => {
-			history = store;
-
-			if (!$history.convoId) {
-				const convoData = {
-					id: Date.now(),
-					model: { id: null, name: 'No model loaded', provider: null },
-					messages: [],
-				};
-				$history.convoId = convoData.id;
-				$history.entries[convoData.id] = convoData;
-			}
-
-			convo = pick(history, (h) => h.entries[h.convoId]);
-		});
-
 		initializePWAStyles();
 
 		await restoreConversation();
 
-		if (!$convo.shared && $openaiAPIKey === '' && $groqAPIKey === '' && $openrouterAPIKey === '') {
+		if (!convo.shared && $openaiAPIKey === '' && $groqAPIKey === '' && $openrouterAPIKey === '') {
 			settingsModalOpen = true;
 		}
 
@@ -853,12 +1028,12 @@
 	$: if ($config.compactToolsView) {
 		collapsedRanges = [];
 		let range = { starti: null, endi: null };
-		for (let i = $convo.messages.length - 1; i >= 0; i--) {
+		for (let i = convo.messages.length - 1; i >= 0; i--) {
 			if (
-				$convo.messages[i].role === 'tool' ||
-				($convo.messages[i].role === 'assistant' &&
-					$convo.messages[i].toolcalls &&
-					i !== $convo.messages.length - 1)
+				convo.messages[i].role === 'tool' ||
+				(convo.messages[i].role === 'assistant' &&
+					convo.messages[i].toolcalls &&
+					i !== convo.messages.length - 1)
 			) {
 				if (range.endi === null) {
 					range.endi = i + 1;
@@ -889,13 +1064,13 @@
 			}
 		}
 
-		const i = $convo.messages.findIndex((m) => m.id === message.id);
+		const i = convo.messages.findIndex((m) => m.id === message.id);
 
 		// Starting from the message `i`, and going backwards, collect all `.toolcalls` until
 		// we are interrupted by a message that contains `.content`, or we reach `collapsedRange.starti`
 		const toolcalls = [];
 		for (let j = i; j >= collapsedRange.starti; j--) {
-			const msgIter = $convo.messages[j];
+			const msgIter = convo.messages[j];
 			if (msgIter.role === 'assistant' && msgIter.toolcalls) {
 				toolcalls.push(msgIter.toolcalls);
 			}
@@ -905,8 +1080,6 @@
 		}
 		return toolcalls.reverse().flat();
 	}
-
-	$: window.messages = $convo.messages;
 </script>
 
 <svelte:window
@@ -916,7 +1089,7 @@
 		if (
 			event.key === 'Escape' &&
 			generating &&
-			$convo.messages.filter((msg) => msg.generated).length > 0
+			convo.messages.filter((msg) => msg.generated).length > 0
 		) {
 			$controller.abort();
 		}
@@ -939,14 +1112,22 @@
 			<Icon icon={faBarsStaggered} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 
-		{#if !$convo.shared}
-			<ModelSelector {convo} {models} class="!absolute left-1/2 z-[99] -translate-x-1/2" />
-		{:else if $convo.model}
+		{#if !convo.shared}
+			<ModelSelector
+				{convo}
+				{models}
+				on:change={({ detail }) => {
+					convo.model = detail;
+					saveConversation(convo);
+				}}
+				class="!absolute left-1/2 z-[99] -translate-x-1/2"
+			/>
+		{:else if convo.model}
 			<p
 				class="!absolute left-1/2 line-clamp-1 flex -translate-x-1/2 items-center gap-x-2 whitespace-nowrap text-sm font-semibold"
 			>
-				<CompanyLogo model={$convo.model} size="w-4 h-4" />
-				{formatModelName($convo.model)}
+				<CompanyLogo model={convo.model} size="w-4 h-4" />
+				{formatModelName(convo.model)}
 			</p>
 		{/if}
 
@@ -983,11 +1164,11 @@
 			<ol
 				class="flex list-none flex-col overflow-y-auto pb-3 pr-3 pt-5 !scrollbar-white scrollbar-slim hover:!scrollbar-slim"
 			>
-				{#each historyBuckets as { relativeDate, convos } (relativeDate)}
+				{#each historyBuckets as { relativeDate, convos: historyConvos } (relativeDate)}
 					<li class="mb-2 ml-3 text-xs font-medium text-slate-600 [&:not(:first-child)]:mt-6">
 						{relativeDate}
 					</li>
-					{#each convos as convo (convo.id)}
+					{#each historyConvos as historyConvo (historyConvo.id)}
 						<li class="group relative">
 							<button
 								on:click={() => {
@@ -997,37 +1178,38 @@
 
 									historyOpen = false;
 
-									$history.convoId = convo.id;
-									convo = pick(history, (h) => h.entries[h.convoId]);
+									$convoId = historyConvo.id;
+									convo = convos[$convoId];
 
 									cleanShareLink();
 								}}
-								class="{$history.convoId === convo.id
+								class="{$convoId === historyConvo.id
 									? 'bg-gray-100'
 									: ''} leading-0 w-full rounded-lg px-3 py-2 text-left text-sm group-hover:bg-gray-100"
 							>
 								<span class="line-clamp-1">
-									{convo.messages.length === 0
+									{historyConvo.messages.length === 0
 										? 'New conversation'
-										: convo.messages[0].content.split(' ').slice(0, 5).join(' ')}
+										: historyConvo.messages[0].content.split(' ').slice(0, 5).join(' ')}
 								</span>
 							</button>
 							<button
 								on:click={() => {
-									if ($history.convoId === convo.id) {
-										const newId = Object.values($history.entries).find(
-											(e) => e.id !== convo.id && !e.shared
+									if ($convoId === historyConvo.id) {
+										const newId = Object.values(convos).find(
+											(e) => e.id !== historyConvo.id && !e.shared
 										)?.id;
 										if (!newId) {
 											newConversation();
 										} else {
-											$history.convoId = newId;
+											$convoId = newId;
 										}
 									}
-									delete $history.entries[convo.id];
-									$history.entries = $history.entries;
+									delete convos[historyConvo.id];
+									convos = convos;
+									deleteConversation(historyConvo);
 								}}
-								class="z-1 absolute right-0 top-0 flex h-full w-12 rounded-br-lg rounded-tr-lg bg-gradient-to-l {$history.convoId ===
+								class="z-1 absolute right-0 top-0 flex h-full w-12 rounded-br-lg rounded-tr-lg bg-gradient-to-l {$convoId ===
 								convo.id
 									? 'from-gray-100'
 									: 'from-white group-hover:from-gray-100'} from-65% to-transparent pr-3 transition-opacity sm:from-gray-100 sm:opacity-0 sm:group-hover:opacity-100"
@@ -1054,14 +1236,22 @@
 		</aside>
 		<div class="flex flex-1 flex-col">
 			<div class="relative hidden items-center border-b border-slate-200 px-2 py-1 md:flex">
-				{#if !$convo.shared}
-					<ModelSelector {convo} {models} class="!absolute left-1/2 z-[99] -translate-x-1/2" />
-				{:else if $convo.model}
+				{#if !convo.shared}
+					<ModelSelector
+						{convo}
+						{models}
+						on:change={({ detail }) => {
+							convo.model = detail;
+							saveConversation(convo);
+						}}
+						class="!absolute left-1/2 z-[99] -translate-x-1/2"
+					/>
+				{:else if convo.model}
 					<p
 						class="!absolute left-1/2 flex -translate-x-1/2 items-center gap-x-2 text-sm font-semibold"
 					>
-						<CompanyLogo model={$convo.model} size="w-4 h-4" />
-						{formatModelName($convo.model)}
+						<CompanyLogo model={convo.model} size="w-4 h-4" />
+						{formatModelName(convo.model)}
 					</p>
 				{/if}
 
@@ -1093,11 +1283,11 @@
 					}
 				}}
 			>
-				{#if $convo.messages.length > 0}
+				{#if convo.messages.length > 0}
 					<ul
 						class="mb-3 flex w-full !list-none flex-col divide-y divide-slate-200/50 border-b border-slate-200/50"
 					>
-						{#each $convo.messages as message, i}
+						{#each convo.messages as message, i}
 							{#if ['system', 'user', 'assistant'].includes(message.role) && (!$config.compactToolsView || !collapsedRanges.some((r) => i >= r.starti && i < r.endi))}
 								{@const hasLogo = hasCompanyLogo(message.model)}
 								<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
@@ -1111,7 +1301,7 @@
 										: message.role === 'assistant'
 											? 'bg-slate-50/30'
 											: ''} group relative px-5 pb-10 pt-6 ld:px-8"
-									style="z-index: {$convo.messages.length - i};"
+									style="z-index: {convo.messages.length - i};"
 									on:touchstart={(event) => {
 										// Make click trigger hover on mobile:
 										event.target.dispatchEvent(new MouseEvent('mouseenter'));
@@ -1201,7 +1391,7 @@
 													{@const collapsedRange = collapsedRanges.find((r) => i === r.endi)}
 													<!-- collapsedRange :{JSON.stringify(collapsedRange)} -->
 													{#if collapsedRange}
-														{@const collapsedMessages = $convo.messages
+														{@const collapsedMessages = convo.messages
 															.slice(collapsedRange.starti, collapsedRange.endi)
 															.filter((m) => m.role === 'assistant')}
 														{#if collapsedMessages.length > 0}
@@ -1218,7 +1408,7 @@
 																{#if toolcallsOnLine?.length > 0}
 																	<div class="-mb-1 flex gap-x-3 [&:first-child]:mt-1">
 																		{#each toolcallsOnLine as toolcall, ti}
-																			{@const toolresponse = $convo.messages.find(
+																			{@const toolresponse = convo.messages.find(
 																				(msg) => msg.tool_call_id === toolcall.id
 																			)}
 																			<ToolcallButton
@@ -1237,9 +1427,9 @@
 													{/if}
 												{/if}
 
-												{#if generating && message.role === 'assistant' && i === $convo.messages.length - 1 && message.content === '' && !message.toolcalls}
+												{#if generating && message.role === 'assistant' && i === convo.messages.length - 1 && message.content === '' && !message.toolcalls}
 													<div
-														class="mt-2 h-3 w-3 shrink-0 animate-bounce rounded-full bg-slate-700"
+														class="mt-2 h-3 w-3 shrink-0 animate-bounce rounded-full bg-slate-600"
 													/>
 												{/if}
 
@@ -1248,7 +1438,7 @@
 												{#if $config.compactToolsView && message.toolcalls?.length > 0}
 													<div class="-mb-1 flex gap-x-3 [&:first-child]:mt-1">
 														{#each message.toolcalls as toolcall, ti}
-															{@const toolresponse = $convo.messages.find(
+															{@const toolresponse = convo.messages.find(
 																(msg) => msg.tool_call_id === toolcall.id
 															)}
 															<ToolcallButton
@@ -1266,7 +1456,7 @@
 												<!-- OAI toolcalls will always be at the end -->
 												{#if message.toolcalls && !$config.compactToolsView}
 													{#each message.toolcalls as toolcall, ti}
-														{@const toolresponse = $convo.messages.find(
+														{@const toolresponse = convo.messages.find(
 															(msg) => msg.tool_call_id === toolcall.id
 														)}
 														<Toolcall
@@ -1274,8 +1464,9 @@
 															{toolresponse}
 															class="mb-1"
 															on:click={() => {
-																$convo.messages[i].toolcalls[ti].expanded =
-																	!$convo.messages[i].toolcalls[ti].expanded;
+																convo.messages[i].toolcalls[ti].expanded =
+																	!convo.messages[i].toolcalls[ti].expanded;
+																saveMessage(convo.messages[i]);
 															}}
 														/>
 													{/each}
@@ -1285,7 +1476,7 @@
 
 										{#if message.editing}
 											<div class="absolute -bottom-8 right-1 flex gap-x-1 md:right-0">
-												{#if $convo.messages.filter((msg) => msg.role !== 'system' && !msg.submitted).length >= 2 && i === $convo.messages.length - 1 && message.role !== 'assistant'}
+												{#if convo.messages.filter((msg) => msg.role !== 'system' && !msg.submitted).length >= 2 && i === convo.messages.length - 1 && message.role !== 'assistant'}
 													<button
 														class="flex items-center gap-x-1 rounded-full bg-green-100 px-3 py-2"
 														on:click={() => {
@@ -1302,9 +1493,10 @@
 														on:click={(event) => {
 															if (message.role === 'system') {
 																// If system message, accept the edit instead of submitting at point:
-																$convo.messages[i].content = message.pendingContent;
-																$convo.messages[i].pendingContent = '';
-																$convo.messages[i].editing = false;
+																convo.messages[i].content = message.pendingContent;
+																convo.messages[i].pendingContent = '';
+																convo.messages[i].editing = false;
+																saveMessage(convo.messages[i]);
 																return;
 															}
 															submitEdit(i);
@@ -1321,11 +1513,12 @@
 														</span>
 													</button>
 												{/if}
-												{#if message.role === 'assistant' && message.pendingContent && message.pendingContent !== message.content && message.content !== '...' && i === $convo.messages.length - 1}
+												{#if message.role === 'assistant' && message.pendingContent && message.pendingContent !== message.content && message.content !== '...' && i === convo.messages.length - 1}
 													<button
 														class="flex items-center gap-x-1.5 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
 														on:click={async () => {
-															$convo.messages[i].unclosed = true;
+															convo.messages[i].unclosed = true;
+															saveMessage(convo.messages[i]);
 															submitCompletion(false);
 														}}
 													>
@@ -1336,8 +1529,9 @@
 												<button
 													class="flex items-center gap-x-1 rounded-full bg-gray-50 px-3 py-2 hover:bg-gray-100"
 													on:click={() => {
-														$convo.messages[i].editing = false;
-														$convo.messages[i].pendingContent = '';
+														convo.messages[i].editing = false;
+														convo.messages[i].pendingContent = '';
+														saveMessage(convo.messages[i]);
 													}}
 												>
 													<Icon icon={faXmark} class="h-3.5 w-3.5 text-slate-600" />
@@ -1349,8 +1543,8 @@
 											<div
 												class="absolute bottom-[-32px] left-11 flex items-center gap-x-4 md:bottom-[-28px] md:left-14"
 											>
-												{#if message.role === 'user' && $convo.versions?.[message.id]}
-													{@const versions = $convo.versions[message.id]}
+												{#if message.role === 'user' && convo.versions?.[message.id]}
+													{@const versions = convo.versions[message.id]}
 													{@const versionIndex = versions.findIndex((v) => v === null)}
 													<div class="flex items-center md:gap-x-1">
 														<button
@@ -1383,7 +1577,7 @@
 													</div>
 												{/if}
 
-												{#if (message.role === 'assistant' && i > 2 && $convo.messages[i - 2].role === 'assistant' && message.model && $convo.messages[i - 2].model && $convo.messages[i - 2].model.id !== message.model.id) || (message.role === 'assistant' && (i === 1 || i === 2) && message.model && $convo.model.id !== message.model.id)}
+												{#if (message.role === 'assistant' && i > 2 && convo.messages[i - 2].role === 'assistant' && message.model && convo.messages[i - 2].model && convo.messages[i - 2].model.id !== message.model.id) || (message.role === 'assistant' && (i === 1 || i === 2) && message.model && convo.model.id !== message.model.id)}
 													<p class="text-[10px]">{formatModelName(message.model)}</p>
 												{/if}
 											</div>
@@ -1394,12 +1588,13 @@
 												<button
 													class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
 													on:click={async () => {
-														$convo.messages[i].editing = true;
-														$convo.messages[i].pendingContent = $convo.messages[i].content;
+														convo.messages[i].editing = true;
+														convo.messages[i].pendingContent = convo.messages[i].content;
 														await tick();
 														textareaEls[i].style.height = 'auto';
 														textareaEls[i].style.height = textareaEls[i].scrollHeight + 'px';
 														textareaEls[i].focus();
+														saveMessage(convo.messages[i]);
 													}}
 												>
 													<Icon icon={faPen} class="m-auto h-[11px] w-[11px] text-slate-600" />
@@ -1412,17 +1607,20 @@
 																saveVersion(message, i);
 
 																// If user message, remove all messages after this one, then regenerate:
-																$convo.messages = $convo.messages.slice(0, i + 1);
+																convo.messages = convo.messages.slice(0, i + 1);
+																// FIXME: Delete messages from db
 																submitCompletion();
 															} else {
 																// History is split on the user message, so get the message before this (which will be the user's):
-																const previousUserMessage = $convo.messages[i - 1];
+																const previousUserMessage = convo.messages[i - 1];
 																saveVersion(previousUserMessage, i - 1);
 
 																// If assistant message, remove all messages after this one, including this one, then regenerate:
-																$convo.messages = $convo.messages.slice(0, i);
+																convo.messages = convo.messages.slice(0, i);
+																// FIXME: Delete messages from db
 																submitCompletion();
 															}
+															saveConversation(convo);
 														}}
 													>
 														<Icon
@@ -1435,9 +1633,11 @@
 													class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
 													on:click={() => {
 														// Remove this message from the conversation:
-														$convo.messages = $convo.messages
+														convo.messages = convo.messages
 															.slice(0, i)
-															.concat($convo.messages.slice(i + 1));
+															.concat(convo.messages.slice(i + 1));
+														// FIXME: Delete message from db
+														saveConversation(convo);
 													}}
 												>
 													<Icon icon={faXmark} class="m-auto h-[14px] w-[14px] text-slate-600" />
@@ -1454,15 +1654,19 @@
 											} else {
 												role = 'assistant';
 											}
-											$convo.messages.splice(i + 1, 0, {
-												id: Date.now(),
+											const msg = {
+												id: uuidv4(),
 												role,
 												content: '',
 												editing: true,
-											});
-											$convo.messages = $convo.messages;
+											};
+											convo.messages.splice(i + 1, 0, msg);
+											convo.messages = convo.messages;
 											await tick();
 											textareaEls[i + 1].focus();
+
+											saveMessage(msg);
+											saveConversation(convo);
 										}}
 										class="z-1 absolute bottom-0 left-1/2 flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-md border border-gray-300 bg-white opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100"
 									>
@@ -1491,16 +1695,17 @@
 				class="section-input-bottom fixed bottom-4 left-1/2 z-[99] flex w-full max-w-[680px] -translate-x-1/2 flex-col px-5 md:left-[calc((100vw+230px)*0.5)] lg:px-0 ld:max-w-[768px] xl:left-1/2"
 			>
 				<div class="absolute bottom-full mb-3 flex gap-4 self-center">
-					{#if !generating && $convo.messages.filter((msg) => msg.generated).length > 0}
+					{#if !generating && convo.messages.filter((msg) => msg.generated).length > 0}
 						<Button
 							variant="outline"
 							on:click={() => {
-								const i = $convo.messages.length - 2;
+								const i = convo.messages.length - 2;
 								// Split history on the last user message:
-								saveVersion($convo.messages[i], i);
+								saveVersion(convo.messages[i], i);
 
 								// Remove last message and run completion again:
-								$convo.messages = $convo.messages.slice(0, $convo.messages.length - 1);
+								convo.messages = convo.messages.slice(0, convo.messages.length - 1);
+								saveConversation(convo);
 								submitCompletion();
 							}}
 						>
@@ -1508,7 +1713,7 @@
 							Regenerate
 						</Button>
 					{/if}
-					{#if generating && $convo.messages.filter((msg) => msg.generated).length > 0}
+					{#if generating && convo.messages.filter((msg) => msg.generated).length > 0}
 						<Button
 							variant="outline"
 							on:click={() => {
@@ -1520,7 +1725,7 @@
 						</Button>
 					{/if}
 				</div>
-				{#if $convo.model.provider === 'Local' && !hidingTokenCount && totalTokens > 0}
+				{#if convo.model.provider === 'Local' && !hidingTokenCount && totalTokens > 0}
 					<span
 						class="absolute bottom-full right-3 mb-3 text-xs"
 						transition:fade={{ duration: 300 }}
@@ -1630,7 +1835,7 @@
 								}
 							}
 
-							if ($convo.model.provider === 'Local') {
+							if (convo.model.provider === 'Local') {
 								currentTokens = await tokenizeCount(content);
 							}
 						}}
@@ -1666,7 +1871,7 @@
 	>
 		<Toolcall
 			toolcall={activeToolcall}
-			toolresponse={$convo.messages.find((msg) => msg.tool_call_id === activeToolcall.id)}
+			toolresponse={convo.messages.find((msg) => msg.tool_call_id === activeToolcall.id)}
 			collapsable={false}
 			class="!rounded-xl"
 		/>

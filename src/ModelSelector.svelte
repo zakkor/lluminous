@@ -1,15 +1,13 @@
 <script>
-	import {
-		faChevronDown,
-		faHammer,
-		faImage,
-	} from '@fortawesome/free-solid-svg-icons';
+	import { faChevronDown, faHammer, faImage } from '@fortawesome/free-solid-svg-icons';
 	import Icon from './Icon.svelte';
 	import { toolSchema, tools } from './stores.js';
-	import { tick } from 'svelte';
+	import { createEventDispatcher, tick } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import CompanyLogo from './CompanyLogo.svelte';
 	import { formatModelName } from './convo.js';
+
+	const dispatch = createEventDispatcher();
 
 	export let convo;
 	export let models = [];
@@ -64,13 +62,15 @@
 				}
 			}}
 		>
-			<CompanyLogo model={$convo.model} />
-			<p class="line-clamp-1 flex items-center gap-x-1.5 text-xs text-slate-800">
-				{formatModelName($convo.model)}
-				{#if $convo.model.modality === 'image-generation'}
+			<CompanyLogo model={convo.model} />
+			<div class="flex items-center gap-x-1.5">
+				<p class="line-clamp-1 text-xs text-slate-800">
+					{formatModelName(convo.model)}
+				</p>
+				{#if convo.model.modality === 'image-generation'}
 					<Icon icon={faImage} class="mt-px h-3 text-slate-800" />
 				{/if}
-			</p>
+			</div>
 			<Icon
 				icon={faChevronDown}
 				class="{$toolSchema.length > 0
@@ -149,7 +149,7 @@
 					bind:value={query}
 					on:keydown={(event) => {
 						if (event.key === 'Enter') {
-							$convo.model = filteredModels[0];
+							dispatch('change', filteredModels[0]);
 							open = false;
 							query = '';
 						}
@@ -161,7 +161,7 @@
 							<button
 								class="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-xs transition-colors hover:bg-gray-100"
 								on:click={() => {
-									$convo.model = model;
+									dispatch('change', model);
 									open = false;
 									query = '';
 								}}
