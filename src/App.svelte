@@ -140,10 +140,15 @@
 							}
 							// Handle versions
 							for (let versionKey in convosData[cid].versions) {
-								const versionIndex = convosData[cid].versions[versionKey].indexOf(message.id);
-								if (versionIndex !== -1) {
-									// Replace the message ID with the actual message object
-									convosData[cid].versions[versionKey][versionIndex] = message;
+								for (let messages of convosData[cid].versions[versionKey]) {
+									if (!messages) {
+										continue;
+									}
+									const i = messages.indexOf(message.id);
+									if (i !== -1) {
+										// Replace the message ID with the actual message object
+										messages[i] = message;
+									}
 								}
 							}
 						}
@@ -278,14 +283,32 @@
 	let settingsModalOpen = false;
 
 	function submitEdit(i) {
-		const message = convo.messages[i];
-		if (message.submitted || message.generated) {
-			saveVersion(message, i);
+		// Update the ID of the edited message:
+		if (convo.messages[i].submitted || convo.messages[i].generated) {
+			let vid = null;
+			const msgBeforeEdit = { ...convo.messages[i] };
+			msgBeforeEdit.editing = false;
+			msgBeforeEdit.pendingContent = '';
+			if (!msgBeforeEdit.vid) {
+				vid = uuidv4();
+				msgBeforeEdit.vid = vid;
+			}
+			saveMessage(msgBeforeEdit);
+
+			saveVersion(msgBeforeEdit, i);
+
+			convo.messages[i].id = uuidv4();
+			if (!convo.messages[i].vid) {
+				convo.messages[i].vid = vid;
+			}
+			convo.messages[i].editing = false;
+			convo.messages[i].content = convo.messages[i].pendingContent;
+			convo.messages[i].pendingContent = '';
+			saveMessage(convo.messages[i]);
 		}
 
 		convo.messages = convo.messages.slice(0, i + 1);
 		saveConversation(convo);
-		// FIXME: Should delete message
 
 		submitCompletion();
 	}
@@ -693,32 +716,35 @@
 		if (!convo.versions) {
 			convo.versions = {};
 		}
-		if (!convo.versions[message.id]) {
-			convo.versions[message.id] = [null];
+		if (!convo.versions[message.vid]) {
+			convo.versions[message.vid] = [null];
 		}
-		const nullIdx = convo.versions[message.id].findIndex((v) => v === null);
-		convo.versions[message.id][nullIdx] = structuredClone(convo.messages.slice(i)).map((m) => {
-			return {
-				...m,
-				editing: false,
-				pendingContent: '',
-			};
-		});
-		convo.versions[message.id].push(null);
+		const nullIdx = convo.versions[message.vid].findIndex((v) => v === null);
+		convo.versions[message.vid][nullIdx] = [
+			message,
+			...structuredClone(convo.messages.slice(i + 1)).map((m) => {
+				return {
+					...m,
+					editing: false,
+					pendingContent: '',
+				};
+			}),
+		];
+		convo.versions[message.vid].push(null);
 		saveConversation(convo);
 	}
 
 	function shiftVersion(dir, message, i) {
-		const activeVersionIndex = convo.versions[message.id].findIndex((v) => v === null);
+		const activeVersionIndex = convo.versions[message.vid].findIndex((v) => v === null);
 		const newVersionIndex = activeVersionIndex + dir;
 
-		convo.versions[message.id][activeVersionIndex] = convo.messages.slice(i);
+		convo.versions[message.vid][activeVersionIndex] = convo.messages.slice(i);
 
-		const newMessages = convo.versions[message.id][newVersionIndex];
+		const newMessages = convo.versions[message.vid][newVersionIndex];
 
 		convo.messages = convo.messages.slice(0, i).concat(newMessages);
 
-		convo.versions[message.id][newVersionIndex] = null;
+		convo.versions[message.vid][newVersionIndex] = null;
 
 		saveConversation(convo);
 	}
@@ -1362,7 +1388,7 @@
 										{#if message.editing}
 											<textarea
 												bind:this={textareaEls[i]}
-												class="w-full resize-none rounded-lg border-none bg-transparent p-0 leading-[28px] text-slate-800 outline-none focus:ring-0"
+												class="w-full resize-none border-none bg-transparent p-0 leading-[28px] text-slate-800 outline-none focus:ring-0"
 												rows={1}
 												bind:value={message.pendingContent}
 												on:keydown={(event) => {
@@ -1543,8 +1569,8 @@
 											<div
 												class="absolute bottom-[-32px] left-11 flex items-center gap-x-4 md:bottom-[-28px] md:left-14"
 											>
-												{#if message.role === 'user' && convo.versions?.[message.id]}
-													{@const versions = convo.versions[message.id]}
+												{#if message.role === 'user' && convo.versions?.[message.vid]}
+													{@const versions = convo.versions[message.vid]}
 													{@const versionIndex = versions.findIndex((v) => v === null)}
 													<div class="flex items-center md:gap-x-1">
 														<button
