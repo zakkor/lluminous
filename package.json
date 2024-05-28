@@ -29,6 +29,7 @@
 	"dependencies": {
 		"github-slugger": "^2.0.0",
 		"katex": "^0.16.10",
-		"marked": "^11.0.0"
+		"marked": "^11.0.0",
+		"uuid": "^9.0.1"
 	}
 }
