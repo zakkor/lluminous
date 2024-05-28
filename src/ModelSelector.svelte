@@ -1,9 +1,5 @@
 <script>
-	import {
-		faChevronDown,
-		faHammer,
-		faImage,
-	} from '@fortawesome/free-solid-svg-icons';
+	import { faChevronDown, faHammer, faImage } from '@fortawesome/free-solid-svg-icons';
 	import Icon from './Icon.svelte';
 	import { toolSchema, tools } from './stores.js';
 	import { createEventDispatcher, tick } from 'svelte';
@@ -67,12 +63,14 @@
 			}}
 		>
 			<CompanyLogo model={convo.model} />
-			<p class="line-clamp-1 flex items-center gap-x-1.5 text-xs text-slate-800">
-				{formatModelName(convo.model)}
+			<div class="flex items-center gap-x-1.5">
+				<p class="line-clamp-1 text-xs text-slate-800">
+					{formatModelName(convo.model)}
+				</p>
 				{#if convo.model.modality === 'image-generation'}
 					<Icon icon={faImage} class="mt-px h-3 text-slate-800" />
 				{/if}
-			</p>
+			</div>
 			<Icon
 				icon={faChevronDown}
 				class="{$toolSchema.length > 0
@@ -151,7 +149,7 @@
 					bind:value={query}
 					on:keydown={(event) => {
 						if (event.key === 'Enter') {
-							dispatch('change', filteredModels[0])
+							dispatch('change', filteredModels[0]);
 							open = false;
 							query = '';
 						}
