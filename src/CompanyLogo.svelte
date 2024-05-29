@@ -18,7 +18,7 @@
 		/>
 	{:else if model.id.startsWith('meta-llama')}
 		<img src="/logos/meta.png" loading="lazy" class={size} alt="" />
-	{:else if model.id.startsWith('mistralai')}
+	{:else if model.provider === 'Mistral' || model.id.startsWith('mistralai')}
 		<img src="/logos/mistral.png" loading="lazy" class={size} alt="" />
 	{:else if model.id.startsWith('cohere')}
 		<img src="/logos/cohere.png" loading="lazy" class={size} alt="" />

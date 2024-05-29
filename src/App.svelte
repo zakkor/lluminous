@@ -334,10 +334,6 @@
 
 		generating = true;
 
-		if (convo.model.provider === 'Local') {
-			totalTokens = await tokenizeCount(conversationToString(convo));
-		}
-
 		if (insertUnclosed) {
 			const msg = {
 				id: uuidv4(),
@@ -390,7 +386,6 @@
 
 			if (convo.model.provider === 'Local') {
 				convo.messages[i].content += chunk.content;
-				totalTokens = await tokenizeCount(conversationToString(convo));
 				saveMessage(convo.messages[i]);
 			} else {
 				if (chunk.choices.length === 0) {
@@ -430,7 +425,8 @@
 								arguments: '',
 								expanded: true,
 							};
-						} else {
+						}
+						if (tool_call.function.arguments) {
 							convo.messages[i].toolcalls[index].arguments += tool_call.function.arguments;
 						}
 						saveMessage(convo.messages[i]);
@@ -462,7 +458,13 @@
 					for (let ti = 0; ti < convo.messages[i].toolcalls.length; ti++) {
 						const toolcall = convo.messages[i].toolcalls[ti];
 
-						toolcall.arguments = JSON.parse(toolcall.arguments);
+						try {
+							toolcall.arguments = JSON.parse(toolcall.arguments);
+						} catch (err) {
+							convo.messages[i].error = 'Failed to parse tool call arguments: ' + err;
+							saveMessage(convo.messages[i]);
+							return;
+						}
 
 						// Call the tool
 						const promise = fetch(`${$remoteServer.address}/tool`, {
@@ -613,11 +615,7 @@
 
 	function autoresizeTextarea() {
 		inputTextareaEl.style.height = 'auto';
-		if (window.innerWidth > 880) {
-			inputTextareaEl.style.height = Math.max(74, inputTextareaEl.scrollHeight + 2) + 'px';
-		} else {
-			inputTextareaEl.style.height = inputTextareaEl.scrollHeight + 2 + 'px';
-		}
+		inputTextareaEl.style.height = inputTextareaEl.scrollHeight + 2 + 'px';
 	}
 
 	async function sendMessage() {
@@ -842,36 +840,55 @@
 			});
 	}
 
-	let loading = false;
+	let loadedModel = null;
+	let loadingModel = false;
+	let modelFinishedLoading = [];
 
+	// For local models, we need to tell the server to load them:
 	async function loadModel(newModel) {
-		if (newModel.provider === 'Local') {
-			loading = true;
+		loadingModel = true;
+		loadedModel = null;
 
-			// For local models, we need to tell the server to load them:
-			// FIXME: local
-			await fetch(`${$remoteServer.address}/model`, {
-				method: 'POST',
-				headers: {
-					Authorization: `Basic ${$remoteServer.password}`,
-				},
-				body: JSON.stringify({
-					model: newModel,
-				}),
-			});
-
-			loading = false;
+		await fetch(`${$remoteServer.address}/model`, {
+			method: 'POST',
+			headers: {
+				Authorization: `Basic ${$remoteServer.password}`,
+			},
+			body: JSON.stringify({
+				model: newModel.id,
+			}),
+		});
+		loadedModel = newModel;
+		if (modelFinishedLoading) {
+			modelFinishedLoading[0]();
+			modelFinishedLoading[1]();
 		}
-
-		convo.model = newModel;
-		saveConversation(convo);
+		loadingModel = false;
 	}
 
 	let models = [];
-	let loadingModels = false;
+
+	async function fetchLoadedModel() {
+		const response = await fetch(`${$remoteServer.address}/model`, {
+			method: 'GET',
+			headers: {
+				Authorization: `Basic ${$remoteServer.password}`,
+			},
+		});
+		const json = await response.json();
+
+		loadedModel = {
+			provider: 'Local',
+			id: json.model,
+			// Strip .gguf suffix:
+			name: json.model.replace(/\.gguf$/, ''),
+		};
+	}
+
+	let loading = false;
 
 	async function fetchModels() {
-		loadingModels = true;
+		loading = true;
 		try {
 			const promises = providers.map((provider) => {
 				if (!provider.apiKeyFn()) {
@@ -880,7 +897,10 @@
 				return fetch(`${provider.url}/v1/models`, {
 					method: 'GET',
 					headers: {
-						Authorization: `Bearer ${provider.apiKeyFn()}`,
+						Authorization:
+							provider.name === 'Local'
+								? `Basic ${provider.apiKeyFn()}`
+								: `Bearer ${provider.apiKeyFn()}`,
 					},
 				})
 					.then((response) => response.json())
@@ -919,6 +939,7 @@
 			const externalModels = results.flat().filter((m) => !ignoreIds.includes(m.id));
 
 			const priorityOrder = [
+				{ fromProvider: 'Local' },
 				{ exactly: ['gpt-4o'] },
 				{ exactly: ['openai/gpt-4o', 'openai/gpt-4-turbo', 'openai/gpt-3.5-turbo'] },
 				{ exactly: ['dall-e-3'] },
@@ -976,6 +997,7 @@
 						'openai/gpt-4-32k-0314',
 					],
 				},
+				{ fromProvider: 'Mistral' },
 				{ startsWith: ['mistralai/', 'cohere/', 'nous'] },
 			];
 
@@ -1025,7 +1047,7 @@
 		} catch (error) {
 			console.error('Error:', error);
 		} finally {
-			loadingModels = false;
+			loading = false;
 		}
 	}
 
@@ -1044,7 +1066,9 @@
 			settingsModalOpen = true;
 		}
 
-		await fetchModels();
+		// Async
+		fetchLoadedModel();
+		fetchModels();
 	});
 
 	// For displaying compact tools, we need to collapse sequences of Assistant and Tool messages into a single message
@@ -1067,10 +1091,6 @@
 			} else {
 				if (range.endi !== null) {
 					range.starti = i + 1;
-					// if (range.endi - range.starti === 1) {
-					// 	range = { starti: null, endi: null };
-					// 	continue;
-					// }
 					collapsedRanges.push(range);
 					collapsedRanges = collapsedRanges;
 					range = { starti: null, endi: null };
@@ -1142,9 +1162,15 @@
 			<ModelSelector
 				{convo}
 				{models}
+				{loadingModel}
+				{loadedModel}
+				bind:modelFinishedLoading={modelFinishedLoading[0]}
 				on:change={({ detail }) => {
 					convo.model = detail;
 					saveConversation(convo);
+					if (convo.model.provider === 'Local' && convo.model.id !== loadedModel.id) {
+						loadModel(convo.model);
+					}
 				}}
 				class="!absolute left-1/2 z-[99] -translate-x-1/2"
 			/>
@@ -1266,9 +1292,15 @@
 					<ModelSelector
 						{convo}
 						{models}
+						{loadingModel}
+						{loadedModel}
+						bind:modelFinishedLoading={modelFinishedLoading[1]}
 						on:change={({ detail }) => {
 							convo.model = detail;
 							saveConversation(convo);
+							if (convo.model.provider === 'Local' && convo.model.id !== loadedModel.id) {
+								loadModel(convo.model);
+							}
 						}}
 						class="!absolute left-1/2 z-[99] -translate-x-1/2"
 					/>
@@ -1297,7 +1329,7 @@
 			</div>
 			<section
 				bind:this={scrollableEl}
-				class="scrollable flex h-full w-full flex-col overflow-y-auto pb-[130px] scrollbar-slim md:pb-[150px]"
+				class="scrollable flex h-full w-full flex-col overflow-y-auto pb-[80px] scrollbar-slim"
 				on:scroll={() => {
 					if (
 						scrollableEl.scrollTop + scrollableEl.clientHeight >=
@@ -1634,7 +1666,6 @@
 
 																// If user message, remove all messages after this one, then regenerate:
 																convo.messages = convo.messages.slice(0, i + 1);
-																// FIXME: Delete messages from db
 																submitCompletion();
 															} else {
 																// History is split on the user message, so get the message before this (which will be the user's):
@@ -1643,7 +1674,6 @@
 
 																// If assistant message, remove all messages after this one, including this one, then regenerate:
 																convo.messages = convo.messages.slice(0, i);
-																// FIXME: Delete messages from db
 																submitCompletion();
 															}
 															saveConversation(convo);
@@ -1694,7 +1724,7 @@
 											saveMessage(msg);
 											saveConversation(convo);
 										}}
-										class="z-1 absolute bottom-0 left-1/2 flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-md border border-gray-300 bg-white opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100"
+										class="z-1 absolute bottom-0 left-1/2 flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-md border border-slate-200 bg-white opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100"
 									>
 										<Icon icon={faPlus} class="m-auto h-3 w-3 text-slate-600" />
 									</button>
@@ -1711,9 +1741,8 @@
 						<Icon icon={faVial} class="mr-2 h-3 w-3 text-slate-600" />
 						Add system prompt
 					</Button>
-					<div class="m-auto flex flex-col items-center gap-5 text-center">
-						<Icon icon={faLightbulb} class="h-12 w-12 text-slate-800" />
-						<h3 class="text-4xl font-semibold tracking-tight text-slate-800">lluminous</h3>
+					<div class="m-auto flex flex-col items-center">
+						<Icon icon={faLightbulb} class="h-14 w-14 text-slate-800" />
 					</div>
 				{/if}
 			</section>
@@ -1721,24 +1750,6 @@
 				class="section-input-bottom fixed bottom-4 left-1/2 z-[99] flex w-full max-w-[680px] -translate-x-1/2 flex-col px-5 md:left-[calc((100vw+230px)*0.5)] lg:px-0 ld:max-w-[768px] xl:left-1/2"
 			>
 				<div class="absolute bottom-full mb-3 flex gap-4 self-center">
-					{#if !generating && convo.messages.filter((msg) => msg.generated).length > 0}
-						<Button
-							variant="outline"
-							on:click={() => {
-								const i = convo.messages.length - 2;
-								// Split history on the last user message:
-								saveVersion(convo.messages[i], i);
-
-								// Remove last message and run completion again:
-								convo.messages = convo.messages.slice(0, convo.messages.length - 1);
-								saveConversation(convo);
-								submitCompletion();
-							}}
-						>
-							<Icon icon={faArrowsRotate} class="mr-2 h-3.5 w-3.5 text-slate-600" />
-							Regenerate
-						</Button>
-					{/if}
 					{#if generating && convo.messages.filter((msg) => msg.generated).length > 0}
 						<Button
 							variant="outline"
@@ -1751,17 +1762,6 @@
 						</Button>
 					{/if}
 				</div>
-				{#if convo.model.provider === 'Local' && !hidingTokenCount && totalTokens > 0}
-					<span
-						class="absolute bottom-full right-3 mb-3 text-xs"
-						transition:fade={{ duration: 300 }}
-					>
-						{#if currentTokens > 0}
-							{currentTokens} tokens in input,
-						{/if}
-						{totalTokens} tokens in total
-					</span>
-				{/if}
 				<div class="relative flex">
 					{#if imageUrls.length > 0}
 						<div class="absolute left-[50px] top-2.5 flex gap-x-3">
@@ -1791,7 +1791,7 @@
 					{/if}
 					{#if isMultimodal}
 						<button
-							class="absolute left-3 top-2.5 rounded-md border border-slate-300 bg-white p-2 transition-colors"
+							class="absolute left-3 top-3.5 rounded-md border border-slate-300 bg-white p-2 transition-colors"
 							on:click={() => fileInputEl.click()}
 						>
 							<input
@@ -1824,7 +1824,7 @@
 						bind:this={inputTextareaEl}
 						class="{isMultimodal ? '!pl-[50px]' : ''} {imageUrls.length > 0
 							? '!pt-[88px]'
-							: ''} h-[50px] max-h-[90dvh] w-full resize-none rounded-xl border border-slate-300 py-3 pl-4 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:h-[74px] md:px-4"
+							: ''} max-h-[90dvh] w-full resize-none rounded-xl border border-slate-200 py-4 pl-5 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:px-4"
 						rows={1}
 						bind:value={content}
 						on:paste={async (event) => {
@@ -1860,15 +1860,11 @@
 									});
 								}
 							}
-
-							if (convo.model.provider === 'Local') {
-								currentTokens = await tokenizeCount(content);
-							}
 						}}
 					/>
 					<button
 						disabled={content.length === 0}
-						class="group absolute bottom-2.5 right-3.5 rounded-md border border-slate-400 bg-white p-2 transition-colors disabled:border-slate-200 md:hidden"
+						class="group absolute right-3 top-3.5 rounded-md border border-slate-400 bg-white p-2 transition-colors disabled:border-slate-200 md:hidden"
 						on:click={sendMessage}
 					>
 						<Icon

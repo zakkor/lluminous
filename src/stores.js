@@ -14,6 +14,7 @@ export const config = persisted('config', {
 export const openaiAPIKey = persisted('openaiAPIKey', '');
 export const openrouterAPIKey = persisted('openrouterkey', '');
 export const groqAPIKey = persisted('groqAPIKey', '');
+export const mistralAPIKey = persisted('mistralAPIKey', '');
 
 export const remoteServer = persisted('remoteServer', { address: '', password: '' });
 export const toolSchema = persisted('toolSchema', []);

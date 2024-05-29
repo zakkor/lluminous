@@ -15,6 +15,7 @@ export function hasCompanyLogo(model) {
 			model.id.startsWith('anthropic') ||
 			model.id.startsWith('meta-llama') ||
 			model.id.startsWith('mistralai') ||
+			model.provider === 'Mistral' ||
 			model.id.startsWith('cohere') ||
 			model.provider === 'Groq' ||
 			model.id.startsWith('nous') ||
@@ -53,13 +54,13 @@ export function formatModelName(model) {
 export function conversationToString(convo) {
 	let result = '';
 	convo.messages.forEach((msg) => {
-		result += messageToString(msg, convo.tmpl);
+		result += messageToString(msg, convo.model.template);
 	});
 	return result;
 }
 
 function conversationStop(convo) {
-	switch (convo.tmpl) {
+	switch (convo.model.template) {
 		case 'chatml':
 			return ['<|im_end|>', '<|im_start|>', '</tool_call>'];
 		case 'deepseek':
@@ -97,8 +98,11 @@ function messageToString(message, template) {
 export async function complete(convo, onupdate, onabort, ondirect) {
 	controller.set(new AbortController());
 
-	if (convo.local) {
-		const response = await fetch('http://localhost:8080/completion', {
+	if (convo.model.provider === 'Local') {
+		if (!convo.model.template) {
+			convo.model.template = 'chatml';
+		}
+		const response = await fetch('http://localhost:8082/completion', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -171,20 +175,21 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 
 		const provider = providers.find((p) => p.name === convo.model.provider);
 
-		let stream = true;
-		// Groq doesn't support streaming completions with tool calls
-		if (provider.name === 'Groq' && activeSchema.length > 0) {
-			stream = false;
-		}
+		// All providers now support streaming completions for tool calls!
+		const stream = true;
 
 		const completions = async (signal) => {
 			return fetch(`${provider.url}/v1/chat/completions`, {
 				method: 'POST',
 				headers: {
 					Authorization: `Bearer ${provider.apiKeyFn()}`,
-					'HTTP-Referer': 'https://lluminous.chat',
-					'X-Title': 'lluminous',
 					'Content-Type': 'application/json',
+					...(convo.model.provider === 'Mistral'
+						? {}
+						: {
+								'HTTP-Referer': 'https://lluminous.chat',
+								'X-Title': 'lluminous',
+							}),
 				},
 				signal,
 				body: JSON.stringify({

@@ -1,21 +1,36 @@
 <script>
-	import { faChevronDown, faHammer, faImage } from '@fortawesome/free-solid-svg-icons';
-	import Icon from './Icon.svelte';
-	import { toolSchema, tools } from './stores.js';
 	import { createEventDispatcher, tick } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import CompanyLogo from './CompanyLogo.svelte';
 	import { formatModelName } from './convo.js';
+	import { toolSchema, tools } from './stores.js';
+	import CompanyLogo from './CompanyLogo.svelte';
+	import Icon from './Icon.svelte';
+	import {
+		faCheckCircle,
+		faChevronDown,
+		faCircleNotch,
+		faHammer,
+		faImage,
+	} from '@fortawesome/free-solid-svg-icons';
 
 	const dispatch = createEventDispatcher();
 
 	export let convo;
 	export let models = [];
+	export let loadedModel = null;
+	export let loadingModel = false;
 	let className = '';
 	export { className as class };
 
-	let id = 'tool-selector';
+	let success = false;
+	export function modelFinishedLoading() {
+		success = true;
+		setTimeout(() => {
+			success = false;
+		}, 1000);
+	}
 
+	let id = 'tool-selector';
 	let open = false;
 	let toolsOpen = false;
 	let query = '';
@@ -52,7 +67,9 @@
 		<button
 			class="{$toolSchema.length > 0
 				? 'min-w-[140px] pr-3 sm:pr-7'
-				: 'min-w-[180px] pr-7'} flex w-full max-w-[180px] items-center gap-2 rounded-lg border border-slate-300 py-2 pl-3 text-left transition-colors hover:border-slate-400 sm:min-w-[240px]"
+				: 'min-w-[180px] pr-7'} {loadingModel ? 'animate-pulse' : ''} {success
+				? 'border-green-200 bg-green-50'
+				: ''} flex w-full max-w-[180px] items-center gap-2 rounded-lg border border-slate-300 py-2 pl-3 text-left transition-colors hover:border-slate-400 sm:min-w-[240px]"
 			on:click={async () => {
 				open = !open;
 				toolsOpen = false;
@@ -64,6 +81,12 @@
 		>
 			<CompanyLogo model={convo.model} />
 			<div class="flex items-center gap-x-1.5">
+				{#if loadingModel}
+					<Icon icon={faCircleNotch} class="h-3 shrink-0 animate-spin text-slate-800" />
+				{/if}
+				{#if convo.model.provider === 'Local' && loadedModel && loadedModel.id === convo.model.id}
+					<Icon icon={faCheckCircle} class="h-3 shrink-0 text-slate-800" />
+				{/if}
 				<p class="line-clamp-1 text-xs text-slate-800">
 					{formatModelName(convo.model)}
 				</p>
@@ -166,6 +189,9 @@
 									query = '';
 								}}
 							>
+								{#if model.provider === 'Local' && loadedModel && loadedModel.id === model.id}
+									<Icon icon={faCheckCircle} class="h-3 text-slate-800" />
+								{/if}
 								<CompanyLogo {model} />
 								{formatModelName(model)}
 								{#if model.modality === 'image-generation'}

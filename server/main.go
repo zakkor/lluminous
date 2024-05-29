@@ -55,56 +55,52 @@ func main() {
 		})
 	}
 
-	// FIXME: Use a ping to check if the server is up
-	// router.Get("/models", func(w http.ResponseWriter, r *http.Request) {
-	// 	data, err := json.Marshal(map[string]any{
-	// 		"models": listLocalModels(),
-	// 	})
-	// 	if err != nil {
-	// 		w.WriteHeader(http.StatusInternalServerError)
-	// 		return
-	// 	}
+	router.Get("/v1/models", func(w http.ResponseWriter, r *http.Request) {
+		data, err := json.Marshal(map[string]any{
+			"data": listLocalModels(),
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 
-	// 	w.Write(data)
-	// })
+		w.Write(data)
+	})
 
-	// TODO: Add llama.cpp support back in
-	// FIXME: Getting the active llama model should not set the active model in client.
-	// router.Get("/model", func(w http.ResponseWriter, r *http.Request) {
-	// 	if activeLlama == nil {
+	router.Get("/model", func(w http.ResponseWriter, r *http.Request) {
+		if activeLlama == nil {
 
-	// 		data, err := json.Marshal(map[string]any{
-	// 			"model": "",
-	// 		})
-	// 		if err != nil {
-	// 			w.WriteHeader(http.StatusInternalServerError)
-	// 			return
-	// 		}
-	// 		w.Write(data)
-	// 		return
-	// 	}
-	// 	data, err := json.Marshal(map[string]any{
-	// 		"model": activeLlama.ModelName,
-	// 	})
-	// 	if err != nil {
-	// 		w.WriteHeader(http.StatusInternalServerError)
-	// 		return
-	// 	}
-	// 	w.Write(data)
-	// })
-	// router.Post("/model", func(w http.ResponseWriter, r *http.Request) {
-	// 	var newModel map[string]any
-	// 	if err := json.NewDecoder(r.Body).Decode(&newModel); err != nil {
-	// 		w.WriteHeader(http.StatusBadRequest)
-	// 		return
-	// 	}
+			data, err := json.Marshal(map[string]any{
+				"model": "",
+			})
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Write(data)
+			return
+		}
+		data, err := json.Marshal(map[string]any{
+			"model": activeLlama.ModelName,
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Write(data)
+	})
+	router.Post("/model", func(w http.ResponseWriter, r *http.Request) {
+		var newModel map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&newModel); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 
-	// 	if activeLlama != nil {
-	// 		activeLlama.Close()
-	// 	}
-	// 	activeLlama = llm.Serve(newModel["model"].(string), []string{"-c", "4096", "-ngl", "1", "-t", "8", "-tb", "12", "-b", "4096"})
-
-	// })
+		if activeLlama != nil {
+			activeLlama.Close()
+		}
+		activeLlama = llm.Serve(*llamaPath, newModel["model"].(string), []string{"-c", "4096", "-ngl", "1", "-t", "8", "-tb", "12", "-b", "4096"})
+	})
 
 	router.Post("/tokenize_count", func(w http.ResponseWriter, r *http.Request) {
 		var content map[string]any
@@ -194,7 +190,12 @@ func main() {
 	}
 }
 
-func listLocalModels() []string {
+type ModelInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+func listLocalModels() []ModelInfo {
 	// Open models directory and get a list of file names inside it
 	dir, err := os.Open(filepath.Join(*llamaPath, "models"))
 	if err != nil {
@@ -208,10 +209,13 @@ func listLocalModels() []string {
 	}
 
 	// Get only files ending in .gguf
-	models := []string{}
+	models := []ModelInfo{}
 	for _, file := range files {
 		if !strings.HasPrefix(file, "ggml-vocab") && filepath.Ext(file) == ".gguf" {
-			models = append(models, file)
+			models = append(models, ModelInfo{
+				ID:   file,
+				Name: strings.TrimSuffix(file, ".gguf"),
+			})
 		}
 	}
 
