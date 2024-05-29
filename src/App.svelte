@@ -719,7 +719,7 @@
 		}
 		const nullIdx = convo.versions[message.vid].findIndex((v) => v === null);
 		convo.versions[message.vid][nullIdx] = [
-			message,
+			structuredClone(message),
 			...structuredClone(convo.messages.slice(i + 1)).map((m) => {
 				return {
 					...m,
@@ -1662,6 +1662,10 @@
 														class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
 														on:click={() => {
 															if (message.role === 'user') {
+																if (!message.vid) {
+																	message.vid = uuidv4();
+																	saveMessage(message);
+																}
 																saveVersion(message, i);
 
 																// If user message, remove all messages after this one, then regenerate:
@@ -1670,6 +1674,10 @@
 															} else {
 																// History is split on the user message, so get the message before this (which will be the user's):
 																const previousUserMessage = convo.messages[i - 1];
+																if (!previousUserMessage.vid) {
+																	previousUserMessage.vid = uuidv4();
+																	saveMessage(previousUserMessage);
+																}
 																saveVersion(previousUserMessage, i - 1);
 
 																// If assistant message, remove all messages after this one, including this one, then regenerate:
