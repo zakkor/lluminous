@@ -26,6 +26,22 @@ function scrollbarsPlugin({ addUtilities }) {
 				'border-radius': '10px',
 			},
 		},
+		'.scrollbar-ultraslim': {
+			'&::-webkit-scrollbar': {
+				width: '3px',
+				height: '3px',
+			},
+			'&::-webkit-scrollbar-track': {
+				background: "theme('colors.gray.200 / 70%')",
+				'-webkit-border-radius': '10px',
+				'border-radius': '10px',
+			},
+			'&::-webkit-scrollbar-thumb': {
+				background: "theme('colors.gray.400 / 50%')",
+				'-webkit-border-radius': '10px',
+				'border-radius': '10px',
+			},
+		},
 		'.scrollbar-none': {
 			'-ms-overflow-style': 'none',
 			'scrollbar-width': 'none',

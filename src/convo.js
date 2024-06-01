@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { controller, openaiAPIKey, openrouterAPIKey, params, toolSchema, tools } from './stores.js';
+import { controller, openaiAPIKey, openrouterAPIKey, params, toolSchema } from './stores.js';
 import { providers } from './providers.js';
 
 // OpenAI doesn't provide any metadata for their models, so we have to harddcode which ones are multimodal
@@ -170,8 +170,8 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 		}
 
 		const schema = get(toolSchema);
-		const activeTools = get(tools);
-		const activeSchema = schema.filter((tool) => activeTools.includes(tool.function.name));
+		const activeSchema = schema.filter((tool) => convo.tools.includes(tool.function.name));
+		const param = get(params);
 
 		const provider = providers.find((p) => p.name === convo.model.provider);
 
@@ -184,18 +184,19 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 				headers: {
 					Authorization: `Bearer ${provider.apiKeyFn()}`,
 					'Content-Type': 'application/json',
-					...(convo.model.provider === 'Mistral'
-						? {}
-						: {
+					...(convo.model.provider === 'OpenRouter'
+						? {
 								'HTTP-Referer': 'https://lluminous.chat',
 								'X-Title': 'lluminous',
-							}),
+							}
+						: {}),
 				},
 				signal,
 				body: JSON.stringify({
 					stream,
 					model: convo.model.id,
-					temperature: get(params).temperature,
+					temperature: param.temperature,
+					max_tokens: param.maxTokens != null && param.maxTokens > 0 ? param.maxTokens : undefined,
 					tools: activeSchema.length > 0 ? activeSchema : undefined,
 					messages,
 				}),

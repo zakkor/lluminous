@@ -5,6 +5,7 @@ export const controller = writable(null);
 
 export const params = persisted('params', {
 	temperature: 0.3,
+	maxTokens: 0,
 });
 
 export const config = persisted('config', {
@@ -18,7 +19,6 @@ export const mistralAPIKey = persisted('mistralAPIKey', '');
 
 export const remoteServer = persisted('remoteServer', { address: '', password: '' });
 export const toolSchema = persisted('toolSchema', []);
-export const tools = persisted('tools', []);
 
 export function pick(parentStore, getFn) {
 	const { subscribe, set } = writable(getFn(get(parentStore)));

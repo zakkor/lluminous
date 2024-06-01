@@ -51,6 +51,7 @@
 		groqAPIKey,
 		openrouterAPIKey,
 		config,
+		params,
 	} from './stores.js';
 	import SettingsModal from './SettingsModal.svelte';
 	import ToolcallButton from './ToolcallButton.svelte';
@@ -74,6 +75,7 @@
 		model: { id: null, name: 'Select a model', provider: null },
 		messages: [],
 		versions: {},
+		tools: [],
 	};
 	let convo = defaultConvo;
 
@@ -91,15 +93,14 @@
 	request.onsuccess = async (event) => {
 		db = event.target.result;
 		await fetchAllConversations();
-		if (!$convoId) {
+		if (!$convoId || !convos[$convoId]) {
 			newConversation();
 		} else {
-			const initConvo = convos[$convoId];
-			if (!initConvo) {
-				newConversation();
-			} else {
-				convo = convos[$convoId];
-			}
+			convo = convos[$convoId];
+		}
+		if (!convo.tools) {
+			convo.tools = [];
+			saveConversation(convo);
 		}
 	};
 	request.onerror = (event) => {
@@ -620,6 +621,22 @@
 
 	async function sendMessage() {
 		if (content.length > 0) {
+			if (
+				$params.customInstructions &&
+				convo.messages.length === 0 &&
+				!convo.messages.find((m) => m.role === 'system')
+			) {
+				const systemMsg = {
+					id: uuidv4(),
+					role: 'system',
+					content: $params.customInstructions,
+				};
+				convo.messages.push(systemMsg);
+				convo.messages = convo.messages;
+				saveMessage(systemMsg);
+				saveConversation(convo);
+			}
+
 			const msg = {
 				id: uuidv4(),
 				role: 'user',
@@ -696,6 +713,7 @@
 			model: convo.model || models.find((m) => m.id === 'meta-llama/llama-3-8b-instruct'),
 			messages: [],
 			versions: {},
+			tools: [],
 		};
 		$convoId = convoData.id;
 		convos[convoData.id] = convoData;
@@ -1172,6 +1190,10 @@
 						loadModel(convo.model);
 					}
 				}}
+				on:changeTools={({ detail }) => {
+					convo.tools = detail;
+					saveConversation(convo);
+				}}
 				class="!absolute left-1/2 z-[99] -translate-x-1/2"
 			/>
 		{:else if convo.model}
@@ -1302,6 +1324,10 @@
 								loadModel(convo.model);
 							}
 						}}
+						on:changeTools={({ detail }) => {
+							convo.tools = detail;
+							saveConversation(convo);
+						}}
 						class="!absolute left-1/2 z-[99] -translate-x-1/2"
 					/>
 				{:else if convo.model}
@@ -1345,7 +1371,7 @@
 					<ul
 						class="mb-3 flex w-full !list-none flex-col divide-y divide-slate-200/50 border-b border-slate-200/50"
 					>
-						{#each convo.messages as message, i}
+						{#each convo.messages as message, i (message.id)}
 							{#if ['system', 'user', 'assistant'].includes(message.role) && (!$config.compactToolsView || !collapsedRanges.some((r) => i >= r.starti && i < r.endi))}
 								{@const hasLogo = hasCompanyLogo(message.model)}
 								<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->

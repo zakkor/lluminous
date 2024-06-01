@@ -1,13 +1,20 @@
 <script>
 	import { createEventDispatcher } from 'svelte';
 	import Icon from './Icon.svelte';
-	import { faBolt, faCircleQuestion, faHammer, faKey } from '@fortawesome/free-solid-svg-icons';
+	import {
+		faBolt,
+		faCircleQuestion,
+		faHammer,
+		faKey,
+		faPencil,
+	} from '@fortawesome/free-solid-svg-icons';
 	import {
 		config,
 		groqAPIKey,
 		mistralAPIKey,
 		openaiAPIKey,
 		openrouterAPIKey,
+		params,
 		remoteServer,
 		toolSchema,
 	} from './stores.js';
@@ -28,7 +35,7 @@
 		<div class="flex flex-col">
 			<h1 class="mb-4 ml-3 text-xl font-semibold sm:mb-5">Settings</h1>
 
-			<nav class="sm:w-[160px]">
+			<nav class="sm:w-[190px]">
 				<ul class="flex gap-x-1 gap-y-1 sm:flex-col">
 					<li>
 						<button
@@ -39,6 +46,17 @@
 						>
 							<Icon icon={faKey} class="h-3 w-3 text-slate-700" />
 							API keys
+						</button>
+					</li>
+					<li>
+						<button
+							class="{activeTab === 'custom-instructions'
+								? 'bg-gray-100/70'
+								: 'hover:bg-gray-100/70'} flex w-full items-center gap-x-2.5 rounded-lg px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 transition-colors"
+							on:click={() => (activeTab = 'custom-instructions')}
+						>
+							<Icon icon={faPencil} class="h-3 w-3 text-slate-700" />
+							Custom instructions
 						</button>
 					</li>
 					<li>
@@ -55,7 +73,7 @@
 				</ul>
 			</nav>
 		</div>
-		<div class="flex flex-col gap-y-4 pt-1 sm:w-[410px]">
+		<div class="flex flex-col gap-y-4 pt-1 sm:w-[400px]">
 			{#if activeTab === 'api-keys'}
 				<label class="flex flex-col text-[10px] uppercase tracking-wide">
 					<span class="mb-2 ml-[3px]">OpenAI API Key</span>
@@ -118,16 +136,16 @@
 					Your API keys are stored entirely locally, on your device, in your browser. They are not
 					sent to or stored on any remote server.
 				</p>
+			{:else if activeTab === 'custom-instructions'}
+				<label class="mt-1 flex flex-col text-[10px] uppercase tracking-wide">
+					<span class="mb-2 ml-[3px]">Custom instructions</span>
+					<textarea
+						bind:value={$params.customInstructions}
+						rows={10}
+						class="rounded-lg border border-slate-300 px-3 py-2 text-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none"
+					/></label
+				>
 			{:else if activeTab === 'tools'}
-				<label class="mb-2 flex items-center gap-x-3 text-sm tracking-[-0.25px] text-slate-800">
-					<input
-						type="checkbox"
-						bind:checked={$config.compactToolsView}
-						class="h-5 w-5 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
-					/>
-					Use compact view for tools:
-				</label>
-
 				<label class="flex flex-col text-[10px] uppercase tracking-wide">
 					<span class="mb-2 ml-[3px] flex items-center"
 						>Server address
@@ -158,6 +176,15 @@
 						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
 					/></label
 				>
+
+				<label class="my-2 flex items-center gap-x-3 text-sm tracking-[-0.25px] text-slate-800">
+					<input
+						type="checkbox"
+						bind:checked={$config.compactToolsView}
+						class="h-5 w-5 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
+					/>
+					Use compact view for tools:
+				</label>
 
 				<label class="mt-1 flex flex-col text-[10px] uppercase tracking-wide">
 					<span class="mb-2 ml-[3px]">Tool schema</span>

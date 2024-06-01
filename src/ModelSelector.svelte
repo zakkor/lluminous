@@ -1,8 +1,8 @@
 <script>
 	import { createEventDispatcher, tick } from 'svelte';
-	import { fade } from 'svelte/transition';
+	import { fade, slide } from 'svelte/transition';
 	import { formatModelName } from './convo.js';
-	import { toolSchema, tools } from './stores.js';
+	import { toolSchema } from './stores.js';
 	import CompanyLogo from './CompanyLogo.svelte';
 	import Icon from './Icon.svelte';
 	import {
@@ -34,6 +34,8 @@
 	let open = false;
 	let toolsOpen = false;
 	let query = '';
+
+	let collapsed = false;
 
 	$: filteredModels =
 		query.length > 0
@@ -112,11 +114,11 @@
 				class="flex h-[34px] w-[34px] rounded-lg border border-slate-300 transition-colors hover:border-slate-400"
 			>
 				<Icon icon={faHammer} class="m-auto h-3 w-3 text-slate-700" />
-				{#if $tools.length > 0}
+				{#if convo.tools.length > 0}
 					<span
 						class="absolute -bottom-1 -right-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[10px] text-white"
 					>
-						{$tools.length}
+						{convo.tools.length}
 					</span>
 				{/if}
 			</button>
@@ -125,33 +127,98 @@
 				<div
 					class="absolute left-1/2 top-[calc(100%+6px)] z-10 flex w-[max-content] -translate-x-1/2 rounded-lg"
 				>
-					<ul
+					<div
 						transition:fade={{ duration: 100 }}
-						class="flex h-auto w-auto min-w-[250px] flex-col self-start overflow-y-auto rounded-lg border border-slate-300 bg-white py-1.5 scrollbar-none"
+						class="flex h-auto w-auto min-w-[250px] flex-col self-start overflow-y-auto rounded-lg border border-slate-300 bg-white"
 					>
-						<!-- <p class="mb-2 ml-3 mt-1 text-xs font-medium text-slate-800">Tool use:</p> -->
-						{#each $toolSchema as schema, i}
-							<li class="flex w-full">
-								<label
-									class="flex w-full items-center gap-x-3 whitespace-nowrap px-3 py-2 text-left text-xs transition-colors hover:bg-gray-100"
+						<div class="w-full px-3 pb-2 pt-2.5">
+							<div class="mb-3 flex items-center justify-between">
+								<h3 class="text-sm font-medium text-slate-800">Tools</h3>
+								<button
+									class="text-xs text-gray-600 hover:text-gray-800"
+									on:click={() => {
+										dispatch('changeTools', []);
+									}}
 								>
-									<p class="w-full text-xs font-semibold text-slate-800">{schema.function.name}</p>
+									Clear all
+								</button>
+							</div>
+							<input
+								type="text"
+								value=""
+								placeholder="Search for tools"
+								class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
+								on:input={() => {}}
+							/>
+						</div>
+						<ul class="max-h-[400px] overflow-y-auto pb-1.5 scrollbar-ultraslim">
+							<div class="relative w-full">
+								<label
+									class="flex w-full items-center gap-x-3 whitespace-nowrap py-2 pl-4 pr-3 text-left text-xs transition-colors hover:bg-gray-100"
+								>
 									<input
 										type="checkbox"
-										checked={$tools.includes(schema.function.name)}
-										on:change={() => {
-											if ($tools.includes(schema.function.name)) {
-												tools.update((arr) => arr.filter((item) => item !== schema.function.name));
+										checked={$toolSchema.every((t) => convo.tools.includes(t.function.name))}
+										on:change={(event) => {
+											if (event.target.checked) {
+												dispatch(
+													'changeTools',
+													$toolSchema.map((t) => t.function.name)
+												);
 											} else {
-												tools.update((arr) => [...arr, schema.function.name]);
+												dispatch('changeTools', []);
 											}
 										}}
-										class="h-5 w-5 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
+										class="h-4 w-4 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
 									/>
+									<p class="w-full text-xs font-semibold text-slate-800">Miscellaneous</p>
 								</label>
-							</li>
-						{/each}
-					</ul>
+
+								<button
+									on:click={() => (collapsed = !collapsed)}
+									class="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 rounded-full transition-colors hover:bg-gray-100"
+								>
+									<Icon
+										icon={faChevronDown}
+										class="{collapsed
+											? 'rotate-180'
+											: ''} m-auto h-3 w-3 text-slate-600 transition-transform"
+									/>
+								</button>
+							</div>
+
+							{#if !collapsed}
+								<div transition:slide={{ duration: 300 }}>
+									{#each $toolSchema as schema, i}
+										<li class="flex w-full">
+											<label
+												class="flex w-full items-center gap-x-3 whitespace-nowrap py-2 pl-6 pr-3 text-left text-xs transition-colors hover:bg-gray-100"
+											>
+												<input
+													type="checkbox"
+													checked={convo.tools.includes(schema.function.name)}
+													on:change={() => {
+														if (convo.tools.includes(schema.function.name)) {
+															dispatch(
+																'changeTools',
+																convo.tools.filter((item) => item !== schema.function.name)
+															);
+														} else {
+															dispatch('changeTools', [...convo.tools, schema.function.name]);
+														}
+													}}
+													class="h-4 w-4 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
+												/>
+												<p class="w-full text-xs font-medium text-slate-800">
+													{schema.function.name}
+												</p>
+											</label>
+										</li>
+									{/each}
+								</div>
+							{/if}
+						</ul>
+					</div>
 				</div>
 			{/if}
 		</div>
