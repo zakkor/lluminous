@@ -1264,7 +1264,11 @@
 								<span class="line-clamp-1">
 									{historyConvo.messages.length === 0
 										? 'New conversation'
-										: historyConvo.messages[0].content.split(' ').slice(0, 5).join(' ')}
+										: historyConvo.messages
+												.find((m) => m.role === 'user')
+												?.content.split(' ')
+												.slice(0, 5)
+												.join(' ') || 'Untitled'}
 								</span>
 							</button>
 							<button
