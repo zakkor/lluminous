@@ -473,7 +473,12 @@
 							headers: {
 								Authorization: `Basic ${$remoteServer.password}`,
 							},
-							body: JSON.stringify(toolcall),
+							body: JSON.stringify({
+								id: toolcall.id,
+								chat_id: convo.id,
+								name: toolcall.name,
+								arguments: toolcall.arguments,
+							}),
 						}).then((resp) => {
 							// Mark tool call as finished to we can display it nicely in the UI
 							// (still need to await all tool calls to deliver the final response).
@@ -551,6 +556,8 @@
 							Authorization: `Basic ${$remoteServer.password}`,
 						},
 						body: JSON.stringify({
+							id: toolcall.id,
+							chat_id: convo.id,
 							name: convo.messages[i].toolcalls[ti].name,
 							arguments: convo.messages[i].toolcalls[ti].arguments,
 						}),
