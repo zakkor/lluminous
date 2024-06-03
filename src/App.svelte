@@ -1501,7 +1501,7 @@
 																<MessageContent {message} />
 
 																{#if toolcallsOnLine?.length > 0}
-																	<div class="-mb-1 flex gap-x-3 [&:first-child]:mt-1">
+																	<div class="-mb-1 flex flex-wrap gap-3 [&:first-child]:mt-1">
 																		{#each toolcallsOnLine as toolcall, ti}
 																			{@const toolresponse = convo.messages.find(
 																				(msg) => msg.tool_call_id === toolcall.id
@@ -1531,7 +1531,7 @@
 												<MessageContent {message} />
 
 												{#if $config.compactToolsView && message.toolcalls?.length > 0}
-													<div class="-mb-1 flex gap-x-3 [&:first-child]:mt-1">
+													<div class="-mb-1 flex flex-wrap gap-3 [&:first-child]:mt-1">
 														{#each message.toolcalls as toolcall, ti}
 															{@const toolresponse = convo.messages.find(
 																(msg) => msg.tool_call_id === toolcall.id
