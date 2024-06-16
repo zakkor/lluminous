@@ -114,7 +114,7 @@
 				class="flex h-[34px] w-[34px] rounded-lg border border-slate-300 transition-colors hover:border-slate-400"
 			>
 				<Icon icon={faHammer} class="m-auto h-3 w-3 text-slate-700" />
-				{#if convo.tools.length > 0}
+				{#if convo.tools?.length > 0}
 					<span
 						class="absolute -bottom-1 -right-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[10px] text-white"
 					>

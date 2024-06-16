@@ -36,7 +36,7 @@
 			<h1 class="mb-4 ml-3 text-xl font-semibold sm:mb-5">Settings</h1>
 
 			<nav class="sm:w-[190px]">
-				<ul class="flex gap-x-1 gap-y-1 sm:flex-col">
+				<ul class="flex flex-col gap-1">
 					<li>
 						<button
 							class="{activeTab === 'api-keys'

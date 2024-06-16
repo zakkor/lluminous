@@ -1,7 +1,7 @@
 <script>
 	import { v4 as uuidv4 } from 'uuid';
 	import { onMount, tick } from 'svelte';
-	import { fade } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import {
 		complete,
 		conversationToString,
@@ -28,8 +28,10 @@
 		faPaperclip,
 		faPen,
 		faPlus,
+		faRobot,
 		faSliders,
 		faStop,
+		faUser,
 		faVial,
 		faXmark,
 	} from '@fortawesome/free-solid-svg-icons';
@@ -470,6 +472,7 @@
 						// Call the tool
 						const promise = fetch(`${$remoteServer.address}/tool`, {
 							method: 'POST',
+							credentials: 'include',
 							headers: {
 								Authorization: `Basic ${$remoteServer.password}`,
 							},
@@ -552,6 +555,7 @@
 					// Call the tool
 					const promise = fetch(`${$remoteServer.address}/tool`, {
 						method: 'POST',
+						credentials: 'include',
 						headers: {
 							Authorization: `Basic ${$remoteServer.password}`,
 						},
@@ -1306,7 +1310,7 @@
 				{/each}
 			</ol>
 
-			<div class="-ml-3 mt-auto flex pb-3">
+			<div class="settings-trigger-container -ml-3 mt-auto flex pb-3">
 				<button
 					data-trigger="settings"
 					class="mx-3 flex flex-1 items-center gap-x-4 rounded-lg border border-slate-200 px-4 py-3 text-left text-sm font-medium hover:bg-gray-100"
@@ -1427,11 +1431,11 @@
 											}}
 											class="flex h-8 w-8 shrink-0 rounded-md md:h-9 md:w-9 md:rounded-[7px] {message.role ===
 											'system'
-												? 'bg-blue-200'
+												? 'border border-teal-200 bg-teal-100'
 												: message.role === 'user'
-													? 'bg-red-200'
+													? 'border border-slate-200 bg-white'
 													: message.role === 'assistant' && !hasLogo
-														? 'bg-teal-200'
+														? 'border border-teal-200 bg-teal-100 pb-px'
 														: ''}"
 										>
 											{#if message.role === 'assistant' && hasLogo}
@@ -1441,13 +1445,13 @@
 													rounded="rounded-[inherit]"
 												/>
 											{:else}
-												<span class="m-auto text-base">
+												<span class="m-auto">
 													{#if message.role === 'system'}
-														S
+														<Icon icon={faVial} class="h-3 w-3 text-slate-800" />
 													{:else if message.role === 'assistant'}
-														A
+														<Icon icon={faRobot} class="h-3.5 w-3.5 text-slate-800" />
 													{:else}
-														U
+														<Icon icon={faUser} class="h-3 w-3 text-slate-800" />
 													{/if}
 												</span>
 											{/if}
@@ -1678,7 +1682,7 @@
 											</div>
 
 											<div
-												class="absolute bottom-[-32px] right-0 flex gap-x-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+												class="absolute bottom-[-32px] right-0 flex gap-x-2 opacity-0 transition-opacity group-hover:opacity-100 md:gap-x-0.5"
 											>
 												<button
 													class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
@@ -1836,7 +1840,7 @@
 					{/if}
 					{#if isMultimodal}
 						<button
-							class="absolute left-3 top-3.5 rounded-md border border-slate-300 bg-white p-2 transition-colors"
+							class="absolute bottom-[15px] left-3.5 rounded-lg bg-slate-800 p-2 transition-colors"
 							on:click={() => fileInputEl.click()}
 						>
 							<input
@@ -1861,15 +1865,15 @@
 							/>
 							<Icon
 								icon={faPaperclip}
-								class="h-3 w-3 text-slate-800 transition-colors group-disabled:text-slate-400"
+								class="h-3 w-3 text-white transition-colors group-disabled:text-slate-400"
 							/>
 						</button>
 					{/if}
 					<textarea
 						bind:this={inputTextareaEl}
-						class="{isMultimodal ? '!pl-[50px]' : ''} {imageUrls.length > 0
+						class="{isMultimodal ? '!pl-[52px]' : ''} {imageUrls.length > 0
 							? '!pt-[88px]'
-							: ''} max-h-[90dvh] w-full resize-none rounded-xl border border-slate-200 py-4 pl-5 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:px-4"
+							: ''} max-h-[90dvh] w-full resize-none rounded-xl border border-slate-200 py-4 pl-5 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:px-4 md:pl-5"
 						rows={1}
 						bind:value={content}
 						on:paste={async (event) => {
@@ -1907,16 +1911,19 @@
 							}
 						}}
 					/>
-					<button
-						disabled={content.length === 0}
-						class="group absolute right-3 top-3.5 rounded-md border border-slate-400 bg-white p-2 transition-colors disabled:border-slate-200 md:hidden"
-						on:click={sendMessage}
-					>
-						<Icon
-							icon={faArrowUp}
-							class="h-3 w-3 text-slate-800 transition-colors group-disabled:text-slate-400"
-						/>
-					</button>
+					{#if content.length > 0}
+						<button
+							transition:fly={{ x: 2, duration: 300 }}
+							disabled={content.length === 0}
+							class="group absolute bottom-[15px] right-3 rounded-full bg-slate-800 p-2 transition-transform hover:-translate-y-1 md:hidden"
+							on:click={sendMessage}
+						>
+							<Icon
+								icon={faArrowUp}
+								class="h-3 w-3 text-white transition-colors group-disabled:text-slate-100"
+							/>
+						</button>
+					{/if}
 				</div>
 			</section>
 		</div>
@@ -1951,6 +1958,9 @@
 	}
 	:global(.standalone .scrollable) {
 		@apply pb-[140px];
+	}
+	:global(.standalone .settings-trigger-container) {
+		@apply pb-10;
 	}
 
 	:global(.markdown.prose :where(p):not(:where([class~='not-prose'], [class~='not-prose'] *))) {
