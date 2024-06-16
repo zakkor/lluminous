@@ -1,13 +1,5 @@
 <script>
 	import { createEventDispatcher } from 'svelte';
-	import Icon from './Icon.svelte';
-	import {
-		faBolt,
-		faCircleQuestion,
-		faHammer,
-		faKey,
-		faPencil,
-	} from '@fortawesome/free-solid-svg-icons';
 	import {
 		config,
 		groqAPIKey,
@@ -20,6 +12,8 @@
 	} from './stores.js';
 	import Button from './Button.svelte';
 	import Modal from './Modal.svelte';
+	import Icon from './Icon.svelte';
+	import { feEdit3, feHelpCircle, feKey, feTool, feZap } from './feather.js';
 
 	const dispatch = createEventDispatcher();
 
@@ -44,7 +38,7 @@
 								: 'hover:bg-gray-100/70'} flex w-full items-center gap-x-2.5 rounded-lg px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 transition-colors"
 							on:click={() => (activeTab = 'api-keys')}
 						>
-							<Icon icon={faKey} class="h-3 w-3 text-slate-700" />
+							<Icon icon={feKey} class="h-3 w-3 text-slate-700" />
 							API keys
 						</button>
 					</li>
@@ -55,7 +49,7 @@
 								: 'hover:bg-gray-100/70'} flex w-full items-center gap-x-2.5 rounded-lg px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 transition-colors"
 							on:click={() => (activeTab = 'custom-instructions')}
 						>
-							<Icon icon={faPencil} class="h-3 w-3 text-slate-700" />
+							<Icon icon={feEdit3} class="h-3 w-3 text-slate-700" />
 							Custom instructions
 						</button>
 					</li>
@@ -66,7 +60,7 @@
 								: ' hover:bg-gray-100/70'} flex w-full items-center gap-x-2.5 rounded-lg px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 transition-colors"
 							on:click={() => (activeTab = 'tools')}
 						>
-							<Icon icon={faHammer} class="h-3 w-3 text-slate-700" />
+							<Icon icon={feTool} class="h-3 w-3 text-slate-700" />
 							Tool calling
 						</button>
 					</li>
@@ -150,7 +144,7 @@
 					<span class="mb-2 ml-[3px] flex items-center"
 						>Server address
 						<span class="group relative">
-							<Icon icon={faCircleQuestion} class="ml-2 h-3 w-3 text-slate-800" />
+							<Icon icon={feHelpCircle} class="ml-2 h-3 w-3 text-slate-800" />
 							<div
 								class="pointer-events-none absolute left-0 top-[calc(100%+8px)] w-[280px] rounded-lg bg-black px-3 py-2 text-xs font-normal normal-case tracking-normal text-white opacity-0 transition-opacity group-hover:opacity-100"
 							>
@@ -213,7 +207,7 @@
 						$toolSchema = JSON.parse(schema);
 					}}
 				>
-					<Icon icon={faBolt} class="mr-2 h-3 w-3 text-slate-700" />
+					<Icon icon={feZap} class="mr-2 h-3 w-3 text-slate-700" />
 					Sync tools from server
 				</Button>
 			{/if}

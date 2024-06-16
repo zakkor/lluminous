@@ -4,14 +4,8 @@
 	import { formatModelName } from './convo.js';
 	import { toolSchema } from './stores.js';
 	import CompanyLogo from './CompanyLogo.svelte';
+	import { feCheckCircle, feChevronDown, feImage, feLoader, feTool } from './feather.js';
 	import Icon from './Icon.svelte';
-	import {
-		faCheckCircle,
-		faChevronDown,
-		faCircleNotch,
-		faHammer,
-		faImage,
-	} from '@fortawesome/free-solid-svg-icons';
 
 	const dispatch = createEventDispatcher();
 
@@ -84,23 +78,23 @@
 			<CompanyLogo model={convo.model} />
 			<div class="flex items-center gap-x-1.5">
 				{#if loadingModel}
-					<Icon icon={faCircleNotch} class="h-3 shrink-0 animate-spin text-slate-800" />
+					<Icon icon={feLoader} class="h-3 shrink-0 animate-spin text-slate-800" />
 				{/if}
 				{#if convo.model.provider === 'Local' && loadedModel && loadedModel.id === convo.model.id}
-					<Icon icon={faCheckCircle} class="h-3 shrink-0 text-slate-800" />
+					<Icon icon={feCheckCircle} class="h-3 shrink-0 text-slate-800" />
 				{/if}
 				<p class="line-clamp-1 text-xs text-slate-800">
 					{formatModelName(convo.model)}
 				</p>
 				{#if convo.model.modality === 'image-generation'}
-					<Icon icon={faImage} class="mt-px h-3 text-slate-800" />
+					<Icon icon={feImage} class="mt-px h-3 w-3 text-slate-800" />
 				{/if}
 			</div>
 			<Icon
-				icon={faChevronDown}
+				icon={feChevronDown}
 				class="{$toolSchema.length > 0
 					? 'hidden sm:inline'
-					: ''} pointer-events-none absolute right-3 top-1/2 h-2.5 w-2.5 shrink-0 -translate-y-1/2 text-slate-600"
+					: ''} pointer-events-none absolute right-3 top-1/2 h-4 w-4 shrink-0 -translate-y-1/2 text-slate-600"
 			/>
 		</button>
 	</div>
@@ -113,7 +107,7 @@
 				}}
 				class="flex h-[34px] w-[34px] rounded-lg border border-slate-300 transition-colors hover:border-slate-400"
 			>
-				<Icon icon={faHammer} class="m-auto h-3 w-3 text-slate-700" />
+				<Icon icon={feTool} class="m-auto h-3 w-3 fill-slate-700 text-slate-700" />
 				{#if convo.tools?.length > 0}
 					<span
 						class="absolute -bottom-1 -right-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[10px] text-white"
@@ -179,10 +173,10 @@
 									class="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 rounded-full transition-colors hover:bg-gray-100"
 								>
 									<Icon
-										icon={faChevronDown}
+										icon={feChevronDown}
 										class="{collapsed
 											? 'rotate-180'
-											: ''} m-auto h-3 w-3 text-slate-600 transition-transform"
+											: ''} m-auto h-4 w-4 text-slate-600 transition-transform"
 									/>
 								</button>
 							</div>
@@ -257,12 +251,12 @@
 								}}
 							>
 								{#if model.provider === 'Local' && loadedModel && loadedModel.id === model.id}
-									<Icon icon={faCheckCircle} class="h-3 text-slate-800" />
+									<Icon icon={feCheckCircle} class="h-3 text-slate-800" />
 								{/if}
 								<CompanyLogo {model} />
 								{formatModelName(model)}
 								{#if model.modality === 'image-generation'}
-									<Icon icon={faImage} class="mt-px h-3 text-slate-800" />
+									<Icon icon={feImage} class="mt-px h-3 w-3 text-slate-800" />
 								{/if}
 							</button>
 						</li>

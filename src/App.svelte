@@ -14,32 +14,9 @@
 	} from './convo.js';
 	import KnobsSidebar from './KnobsSidebar.svelte';
 	import Button from './Button.svelte';
-	import {
-		faArrowUp,
-		faArrowUpRightFromSquare,
-		faArrowsRotate,
-		faBarsStaggered,
-		faCheck,
-		faCheckDouble,
-		faChevronLeft,
-		faChevronRight,
-		faEllipsis,
-		faGear,
-		faPaperclip,
-		faPen,
-		faPlus,
-		faRobot,
-		faSliders,
-		faStop,
-		faUser,
-		faVial,
-		faXmark,
-	} from '@fortawesome/free-solid-svg-icons';
-	import { faLightbulb, faTrashCan } from '@fortawesome/free-regular-svg-icons';
 	import { marked } from 'marked';
 	import markedKatex from './marked-katex-extension';
 
-	import Icon from './Icon.svelte';
 	import { persisted } from './localstorage.js';
 	import { getRelativeDate } from './date.js';
 	import { compressAndEncode, decodeAndDecompress } from './share.js';
@@ -60,6 +37,29 @@
 	import MessageContent from './MessageContent.svelte';
 	import Toolcall from './Toolcall.svelte';
 	import Modal from './Modal.svelte';
+	import Icon from './Icon.svelte';
+	import {
+		feArrowUp,
+		feCheck,
+		feCheckCircle,
+		feChevronLeft,
+		feChevronRight,
+		feCpu,
+		feEdit2,
+		feMenu,
+		feMessageCircle,
+		feMoreHorizontal,
+		fePaperclip,
+		fePlus,
+		feRefreshCw,
+		feSettings,
+		feShare,
+		feSliders,
+		feSquare,
+		feTrash,
+		feUser,
+		feX,
+	} from './feather.js';
 
 	marked.use(
 		markedKatex({
@@ -472,7 +472,7 @@
 						// Call the tool
 						const promise = fetch(`${$remoteServer.address}/tool`, {
 							method: 'POST',
-							credentials: 'include',
+							// credentials: 'include',
 							headers: {
 								Authorization: `Basic ${$remoteServer.password}`,
 							},
@@ -555,7 +555,7 @@
 					// Call the tool
 					const promise = fetch(`${$remoteServer.address}/tool`, {
 						method: 'POST',
-						credentials: 'include',
+						// credentials: 'include',
 						headers: {
 							Authorization: `Basic ${$remoteServer.password}`,
 						},
@@ -1177,14 +1177,14 @@
 			on:click={newConversation}
 			class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
 		>
-			<Icon icon={faPlus} class="ml-auto h-4 w-4 text-slate-700" />
+			<Icon icon={fePlus} strokeWidth={3} class="ml-auto h-4 w-4 text-slate-700" />
 		</button>
 		<button
 			data-trigger="history"
 			class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
 			on:click={() => (historyOpen = !historyOpen)}
 		>
-			<Icon icon={faBarsStaggered} class="m-auto h-4 w-4 text-slate-700" />
+			<Icon icon={feMenu} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 
 		{#if !convo.shared}
@@ -1220,14 +1220,14 @@
 			class="ml-auto flex rounded-full p-3 transition-colors hover:bg-gray-100"
 			on:click={shareConversation}
 		>
-			<Icon icon={faArrowUpRightFromSquare} class="m-auto h-4 w-4 text-slate-700" />
+			<Icon icon={feShare} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 		<button
 			data-trigger="knobs"
 			class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
 			on:click={() => (knobsOpen = !knobsOpen)}
 		>
-			<Icon icon={faSliders} class="m-auto h-4 w-4 text-slate-700" />
+			<Icon icon={feSliders} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 	</div>
 	<div class="relative flex h-full flex-1 overflow-hidden">
@@ -1243,7 +1243,7 @@
 					class="flex w-full items-center rounded-lg border py-2.5 pl-3 pr-4 text-left text-sm font-medium hover:bg-gray-100"
 				>
 					New chat
-					<Icon icon={faPlus} class="ml-auto h-3.5 w-3.5 text-slate-700" />
+					<Icon icon={fePlus} strokeWidth={3} class="ml-auto h-3.5 w-3.5 text-slate-700" />
 				</button>
 			</div>
 			<ol
@@ -1299,11 +1299,11 @@
 									deleteConversation(historyConvo);
 								}}
 								class="z-1 absolute right-0 top-0 flex h-full w-12 rounded-br-lg rounded-tr-lg bg-gradient-to-l {$convoId ===
-								convo.id
+								historyConvo.id
 									? 'from-gray-100'
 									: 'from-white group-hover:from-gray-100'} from-65% to-transparent pr-3 transition-opacity sm:from-gray-100 sm:opacity-0 sm:group-hover:opacity-100"
 							>
-								<Icon icon={faTrashCan} class="m-auto mr-0 h-3 w-3 shrink-0 text-slate-700" />
+								<Icon icon={feTrash} class="m-auto mr-0 h-3 w-3 shrink-0 text-slate-700" />
 							</button>
 						</li>
 					{/each}
@@ -1319,7 +1319,7 @@
 					}}
 				>
 					Settings
-					<Icon icon={faGear} class="ml-auto h-4 w-4 text-slate-700" />
+					<Icon icon={feSettings} class="ml-auto h-4 w-4 text-slate-700" />
 				</button>
 			</div>
 		</aside>
@@ -1358,14 +1358,14 @@
 					class="ml-auto flex rounded-full p-3 transition-colors hover:bg-gray-100"
 					on:click={shareConversation}
 				>
-					<Icon icon={faArrowUpRightFromSquare} class="m-auto h-4 w-4 text-slate-700" />
+					<Icon icon={feShare} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
 				</button>
 				<button
 					data-trigger="knobs"
 					class="flex rounded-full p-3 transition-colors hover:bg-gray-100 xl:hidden"
 					on:click={() => (knobsOpen = !knobsOpen)}
 				>
-					<Icon icon={faSliders} class="m-auto h-4 w-4 text-slate-700" />
+					<Icon icon={feSliders} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
 				</button>
 			</div>
 			<section
@@ -1412,7 +1412,7 @@
 											class="absolute left-1/2 top-0 z-[98] -translate-x-1/2 rounded-t-none !border-t-0 border-dashed text-xs opacity-0 transition-opacity group-hover:opacity-100"
 											on:click={insertSystemPrompt}
 										>
-											<Icon icon={faVial} class="mr-2 h-3 w-3 text-slate-600" />
+											<Icon icon={feMessageCircle} class="mr-2 h-3 w-3 text-slate-600" />
 											Add system prompt
 										</Button>
 									{/if}
@@ -1447,11 +1447,11 @@
 											{:else}
 												<span class="m-auto">
 													{#if message.role === 'system'}
-														<Icon icon={faVial} class="h-3 w-3 text-slate-800" />
+														<Icon icon={feMessageCircle} class="h-4 w-4 text-slate-800" />
 													{:else if message.role === 'assistant'}
-														<Icon icon={faRobot} class="h-3.5 w-3.5 text-slate-800" />
+														<Icon icon={feCpu} class="h-4 w-4 text-slate-800" />
 													{:else}
-														<Icon icon={faUser} class="h-3 w-3 text-slate-800" />
+														<Icon icon={feUser} class="h-4 w-4 text-slate-800" />
 													{/if}
 												</span>
 											{/if}
@@ -1582,7 +1582,7 @@
 															submitCompletion();
 														}}
 													>
-														<Icon icon={faCheckDouble} class="h-3.5 w-3.5 text-slate-600" />
+														<Icon icon={feCheckCircle} class="h-3.5 w-3.5 text-slate-600" />
 														<span class="text-xs text-slate-600"> Submit all </span>
 													</button>
 												{/if}
@@ -1602,7 +1602,7 @@
 															event.target.blur();
 														}}
 													>
-														<Icon icon={faCheck} class="h-3.5 w-3.5 text-slate-600" />
+														<Icon icon={feCheck} class="h-3.5 w-3.5 text-slate-600" />
 														<span class="text-xs text-slate-600">
 															{#if message.role === 'system'}
 																Set system prompt
@@ -1621,7 +1621,7 @@
 															submitCompletion(false);
 														}}
 													>
-														<Icon icon={faEllipsis} class="h-3.5 w-3.5 text-slate-600" />
+														<Icon icon={feMoreHorizontal} class="h-3.5 w-3.5 text-slate-600" />
 														<span class="text-xs text-slate-600">Pre-filled response</span>
 													</button>
 												{/if}
@@ -1633,7 +1633,7 @@
 														saveMessage(convo.messages[i]);
 													}}
 												>
-													<Icon icon={faXmark} class="h-3.5 w-3.5 text-slate-600" />
+													<Icon icon={feX} class="h-3.5 w-3.5 text-slate-600" />
 													<span class="text-xs text-slate-600">Cancel</span>
 												</button>
 											</div>
@@ -1654,8 +1654,8 @@
 															}}
 														>
 															<Icon
-																icon={faChevronLeft}
-																class="m-auto h-3 w-3 text-slate-800 group-disabled:text-slate-500 md:h-2 md:w-2"
+																icon={feChevronLeft}
+																class="m-auto h-3.5 w-3.5 text-slate-800 group-disabled:text-slate-500 md:h-3 md:w-3"
 															/>
 														</button>
 														<span class="text-xs tabular-nums">
@@ -1669,8 +1669,8 @@
 															}}
 														>
 															<Icon
-																icon={faChevronRight}
-																class="m-auto h-3 w-3 text-slate-800 group-disabled:text-slate-500 md:h-2 md:w-2"
+																icon={feChevronRight}
+																class="m-auto h-3.5 w-3.5 text-slate-800 group-disabled:text-slate-500 md:h-3 md:w-3"
 															/>
 														</button>
 													</div>
@@ -1696,7 +1696,11 @@
 														saveMessage(convo.messages[i]);
 													}}
 												>
-													<Icon icon={faPen} class="m-auto h-[11px] w-[11px] text-slate-600" />
+													<Icon
+														icon={feEdit2}
+														strokeWidth={3}
+														class="m-auto h-[11px] w-[11px] text-slate-600"
+													/>
 												</button>
 												{#if message.role !== 'system'}
 													<button
@@ -1729,7 +1733,8 @@
 														}}
 													>
 														<Icon
-															icon={faArrowsRotate}
+															icon={feRefreshCw}
+															strokeWidth={3}
 															class="m-auto h-[12px] w-[12px] text-slate-600"
 														/>
 													</button>
@@ -1745,7 +1750,11 @@
 														saveConversation(convo);
 													}}
 												>
-													<Icon icon={faXmark} class="m-auto h-[14px] w-[14px] text-slate-600" />
+													<Icon
+														icon={feX}
+														strokeWidth={3}
+														class="m-auto h-[14px] w-[14px] text-slate-600"
+													/>
 												</button>
 											</div>
 										{/if}
@@ -1775,7 +1784,7 @@
 										}}
 										class="z-1 absolute bottom-0 left-1/2 flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-md border border-slate-200 bg-white opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100"
 									>
-										<Icon icon={faPlus} class="m-auto h-3 w-3 text-slate-600" />
+										<Icon icon={fePlus} class="m-auto h-3 w-3 text-slate-600" />
 									</button>
 								</li>
 							{/if}
@@ -1787,12 +1796,9 @@
 						class="z-[98] mx-auto rounded-t-none !border-t-0 border-dashed text-xs"
 						on:click={insertSystemPrompt}
 					>
-						<Icon icon={faVial} class="mr-2 h-3 w-3 text-slate-600" />
+						<Icon icon={feMessageCircle} class="mr-2 h-3 w-3 text-slate-600" />
 						Add system prompt
 					</Button>
-					<div class="m-auto flex flex-col items-center">
-						<Icon icon={faLightbulb} class="h-14 w-14 text-slate-800" />
-					</div>
 				{/if}
 			</section>
 			<section
@@ -1806,7 +1812,7 @@
 								$controller.abort();
 							}}
 						>
-							<Icon icon={faStop} class="mr-2 h-3.5 w-3.5 text-slate-500" />
+							<Icon icon={feSquare} class="mr-2 h-3.5 w-3.5 text-slate-500" />
 							<span>Stop generating</span>
 						</Button>
 					{/if}
@@ -1832,7 +1838,7 @@
 										}}
 										class="absolute -right-1 -top-1 flex h-3 w-3 rounded-full bg-black"
 									>
-										<Icon icon={faXmark} class="m-auto h-2.5 w-2.5 text-white" />
+										<Icon icon={feX} class="m-auto h-2.5 w-2.5 text-white" />
 									</button>
 								</div>
 							{/each}
@@ -1864,7 +1870,7 @@
 								}}
 							/>
 							<Icon
-								icon={faPaperclip}
+								icon={fePaperclip}
 								class="h-3 w-3 text-white transition-colors group-disabled:text-slate-400"
 							/>
 						</button>
@@ -1919,7 +1925,7 @@
 							on:click={sendMessage}
 						>
 							<Icon
-								icon={faArrowUp}
+								icon={feArrowUp}
 								class="h-3 w-3 text-white transition-colors group-disabled:text-slate-100"
 							/>
 						</button>

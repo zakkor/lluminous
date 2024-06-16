@@ -1,8 +1,8 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
-	import Icon from './Icon.svelte';
-	import { faCheck, faChevronDown, faCircleNotch } from '@fortawesome/free-solid-svg-icons';
 	import JsonView from './svelte-json-view/JsonView.svelte';
+	import Icon from './Icon.svelte';
+	import { feCheck, feChevronDown, feLoader } from './feather.js';
 
 	export let toolcall;
 	export let toolresponse;
@@ -25,7 +25,7 @@
 		{#key finished}
 			<span in:fade={{ duration: 300 }}>
 				<Icon
-					icon={finished ? faCheck : faCircleNotch}
+					icon={finished ? feCheck : feLoader}
 					class="{finished ? '' : 'animate-spin'} h-4 w-4 text-slate-700"
 				/>
 			</span>
@@ -36,12 +36,12 @@
 		</span>
 		{#if collapsable}
 			<Icon
-				icon={faChevronDown}
+				icon={feChevronDown}
 				class="{toolcall.expanded
 					? 'rotate-180'
-					: ''} ml-auto h-3 w-3 text-slate-700 transition-transform"
+					: ''} ml-auto h-4 w-4 text-slate-700 transition-transform"
 			/>
-    {/if}
+		{/if}
 	</svelte:element>
 	{#if !collapsable || toolcall.expanded}
 		<div transition:slide={{ duration: 300 }}>

@@ -3,15 +3,15 @@
 	import { fade, scale } from 'svelte/transition';
 	import { cubicIn } from 'svelte/easing';
 	import Icon from './Icon.svelte';
-	import { faXmark } from '@fortawesome/free-solid-svg-icons';
+	import { feX } from './feather.js';
 
 	const dispatch = createEventDispatcher();
 
 	export let open = false;
 	export let trigger = '';
-  let className = '';
-  export { className as class };
-  export let buttonClass = '';
+	let className = '';
+	export { className as class };
+	export let buttonClass = '';
 </script>
 
 <svelte:window
@@ -38,7 +38,7 @@
 	<div
 		role="dialog"
 		transition:scale={{ opacity: 0, start: 0.98, duration: 150, easing: cubicIn }}
-		class="{className} fixed left-1/2 top-1/2 z-[101] w-[95%] -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-white px-5 py-6 shadow-2xl sm:w-[700px]"
+		class="{className} fixed left-1/2 top-1/2 z-[101] max-h-[95vh] w-[95%] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-white px-5 py-6 shadow-2xl scrollbar-ultraslim sm:w-[700px]"
 	>
 		<button
 			on:click={() => {
@@ -47,7 +47,7 @@
 			}}
 			class="{buttonClass} absolute right-4 top-3 flex rounded-full p-3 transition-colors hover:bg-gray-100"
 		>
-			<Icon icon={faXmark} class="ml-auto h-4 w-4 text-slate-700" />
+			<Icon icon={feX} class="ml-auto h-4 w-4 text-slate-700" />
 		</button>
 
 		<slot />
