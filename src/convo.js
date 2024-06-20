@@ -20,7 +20,8 @@ export function hasCompanyLogo(model) {
 			model.provider === 'Groq' ||
 			model.id.startsWith('nous') ||
 			model.id.startsWith('google') ||
-			model.id.startsWith('perplexity'))
+			model.id.startsWith('perplexity') ||
+			model.id.startsWith('deepseek'))
 	);
 }
 

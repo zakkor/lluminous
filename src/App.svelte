@@ -95,14 +95,23 @@
 	request.onsuccess = async (event) => {
 		db = event.target.result;
 		await fetchAllConversations();
-		if (!$convoId || !convos[$convoId]) {
-			newConversation();
-		} else {
-			convo = convos[$convoId];
+
+		const restored = await restoreConversation();
+
+		if (!restored) {
+			if (!$convoId || !convos[$convoId]) {
+				newConversation();
+			} else {
+				convo = convos[$convoId];
+			}
+			if (!convo.tools) {
+				convo.tools = [];
+				saveConversation(convo);
+			}
 		}
-		if (!convo.tools) {
-			convo.tools = [];
-			saveConversation(convo);
+
+		if (!convo.shared && $openaiAPIKey === '' && $groqAPIKey === '' && $openrouterAPIKey === '') {
+			settingsModalOpen = true;
 		}
 	};
 	request.onerror = (event) => {
@@ -838,35 +847,35 @@
 			share = await response.text();
 		}
 		if (!share) {
-			return;
+			return false;
 		}
 
-		decodeAndDecompress(share)
-			.then((decoded) => {
-				if (Array.isArray(decoded)) {
-					decoded = { name: 'Shared conversation', messages: decoded };
-				}
-				let id = uuidv4();
-				const existingShared = Object.values(convos).find((convo) => convo.shared);
-				if (existingShared) {
-					id = existingShared.id;
-				}
-				const convoData = {
-					id,
-					time: Date.now(),
-					shared: true,
-					model: decoded.model,
-					messages: decoded.messages,
-					versions: {},
-				};
-				$convoId = convoData.id;
-				convos[convoData.id] = convoData;
-				convo = convoData;
-				// FIXME: Do we need to save shared convo?
-			})
-			.catch((err) => {
-				console.error('Error decoding shared conversation:', err);
-			});
+		try {
+			let decoded = await decodeAndDecompress(share);
+			if (Array.isArray(decoded)) {
+				decoded = { name: 'Shared conversation', messages: decoded };
+			}
+			let id = uuidv4();
+			const existingShared = Object.values(convos).find((convo) => convo.shared);
+			if (existingShared) {
+				id = existingShared.id;
+			}
+			const convoData = {
+				id,
+				time: Date.now(),
+				shared: true,
+				model: decoded.model,
+				messages: decoded.messages,
+				versions: {},
+				tools: [],
+			};
+			$convoId = convoData.id;
+			convos[convoData.id] = convoData;
+			convo = convoData;
+			return true;
+		} catch (err) {
+			console.error('Error decoding shared conversation:', err);
+		}
 	}
 
 	let loadedModel = null;
@@ -979,8 +988,12 @@
 						'anthropic/claude-3-haiku',
 					],
 				},
-				{ fromProvider: 'Groq', exactlyNot: ['llama2-70b-4096', 'gemma-7b-it'] },
+				{
+					fromProvider: 'Groq',
+					exactlyNot: ['llama2-70b-4096', 'gemma-7b-it', 'whisper-large-v3'],
+				},
 				{ exactly: ['meta-llama/llama-3-70b-instruct', 'meta-llama/llama-3-8b-instruct'] },
+				{ startsWith: ['deepseek'] },
 				{
 					exactly: [
 						'perplexity/llama-3-sonar-large-32k-online',
@@ -1088,12 +1101,6 @@
 
 	onMount(async () => {
 		initializePWAStyles();
-
-		await restoreConversation();
-
-		if (!convo.shared && $openaiAPIKey === '' && $groqAPIKey === '' && $openrouterAPIKey === '') {
-			settingsModalOpen = true;
-		}
 
 		// Async
 		fetchLoadedModel();

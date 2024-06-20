@@ -35,5 +35,7 @@
 			class="{size} {rounded || 'rounded-sm'}"
 			alt=""
 		/>
+	{:else if model.id.startsWith('deepseek')}
+		<img src="/logos/deepseek.ico" loading="lazy" class={size} alt="" />
 	{/if}
 {/if}

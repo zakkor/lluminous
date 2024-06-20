@@ -26,7 +26,7 @@
 			<span in:fade={{ duration: 300 }}>
 				<Icon
 					icon={finished ? feCheck : feLoader}
-					class="{finished ? '' : 'animate-spin'} h-4 w-4 text-slate-700"
+					class="{finished ? '' : 'animate-spin'} h-5 w-5 text-slate-700"
 				/>
 			</span>
 		{/key}
