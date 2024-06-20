@@ -983,6 +983,7 @@
 				{ exactly: ['dall-e-3'] },
 				{
 					exactly: [
+						'anthropic/claude-3.5-sonnet',
 						'anthropic/claude-3-opus',
 						'anthropic/claude-3-sonnet',
 						'anthropic/claude-3-haiku',
