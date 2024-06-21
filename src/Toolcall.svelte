@@ -1,12 +1,16 @@
 <script>
+	import { createEventDispatcher } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import JsonView from './svelte-json-view/JsonView.svelte';
 	import Icon from './Icon.svelte';
-	import { feCheck, feChevronDown, feLoader } from './feather.js';
+	import { feCheck, feChevronDown, feLoader, feX } from './feather.js';
+
+	const dispatch = createEventDispatcher();
 
 	export let toolcall;
 	export let toolresponse;
 	export let collapsable = true;
+	export let closeButton = false;
 	let className = '';
 	export { className as class };
 
@@ -41,6 +45,15 @@
 					? 'rotate-180'
 					: ''} ml-auto h-4 w-4 text-slate-700 transition-transform"
 			/>
+		{:else if closeButton}
+			<button
+				on:click={() => {
+					dispatch('close');
+				}}
+				class="-my-1.5 -mr-2 ml-auto flex rounded-full p-3 transition-colors hover:bg-gray-100"
+			>
+				<Icon icon={feX} class="ml-auto h-4 w-4 text-slate-700" />
+			</button>
 		{/if}
 	</svelte:element>
 	{#if !collapsable || toolcall.expanded}
@@ -48,7 +61,7 @@
 			<div
 				class="{toolresponse
 					? 'border-b-0'
-					: 'rounded-b-lg'} whitespace-pre-wrap break-all border border-t-0 border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-800"
+					: 'rounded-b-lg'} whitespace-pre-wrap [overflow-wrap:anywhere] border border-t-0 border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-800"
 			>
 				{#if typeof toolcall.arguments === 'object'}
 					{#if Object.keys(toolcall.arguments).length === 1}
@@ -56,17 +69,19 @@
 					{:else}
 						<JsonView json={toolcall.arguments} />
 					{/if}
-				{:else}
+				{:else if toolcall.arguments}
 					{toolcall.arguments}
+				{:else}
+					<div class="h-3 w-3 shrink-0 animate-bounce rounded-full bg-slate-600" />
 				{/if}
 			</div>
 			{#if toolresponse}
 				<div class="h-px w-full border-t border-dashed border-slate-300" />
-				<div class="flex flex-col rounded-b-lg border border-t-0 border-slate-200">
+				<div class="flex flex-col rounded-b-lg border border-t-0 border-slate-200 overflow-y-auto max-h-[80vh] scrollbar-ultraslim">
 					<span class="px-4 pt-3 text-sm font-medium tracking-[0.01em] text-slate-700">Result:</span
 					>
 					<div
-						class="whitespace-pre-wrap break-all rounded-[inherit] bg-white px-4 py-3 font-mono text-sm text-slate-800"
+						class="whitespace-pre-wrap [overflow-wrap:anywhere] rounded-[inherit] bg-white px-4 py-3 font-mono text-sm text-slate-800"
 					>
 						{#if toolresponse.content}
 							{toolresponse.content}

@@ -65,7 +65,7 @@
 				? 'min-w-[140px] pr-3 sm:pr-7'
 				: 'min-w-[180px] pr-7'} {loadingModel ? 'animate-pulse' : ''} {success
 				? 'border-green-200 bg-green-50'
-				: ''} flex w-full max-w-[180px] items-center gap-2 rounded-lg border border-slate-300 py-2 pl-3 text-left transition-colors hover:border-slate-400 sm:min-w-[240px]"
+				: ''} flex w-full max-w-[180px] items-center gap-2 rounded-lg border border-slate-300 py-2 pl-3 text-left transition-colors hover:border-slate-400 sm:min-w-[290px]"
 			on:click={async () => {
 				open = !open;
 				toolsOpen = false;

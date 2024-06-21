@@ -8,7 +8,7 @@
 	data-sidebar="knobs"
 	class="{knobsOpen
 		? ''
-		: 'translate-x-full'} fixed right-0 top-0 z-[100] flex h-full w-[230px] flex-col gap-2 border-l border-slate-200 bg-white px-3 py-4 transition-transform ease-in-out xl:static xl:translate-x-0"
+		: 'translate-x-full'} fixed right-0 top-0 z-[100] flex h-full w-[230px] flex-col gap-2 border-l border-slate-200 bg-white px-3 py-4 transition-transform ease-in-out"
 >
 	<label class="mb-4 flex flex-col text-[10px] uppercase tracking-wide">
 		<div class="mb-2 ml-[3px] flex items-baseline">

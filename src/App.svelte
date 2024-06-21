@@ -292,6 +292,10 @@
 	let inputTextareaEl;
 	let fileInputEl;
 
+	let innerWidth = window.innerWidth;
+
+	$: splitView = innerWidth > 1215 && activeToolcall && $config.compactToolsView;
+
 	let settingsModalOpen = false;
 
 	function submitEdit(i) {
@@ -437,9 +441,15 @@
 								arguments: '',
 								expanded: true,
 							};
+							if (innerWidth > 1215 && $config.compactToolsView) {
+								activeToolcall = convo.messages[i].toolcalls[index];
+							}
 						}
 						if (tool_call.function.arguments) {
 							convo.messages[i].toolcalls[index].arguments += tool_call.function.arguments;
+							if (splitView) {
+								activeToolcall = convo.messages[i].toolcalls[index];
+							}
 						}
 						saveMessage(convo.messages[i]);
 					}
@@ -473,7 +483,7 @@
 						try {
 							toolcall.arguments = JSON.parse(toolcall.arguments);
 						} catch (err) {
-							convo.messages[i].error = 'Failed to parse tool call arguments: ' + err;
+							convo.messages[i].error = 'Failed to parse tool call arguments: ' + err + toolcall.arguments;
 							saveMessage(convo.messages[i]);
 							return;
 						}
@@ -558,6 +568,7 @@
 						arguments: JSON.parse(toolcall.function.arguments),
 						expanded: true,
 					};
+					activeToolcall = convo.messages[i].toolcalls[ti];
 
 					saveMessage(convo.messages[i]);
 
@@ -668,7 +679,7 @@
 				type: 'image_url',
 				image_url: {
 					url,
-					detail: 'low',
+					detail: 'high',
 				},
 			});
 
@@ -690,7 +701,7 @@
 			currentTokens = 0;
 
 			await tick();
-			if (window.innerWidth < 880) {
+			if (innerWidth < 880) {
 				inputTextareaEl.blur();
 			}
 			autoresizeTextarea();
@@ -708,6 +719,7 @@
 
 	function newConversation() {
 		cleanShareLink();
+		activeToolcall = null;
 
 		// if (convo.messages.length === 0) {
 		// 	historyOpen = false;
@@ -742,7 +754,7 @@
 		saveConversation(convo);
 
 		historyOpen = false;
-		if (window.innerWidth > 880) {
+		if (innerWidth > 880) {
 			inputTextareaEl.focus();
 		}
 	}
@@ -1166,6 +1178,7 @@
 </script>
 
 <svelte:window
+	bind:innerWidth
 	on:touchstart={closeSidebars}
 	on:click={closeSidebars}
 	on:keydown={(event) => {
@@ -1370,576 +1383,614 @@
 				</button>
 				<button
 					data-trigger="knobs"
-					class="flex rounded-full p-3 transition-colors hover:bg-gray-100 xl:hidden"
+					class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
 					on:click={() => (knobsOpen = !knobsOpen)}
 				>
 					<Icon icon={feSliders} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
 				</button>
 			</div>
-			<section
-				bind:this={scrollableEl}
-				class="scrollable flex h-full w-full flex-col overflow-y-auto pb-[80px] scrollbar-slim"
-				on:scroll={() => {
-					if (
-						scrollableEl.scrollTop + scrollableEl.clientHeight >=
-						scrollableEl.scrollHeight - 100
-					) {
-						hidingTokenCount = false;
-					} else {
-						hidingTokenCount = true;
-					}
-				}}
-			>
-				{#if convo.messages.length > 0}
-					<ul
-						class="mb-3 flex w-full !list-none flex-col divide-y divide-slate-200/50 border-b border-slate-200/50"
+
+			<div class="flex h-full w-full">
+				<div
+					class="{splitView
+						? 'w-[60%]'
+						: 'w-full'} relative max-h-[calc(100vh-49px)] transition-[width] duration-500 ease-in-out"
+				>
+					<div
+						bind:this={scrollableEl}
+						class="{splitView
+							? 'scrollbar-none'
+							: 'scrollbar-ultraslim'} scrollable flex h-full w-full flex-col overflow-y-auto pb-[80px]"
+						on:scroll={() => {
+							if (
+								scrollableEl.scrollTop + scrollableEl.clientHeight >=
+								scrollableEl.scrollHeight - 100
+							) {
+								hidingTokenCount = false;
+							} else {
+								hidingTokenCount = true;
+							}
+						}}
 					>
-						{#each convo.messages as message, i (message.id)}
-							{#if ['system', 'user', 'assistant'].includes(message.role) && (!$config.compactToolsView || !collapsedRanges.some((r) => i >= r.starti && i < r.endi))}
-								{@const hasLogo = hasCompanyLogo(message.model)}
-								<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
-								<li
-									data-role={message.role}
-									class="{!message.generated &&
-									!message.submitted &&
-									message.role !== 'system' &&
-									message.role !== 'tool'
-										? 'bg-yellow-50/40'
-										: message.role === 'assistant'
-											? 'bg-slate-50/30'
-											: ''} group relative px-5 pb-10 pt-6 ld:px-8"
-									style="z-index: {convo.messages.length - i};"
-									on:touchstart={(event) => {
-										// Make click trigger hover on mobile:
-										event.target.dispatchEvent(new MouseEvent('mouseenter'));
-									}}
-								>
-									{#if i === 0 && message.role !== 'system'}
-										<Button
-											variant="outline"
-											class="absolute left-1/2 top-0 z-[98] -translate-x-1/2 rounded-t-none !border-t-0 border-dashed text-xs opacity-0 transition-opacity group-hover:opacity-100"
-											on:click={insertSystemPrompt}
-										>
-											<Icon icon={feMessageCircle} class="mr-2 h-3 w-3 text-slate-600" />
-											Add system prompt
-										</Button>
-									{/if}
-									<div
-										class="relative mx-auto flex w-full max-w-[680px] gap-x-3.5 self-start md:gap-x-5 ld:max-w-[768px]"
-									>
-										<button
-											disabled={message.role === 'system'}
-											on:click={() => {
-												// Toggle between user and assistant:
-												if (message.role === 'user') {
-													message.role = 'assistant';
-												} else {
-													message.role = 'user';
-												}
+						{#if convo.messages.length > 0}
+							<ul
+								class="{splitView
+									? 'rounded-br-lg border-r'
+									: ''} mb-3 flex w-full !list-none flex-col divide-y divide-slate-200/50 border-b border-slate-200/50"
+							>
+								{#each convo.messages as message, i (message.id)}
+									{#if ['system', 'user', 'assistant'].includes(message.role) && (!$config.compactToolsView || !collapsedRanges.some((r) => i >= r.starti && i < r.endi))}
+										{@const hasLogo = hasCompanyLogo(message.model)}
+										<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+										<li
+											data-role={message.role}
+											class="{!message.generated &&
+											!message.submitted &&
+											message.role !== 'system' &&
+											message.role !== 'tool'
+												? 'bg-yellow-50/40'
+												: message.role === 'assistant'
+													? 'bg-slate-50/30'
+													: ''} group relative px-5 pb-10 pt-6 ld:px-8"
+											style="z-index: {convo.messages.length - i};"
+											on:touchstart={(event) => {
+												// Make click trigger hover on mobile:
+												event.target.dispatchEvent(new MouseEvent('mouseenter'));
 											}}
-											class="flex h-8 w-8 shrink-0 rounded-md md:h-9 md:w-9 md:rounded-[7px] {message.role ===
-											'system'
-												? 'border border-teal-200 bg-teal-100'
-												: message.role === 'user'
-													? 'border border-slate-200 bg-white'
-													: message.role === 'assistant' && !hasLogo
-														? 'border border-teal-200 bg-teal-100 pb-px'
-														: ''}"
 										>
-											{#if message.role === 'assistant' && hasLogo}
-												<CompanyLogo
-													model={message.model}
-													size="w-full h-full"
-													rounded="rounded-[inherit]"
-												/>
-											{:else}
-												<span class="m-auto">
-													{#if message.role === 'system'}
-														<Icon icon={feMessageCircle} class="h-4 w-4 text-slate-800" />
-													{:else if message.role === 'assistant'}
-														<Icon icon={feCpu} class="h-4 w-4 text-slate-800" />
-													{:else}
-														<Icon icon={feUser} class="h-4 w-4 text-slate-800" />
-													{/if}
-												</span>
+											{#if i === 0 && message.role !== 'system'}
+												<Button
+													variant="outline"
+													class="absolute left-1/2 top-0 z-[98] -translate-x-1/2 rounded-t-none !border-t-0 border-dashed text-xs opacity-0 transition-opacity group-hover:opacity-100"
+													on:click={insertSystemPrompt}
+												>
+													<Icon icon={feMessageCircle} class="mr-2 h-3 w-3 text-slate-600" />
+													Add system prompt
+												</Button>
 											{/if}
-										</button>
-
-										<!-- svelte-ignore a11y-no-static-element-interactions -->
-										{#if message.editing}
-											<textarea
-												bind:this={textareaEls[i]}
-												class="w-full resize-none border-none bg-transparent p-0 leading-[28px] text-slate-800 outline-none focus:ring-0"
-												rows={1}
-												bind:value={message.pendingContent}
-												on:keydown={(event) => {
-													if (
-														event.key === 'Enter' &&
-														!event.shiftKey &&
-														message.role === 'user' &&
-														message.submitted &&
-														message.pendingContent &&
-														message.content !== message.pendingContent
-													) {
-														event.preventDefault();
-														submitEdit(i);
-														event.target.blur();
-													}
-												}}
-												on:input={(event) => {
-													// Resize textarea as content grows:
-													event.target.style.height = 'auto';
-													event.target.style.height = event.target.scrollHeight + 'px';
-												}}
-											/>
-										{:else}
-											<div class="flex w-full flex-col gap-6">
-												{#if $config.compactToolsView}
-													{@const collapsedRange = collapsedRanges.find((r) => i === r.endi)}
-													<!-- collapsedRange :{JSON.stringify(collapsedRange)} -->
-													{#if collapsedRange}
-														{@const collapsedMessages = convo.messages
-															.slice(collapsedRange.starti, collapsedRange.endi)
-															.filter((m) => m.role === 'assistant')}
-														{#if collapsedMessages.length > 0}
-															{#each collapsedMessages as message, ci}
-																{@const toolcallsOnLine = collapsedToolcalls(
-																	collapsedRange,
-																	collapsedMessages,
-																	ci,
-																	message
-																)}
-
-																<MessageContent {message} />
-
-																{#if toolcallsOnLine?.length > 0}
-																	<div class="-mb-1 flex flex-wrap gap-3 [&:first-child]:mt-1">
-																		{#each toolcallsOnLine as toolcall, ti}
-																			{@const toolresponse = convo.messages.find(
-																				(msg) => msg.tool_call_id === toolcall.id
-																			)}
-																			<ToolcallButton
-																				i={ti}
-																				{toolcall}
-																				{toolresponse}
-																				on:click={() => {
-																					activeToolcall = toolcall;
-																				}}
-																			/>
-																		{/each}
-																	</div>
-																{/if}
-															{/each}
-														{/if}
-													{/if}
-												{/if}
-
-												{#if generating && message.role === 'assistant' && i === convo.messages.length - 1 && message.content === '' && !message.toolcalls}
-													<div
-														class="mt-2 h-3 w-3 shrink-0 animate-bounce rounded-full bg-slate-600"
-													/>
-												{/if}
-
-												<MessageContent {message} />
-
-												{#if $config.compactToolsView && message.toolcalls?.length > 0}
-													<div class="-mb-1 flex flex-wrap gap-3 [&:first-child]:mt-1">
-														{#each message.toolcalls as toolcall, ti}
-															{@const toolresponse = convo.messages.find(
-																(msg) => msg.tool_call_id === toolcall.id
-															)}
-															<ToolcallButton
-																i={ti}
-																{toolcall}
-																{toolresponse}
-																on:click={() => {
-																	activeToolcall = toolcall;
-																}}
-															/>
-														{/each}
-													</div>
-												{/if}
-
-												<!-- OAI toolcalls will always be at the end -->
-												{#if message.toolcalls && !$config.compactToolsView}
-													{#each message.toolcalls as toolcall, ti}
-														{@const toolresponse = convo.messages.find(
-															(msg) => msg.tool_call_id === toolcall.id
-														)}
-														<Toolcall
-															{toolcall}
-															{toolresponse}
-															class="mb-1"
-															on:click={() => {
-																convo.messages[i].toolcalls[ti].expanded =
-																	!convo.messages[i].toolcalls[ti].expanded;
-																saveMessage(convo.messages[i]);
-															}}
+											<div
+												class="relative mx-auto flex w-full max-w-[680px] gap-x-3.5 self-start md:gap-x-5 ld:max-w-[768px]"
+											>
+												<button
+													disabled={message.role === 'system'}
+													on:click={() => {
+														// Toggle between user and assistant:
+														if (message.role === 'user') {
+															message.role = 'assistant';
+														} else {
+															message.role = 'user';
+														}
+													}}
+													class="flex h-8 w-8 shrink-0 rounded-md md:h-9 md:w-9 md:rounded-[7px] {message.role ===
+													'system'
+														? 'border border-teal-200 bg-teal-100'
+														: message.role === 'user'
+															? 'border border-slate-200 bg-white'
+															: message.role === 'assistant' && !hasLogo
+																? 'border border-teal-200 bg-teal-100 pb-px'
+																: ''}"
+												>
+													{#if message.role === 'assistant' && hasLogo}
+														<CompanyLogo
+															model={message.model}
+															size="w-full h-full"
+															rounded="rounded-[inherit]"
 														/>
-													{/each}
-												{/if}
-											</div>
-										{/if}
-
-										{#if message.editing}
-											<div class="absolute -bottom-8 right-1 flex gap-x-1 md:right-0">
-												{#if convo.messages.filter((msg) => msg.role !== 'system' && !msg.submitted).length >= 2 && i === convo.messages.length - 1 && message.role !== 'assistant'}
-													<button
-														class="flex items-center gap-x-1 rounded-full bg-green-100 px-3 py-2"
-														on:click={() => {
-															submitCompletion();
-														}}
-													>
-														<Icon icon={feCheckCircle} class="h-3.5 w-3.5 text-slate-600" />
-														<span class="text-xs text-slate-600"> Submit all </span>
-													</button>
-												{/if}
-												{#if message.role !== 'assistant' && message.pendingContent && message.pendingContent !== message.content}
-													<button
-														class="flex items-center gap-x-1 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
-														on:click={(event) => {
-															if (message.role === 'system') {
-																// If system message, accept the edit instead of submitting at point:
-																convo.messages[i].content = message.pendingContent;
-																convo.messages[i].pendingContent = '';
-																convo.messages[i].editing = false;
-																saveMessage(convo.messages[i]);
-																return;
-															}
-															submitEdit(i);
-															event.target.blur();
-														}}
-													>
-														<Icon icon={feCheck} class="h-3.5 w-3.5 text-slate-600" />
-														<span class="text-xs text-slate-600">
+													{:else}
+														<span class="m-auto">
 															{#if message.role === 'system'}
-																Set system prompt
+																<Icon icon={feMessageCircle} class="h-4 w-4 text-slate-800" />
+															{:else if message.role === 'assistant'}
+																<Icon icon={feCpu} class="h-4 w-4 text-slate-800" />
 															{:else}
-																Submit
+																<Icon icon={feUser} class="h-4 w-4 text-slate-800" />
 															{/if}
 														</span>
-													</button>
-												{/if}
-												{#if message.role === 'assistant' && message.pendingContent && message.pendingContent !== message.content && message.content !== '...' && i === convo.messages.length - 1}
-													<button
-														class="flex items-center gap-x-1.5 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
-														on:click={async () => {
-															convo.messages[i].unclosed = true;
-															saveMessage(convo.messages[i]);
-															submitCompletion(false);
-														}}
-													>
-														<Icon icon={feMoreHorizontal} class="h-3.5 w-3.5 text-slate-600" />
-														<span class="text-xs text-slate-600">Pre-filled response</span>
-													</button>
-												{/if}
-												<button
-													class="flex items-center gap-x-1 rounded-full bg-gray-50 px-3 py-2 hover:bg-gray-100"
-													on:click={() => {
-														convo.messages[i].editing = false;
-														convo.messages[i].pendingContent = '';
-														saveMessage(convo.messages[i]);
-													}}
-												>
-													<Icon icon={feX} class="h-3.5 w-3.5 text-slate-600" />
-													<span class="text-xs text-slate-600">Cancel</span>
+													{/if}
 												</button>
-											</div>
-										{/if}
-										{#if !message.editing}
-											<div
-												class="absolute bottom-[-32px] left-11 flex items-center gap-x-4 md:bottom-[-28px] md:left-14"
-											>
-												{#if message.role === 'user' && convo.versions?.[message.vid]}
-													{@const versions = convo.versions[message.vid]}
-													{@const versionIndex = versions.findIndex((v) => v === null)}
-													<div class="flex items-center md:gap-x-1">
+
+												<!-- svelte-ignore a11y-no-static-element-interactions -->
+												{#if message.editing}
+													<textarea
+														bind:this={textareaEls[i]}
+														class="w-full resize-none border-none bg-transparent p-0 leading-[28px] text-slate-800 outline-none focus:ring-0"
+														rows={1}
+														bind:value={message.pendingContent}
+														on:keydown={(event) => {
+															if (
+																event.key === 'Enter' &&
+																!event.shiftKey &&
+																message.role === 'user' &&
+																message.submitted &&
+																message.pendingContent &&
+																message.content !== message.pendingContent
+															) {
+																event.preventDefault();
+																submitEdit(i);
+																event.target.blur();
+															}
+														}}
+														on:input={(event) => {
+															// Resize textarea as content grows:
+															event.target.style.height = 'auto';
+															event.target.style.height = event.target.scrollHeight + 'px';
+														}}
+													/>
+												{:else}
+													<div class="flex w-full flex-col gap-6">
+														{#if $config.compactToolsView}
+															{@const collapsedRange = collapsedRanges.find((r) => i === r.endi)}
+															<!-- collapsedRange :{JSON.stringify(collapsedRange)} -->
+															{#if collapsedRange}
+																{@const collapsedMessages = convo.messages
+																	.slice(collapsedRange.starti, collapsedRange.endi)
+																	.filter((m) => m.role === 'assistant')}
+																{#if collapsedMessages.length > 0}
+																	{#each collapsedMessages as message, ci}
+																		{@const toolcallsOnLine = collapsedToolcalls(
+																			collapsedRange,
+																			collapsedMessages,
+																			ci,
+																			message
+																		)}
+
+																		<MessageContent {message} />
+
+																		{#if toolcallsOnLine?.length > 0}
+																			<div class="-mb-1 flex flex-wrap gap-3 [&:first-child]:mt-1">
+																				{#each toolcallsOnLine as toolcall, ti}
+																					{@const toolresponse = convo.messages.find(
+																						(msg) => msg.tool_call_id === toolcall.id
+																					)}
+																					<ToolcallButton
+																						i={ti}
+																						{toolcall}
+																						{toolresponse}
+																						active={toolcall.id === activeToolcall?.id}
+																						on:click={() => {
+																							activeToolcall = toolcall;
+																						}}
+																					/>
+																				{/each}
+																			</div>
+																		{/if}
+																	{/each}
+																{/if}
+															{/if}
+														{/if}
+
+														{#if generating && message.role === 'assistant' && i === convo.messages.length - 1 && message.content === '' && !message.toolcalls}
+															<div
+																class="mt-2 h-3 w-3 shrink-0 animate-bounce rounded-full bg-slate-600"
+															/>
+														{/if}
+
+														<MessageContent {message} />
+
+														{#if $config.compactToolsView && message.toolcalls?.length > 0}
+															<div class="-mb-1 flex flex-wrap gap-3 [&:first-child]:mt-1">
+																{#each message.toolcalls as toolcall, ti}
+																	{@const toolresponse = convo.messages.find(
+																		(msg) => msg.tool_call_id === toolcall.id
+																	)}
+																	<ToolcallButton
+																		i={ti}
+																		{toolcall}
+																		{toolresponse}
+																		active={toolcall.id === activeToolcall?.id}
+																		on:click={() => {
+																			activeToolcall = toolcall;
+																		}}
+																	/>
+																{/each}
+															</div>
+														{/if}
+
+														<!-- OAI toolcalls will always be at the end -->
+														{#if message.toolcalls && !$config.compactToolsView}
+															{#each message.toolcalls as toolcall, ti}
+																{@const toolresponse = convo.messages.find(
+																	(msg) => msg.tool_call_id === toolcall.id
+																)}
+																<Toolcall
+																	{toolcall}
+																	{toolresponse}
+																	class="mb-1"
+																	on:click={() => {
+																		convo.messages[i].toolcalls[ti].expanded =
+																			!convo.messages[i].toolcalls[ti].expanded;
+																		saveMessage(convo.messages[i]);
+																	}}
+																/>
+															{/each}
+														{/if}
+													</div>
+												{/if}
+
+												{#if message.editing}
+													<div class="absolute -bottom-8 right-1 flex gap-x-1 md:right-0">
+														{#if convo.messages.filter((msg) => msg.role !== 'system' && !msg.submitted).length >= 2 && i === convo.messages.length - 1 && message.role !== 'assistant'}
+															<button
+																class="flex items-center gap-x-1 rounded-full bg-green-100 px-3 py-2"
+																on:click={() => {
+																	submitCompletion();
+																}}
+															>
+																<Icon icon={feCheckCircle} class="h-3.5 w-3.5 text-slate-600" />
+																<span class="text-xs text-slate-600"> Submit all </span>
+															</button>
+														{/if}
+														{#if message.role !== 'assistant' && message.pendingContent && message.pendingContent !== message.content}
+															<button
+																class="flex items-center gap-x-1 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
+																on:click={(event) => {
+																	if (message.role === 'system') {
+																		// If system message, accept the edit instead of submitting at point:
+																		convo.messages[i].content = message.pendingContent;
+																		convo.messages[i].pendingContent = '';
+																		convo.messages[i].editing = false;
+																		saveMessage(convo.messages[i]);
+																		return;
+																	}
+																	submitEdit(i);
+																	event.target.blur();
+																}}
+															>
+																<Icon icon={feCheck} class="h-3.5 w-3.5 text-slate-600" />
+																<span class="text-xs text-slate-600">
+																	{#if message.role === 'system'}
+																		Set system prompt
+																	{:else}
+																		Submit
+																	{/if}
+																</span>
+															</button>
+														{/if}
+														{#if message.role === 'assistant' && message.pendingContent && message.pendingContent !== message.content && message.content !== '...' && i === convo.messages.length - 1}
+															<button
+																class="flex items-center gap-x-1.5 rounded-full bg-green-50 px-3 py-2 hover:bg-green-100"
+																on:click={async () => {
+																	convo.messages[i].unclosed = true;
+																	saveMessage(convo.messages[i]);
+																	submitCompletion(false);
+																}}
+															>
+																<Icon icon={feMoreHorizontal} class="h-3.5 w-3.5 text-slate-600" />
+																<span class="text-xs text-slate-600">Pre-filled response</span>
+															</button>
+														{/if}
 														<button
-															class="group flex h-6 w-6 shrink-0 rounded-full md:h-3 md:w-3"
-															disabled={versionIndex === 0}
+															class="flex items-center gap-x-1 rounded-full bg-gray-50 px-3 py-2 hover:bg-gray-100"
 															on:click={() => {
-																shiftVersion(-1, message, i);
+																convo.messages[i].editing = false;
+																convo.messages[i].pendingContent = '';
+																saveMessage(convo.messages[i]);
+															}}
+														>
+															<Icon icon={feX} class="h-3.5 w-3.5 text-slate-600" />
+															<span class="text-xs text-slate-600">Cancel</span>
+														</button>
+													</div>
+												{/if}
+												{#if !message.editing}
+													<div
+														class="absolute bottom-[-32px] left-11 flex items-center gap-x-4 md:bottom-[-28px] md:left-14"
+													>
+														{#if message.role === 'user' && convo.versions?.[message.vid]}
+															{@const versions = convo.versions[message.vid]}
+															{@const versionIndex = versions.findIndex((v) => v === null)}
+															<div class="flex items-center md:gap-x-1">
+																<button
+																	class="group flex h-6 w-6 shrink-0 rounded-full md:h-3 md:w-3"
+																	disabled={versionIndex === 0}
+																	on:click={() => {
+																		shiftVersion(-1, message, i);
+																	}}
+																>
+																	<Icon
+																		icon={feChevronLeft}
+																		class="m-auto h-3.5 w-3.5 text-slate-800 group-disabled:text-slate-500 md:h-3 md:w-3"
+																	/>
+																</button>
+																<span class="text-xs tabular-nums">
+																	{versionIndex + 1} / {versions.length}
+																</span>
+																<button
+																	class="group flex h-6 w-6 shrink-0 rounded-full md:h-3 md:w-3"
+																	disabled={versionIndex === versions.length - 1}
+																	on:click={() => {
+																		shiftVersion(1, message, i);
+																	}}
+																>
+																	<Icon
+																		icon={feChevronRight}
+																		class="m-auto h-3.5 w-3.5 text-slate-800 group-disabled:text-slate-500 md:h-3 md:w-3"
+																	/>
+																</button>
+															</div>
+														{/if}
+
+														{#if (message.role === 'assistant' && i > 2 && convo.messages[i - 2].role === 'assistant' && message.model && convo.messages[i - 2].model && convo.messages[i - 2].model.id !== message.model.id) || (message.role === 'assistant' && (i === 1 || i === 2) && message.model && convo.model.id !== message.model.id)}
+															<p class="text-[10px]">{formatModelName(message.model)}</p>
+														{/if}
+													</div>
+
+													<div
+														class="absolute bottom-[-32px] right-1 flex gap-x-2 opacity-0 transition-opacity group-hover:opacity-100 md:gap-x-0.5"
+													>
+														<button
+															class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
+															on:click={async () => {
+																convo.messages[i].editing = true;
+																convo.messages[i].pendingContent = convo.messages[i].content;
+																await tick();
+																textareaEls[i].style.height = 'auto';
+																textareaEls[i].style.height = textareaEls[i].scrollHeight + 'px';
+																textareaEls[i].focus();
+																saveMessage(convo.messages[i]);
 															}}
 														>
 															<Icon
-																icon={feChevronLeft}
-																class="m-auto h-3.5 w-3.5 text-slate-800 group-disabled:text-slate-500 md:h-3 md:w-3"
+																icon={feEdit2}
+																strokeWidth={3}
+																class="m-auto h-[11px] w-[11px] text-slate-600"
 															/>
 														</button>
-														<span class="text-xs tabular-nums">
-															{versionIndex + 1} / {versions.length}
-														</span>
+														{#if message.role !== 'system'}
+															<button
+																class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
+																on:click={() => {
+																	activeToolcall = null;
+
+																	if (message.role === 'user') {
+																		if (!message.vid) {
+																			message.vid = uuidv4();
+																			saveMessage(message);
+																		}
+																		saveVersion(message, i);
+
+																		// If user message, remove all messages after this one, then regenerate:
+																		convo.messages = convo.messages.slice(0, i + 1);
+																		submitCompletion();
+																	} else {
+																		// History is split on the user message, so get the message before this (which will be the user's):
+																		const previousUserMessage = convo.messages[i - 1];
+																		if (!previousUserMessage.vid) {
+																			previousUserMessage.vid = uuidv4();
+																			saveMessage(previousUserMessage);
+																		}
+																		saveVersion(previousUserMessage, i - 1);
+
+																		// If assistant message, remove all messages after this one, including this one, then regenerate:
+																		convo.messages = convo.messages.slice(0, i);
+																		submitCompletion();
+																	}
+																	saveConversation(convo);
+																}}
+															>
+																<Icon
+																	icon={feRefreshCw}
+																	strokeWidth={3}
+																	class="m-auto h-[12px] w-[12px] text-slate-600"
+																/>
+															</button>
+														{/if}
 														<button
-															class="group flex h-6 w-6 shrink-0 rounded-full md:h-3 md:w-3"
-															disabled={versionIndex === versions.length - 1}
+															class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
 															on:click={() => {
-																shiftVersion(1, message, i);
+																// Remove this message from the conversation:
+																convo.messages = convo.messages
+																	.slice(0, i)
+																	.concat(convo.messages.slice(i + 1));
+																// FIXME: Delete message from db
+																saveConversation(convo);
 															}}
 														>
 															<Icon
-																icon={feChevronRight}
-																class="m-auto h-3.5 w-3.5 text-slate-800 group-disabled:text-slate-500 md:h-3 md:w-3"
+																icon={feX}
+																strokeWidth={3}
+																class="m-auto h-[14px] w-[14px] text-slate-600"
 															/>
 														</button>
 													</div>
 												{/if}
-
-												{#if (message.role === 'assistant' && i > 2 && convo.messages[i - 2].role === 'assistant' && message.model && convo.messages[i - 2].model && convo.messages[i - 2].model.id !== message.model.id) || (message.role === 'assistant' && (i === 1 || i === 2) && message.model && convo.model.id !== message.model.id)}
-													<p class="text-[10px]">{formatModelName(message.model)}</p>
-												{/if}
 											</div>
+											<button
+												on:click={async () => {
+													// Insert a blank message inbetween the next message and the next next message:
+													let role;
+													if (message.role === 'assistant' || message.role === 'system') {
+														role = 'user';
+													} else {
+														role = 'assistant';
+													}
+													const msg = {
+														id: uuidv4(),
+														role,
+														content: '',
+														editing: true,
+													};
+													convo.messages.splice(i + 1, 0, msg);
+													convo.messages = convo.messages;
+													await tick();
+													textareaEls[i + 1].focus();
 
-											<div
-												class="absolute bottom-[-32px] right-0 flex gap-x-2 opacity-0 transition-opacity group-hover:opacity-100 md:gap-x-0.5"
+													saveMessage(msg);
+													saveConversation(convo);
+												}}
+												class="z-1 absolute bottom-0 left-1/2 flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-md border border-slate-200 bg-white opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100"
 											>
-												<button
-													class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
-													on:click={async () => {
-														convo.messages[i].editing = true;
-														convo.messages[i].pendingContent = convo.messages[i].content;
-														await tick();
-														textareaEls[i].style.height = 'auto';
-														textareaEls[i].style.height = textareaEls[i].scrollHeight + 'px';
-														textareaEls[i].focus();
-														saveMessage(convo.messages[i]);
-													}}
-												>
-													<Icon
-														icon={feEdit2}
-														strokeWidth={3}
-														class="m-auto h-[11px] w-[11px] text-slate-600"
-													/>
-												</button>
-												{#if message.role !== 'system'}
-													<button
-														class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
-														on:click={() => {
-															if (message.role === 'user') {
-																if (!message.vid) {
-																	message.vid = uuidv4();
-																	saveMessage(message);
-																}
-																saveVersion(message, i);
+												<Icon icon={fePlus} class="m-auto h-3 w-3 text-slate-600" />
+											</button>
+										</li>
+									{/if}
+								{/each}
+							</ul>
+						{:else}
+							<Button
+								variant="outline"
+								class="z-[98] mx-auto rounded-t-none !border-t-0 border-dashed text-xs"
+								on:click={insertSystemPrompt}
+							>
+								<Icon icon={feMessageCircle} class="mr-2 h-3 w-3 text-slate-600" />
+								Add system prompt
+							</Button>
+						{/if}
+					</div>
 
-																// If user message, remove all messages after this one, then regenerate:
-																convo.messages = convo.messages.slice(0, i + 1);
-																submitCompletion();
-															} else {
-																// History is split on the user message, so get the message before this (which will be the user's):
-																const previousUserMessage = convo.messages[i - 1];
-																if (!previousUserMessage.vid) {
-																	previousUserMessage.vid = uuidv4();
-																	saveMessage(previousUserMessage);
-																}
-																saveVersion(previousUserMessage, i - 1);
-
-																// If assistant message, remove all messages after this one, including this one, then regenerate:
-																convo.messages = convo.messages.slice(0, i);
-																submitCompletion();
-															}
-															saveConversation(convo);
-														}}
-													>
-														<Icon
-															icon={feRefreshCw}
-															strokeWidth={3}
-															class="m-auto h-[12px] w-[12px] text-slate-600"
-														/>
-													</button>
-												{/if}
+					<div
+						class="input-floating absolute bottom-4 left-1/2 z-[99] w-full -translate-x-1/2 px-5 ld:px-8"
+					>
+						<div class="mx-auto flex w-full max-w-[680px] flex-col ld:max-w-[768px]">
+							<div class="absolute bottom-full mb-3 flex gap-4 self-center">
+								{#if generating && convo.messages.filter((msg) => msg.generated).length > 0}
+									<Button
+										variant="outline"
+										on:click={() => {
+											$controller.abort();
+										}}
+									>
+										<Icon icon={feSquare} class="mr-2 h-3.5 w-3.5 text-slate-500" />
+										<span>Stop generating</span>
+									</Button>
+								{/if}
+							</div>
+							<div class="relative flex">
+								{#if imageUrls.length > 0}
+									<div class="absolute left-[50px] top-2.5 flex gap-x-3">
+										{#each imageUrls as url, i}
+											<div class="relative">
+												<img
+													src={url}
+													alt=""
+													class="h-16 w-16 rounded-lg border border-slate-300 object-cover"
+												/>
 												<button
-													class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
 													on:click={() => {
-														// Remove this message from the conversation:
-														convo.messages = convo.messages
-															.slice(0, i)
-															.concat(convo.messages.slice(i + 1));
-														// FIXME: Delete message from db
-														saveConversation(convo);
+														imageUrls.splice(i, 1);
+														imageUrls = imageUrls;
+														imageUrlsBlacklist.push(url);
+														tick().then(() => {
+															autoresizeTextarea();
+														});
 													}}
+													class="absolute -right-1 -top-1 flex h-3 w-3 rounded-full bg-black"
 												>
-													<Icon
-														icon={feX}
-														strokeWidth={3}
-														class="m-auto h-[14px] w-[14px] text-slate-600"
-													/>
+													<Icon icon={feX} class="m-auto h-2.5 w-2.5 text-white" />
 												</button>
 											</div>
-										{/if}
+										{/each}
 									</div>
+								{/if}
+								{#if isMultimodal}
 									<button
-										on:click={async () => {
-											// Insert a blank message inbetween the next message and the next next message:
-											let role;
-											if (message.role === 'assistant' || message.role === 'system') {
-												role = 'user';
-											} else {
-												role = 'assistant';
+										class="absolute bottom-[15px] left-3.5 rounded-lg bg-slate-800 p-2 transition-colors"
+										on:click={() => fileInputEl.click()}
+									>
+										<input
+											type="file"
+											accept="image/*"
+											class="hidden"
+											bind:this={fileInputEl}
+											on:change={async (event) => {
+												const files = event.target.files;
+												for (let i = 0; i < files.length; i++) {
+													const file = files[i];
+													if (file.type.startsWith('image/')) {
+														const dataUrl = await readFileAsDataURL(file);
+														imageUrls.push(dataUrl);
+														imageUrls = imageUrls;
+														tick().then(() => {
+															autoresizeTextarea();
+														});
+													}
+												}
+											}}
+										/>
+										<Icon
+											icon={fePaperclip}
+											class="h-3 w-3 text-white transition-colors group-disabled:text-slate-400"
+										/>
+									</button>
+								{/if}
+								<textarea
+									bind:this={inputTextareaEl}
+									class="{isMultimodal ? '!pl-[52px]' : ''} {imageUrls.length > 0
+										? '!pt-[88px]'
+										: ''} max-h-[90dvh] w-full resize-none rounded-xl border border-slate-200 py-4 pl-5 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:px-4 md:pl-5"
+									rows={1}
+									bind:value={content}
+									on:paste={async (event) => {
+										const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+										for (let i = 0; i < items.length; i++) {
+											if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
+												const file = items[i].getAsFile();
+												const dataUrl = await readFileAsDataURL(file);
+												imageUrls.push(dataUrl);
+												imageUrls = imageUrls;
+												tick().then(() => {
+													autoresizeTextarea();
+												});
 											}
-											const msg = {
-												id: uuidv4(),
-												role,
-												content: '',
-												editing: true,
-											};
-											convo.messages.splice(i + 1, 0, msg);
-											convo.messages = convo.messages;
-											await tick();
-											textareaEls[i + 1].focus();
-
-											saveMessage(msg);
-											saveConversation(convo);
-										}}
-										class="z-1 absolute bottom-0 left-1/2 flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-md border border-slate-200 bg-white opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100"
-									>
-										<Icon icon={fePlus} class="m-auto h-3 w-3 text-slate-600" />
-									</button>
-								</li>
-							{/if}
-						{/each}
-					</ul>
-				{:else}
-					<Button
-						variant="outline"
-						class="z-[98] mx-auto rounded-t-none !border-t-0 border-dashed text-xs"
-						on:click={insertSystemPrompt}
-					>
-						<Icon icon={feMessageCircle} class="mr-2 h-3 w-3 text-slate-600" />
-						Add system prompt
-					</Button>
-				{/if}
-			</section>
-			<section
-				class="section-input-bottom fixed bottom-4 left-1/2 z-[99] flex w-full max-w-[680px] -translate-x-1/2 flex-col px-5 md:left-[calc((100vw+230px)*0.5)] lg:px-0 ld:max-w-[768px] xl:left-1/2"
-			>
-				<div class="absolute bottom-full mb-3 flex gap-4 self-center">
-					{#if generating && convo.messages.filter((msg) => msg.generated).length > 0}
-						<Button
-							variant="outline"
-							on:click={() => {
-								$controller.abort();
-							}}
-						>
-							<Icon icon={feSquare} class="mr-2 h-3.5 w-3.5 text-slate-500" />
-							<span>Stop generating</span>
-						</Button>
-					{/if}
-				</div>
-				<div class="relative flex">
-					{#if imageUrls.length > 0}
-						<div class="absolute left-[50px] top-2.5 flex gap-x-3">
-							{#each imageUrls as url, i}
-								<div class="relative">
-									<img
-										src={url}
-										alt=""
-										class="h-16 w-16 rounded-lg border border-slate-300 object-cover"
-									/>
-									<button
-										on:click={() => {
-											imageUrls.splice(i, 1);
-											imageUrls = imageUrls;
-											imageUrlsBlacklist.push(url);
-											tick().then(() => {
-												autoresizeTextarea();
-											});
-										}}
-										class="absolute -right-1 -top-1 flex h-3 w-3 rounded-full bg-black"
-									>
-										<Icon icon={feX} class="m-auto h-2.5 w-2.5 text-white" />
-									</button>
-								</div>
-							{/each}
-						</div>
-					{/if}
-					{#if isMultimodal}
-						<button
-							class="absolute bottom-[15px] left-3.5 rounded-lg bg-slate-800 p-2 transition-colors"
-							on:click={() => fileInputEl.click()}
-						>
-							<input
-								type="file"
-								accept="image/*"
-								class="hidden"
-								bind:this={fileInputEl}
-								on:change={async (event) => {
-									const files = event.target.files;
-									for (let i = 0; i < files.length; i++) {
-										const file = files[i];
-										if (file.type.startsWith('image/')) {
-											const dataUrl = await readFileAsDataURL(file);
-											imageUrls.push(dataUrl);
-											imageUrls = imageUrls;
-											tick().then(() => {
-												autoresizeTextarea();
-											});
 										}
-									}
-								}}
-							/>
-							<Icon
-								icon={fePaperclip}
-								class="h-3 w-3 text-white transition-colors group-disabled:text-slate-400"
-							/>
-						</button>
-					{/if}
-					<textarea
-						bind:this={inputTextareaEl}
-						class="{isMultimodal ? '!pl-[52px]' : ''} {imageUrls.length > 0
-							? '!pt-[88px]'
-							: ''} max-h-[90dvh] w-full resize-none rounded-xl border border-slate-200 py-4 pl-5 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:px-4 md:pl-5"
-						rows={1}
-						bind:value={content}
-						on:paste={async (event) => {
-							const items = (event.clipboardData || event.originalEvent.clipboardData).items;
-							for (let i = 0; i < items.length; i++) {
-								if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
-									const file = items[i].getAsFile();
-									const dataUrl = await readFileAsDataURL(file);
-									imageUrls.push(dataUrl);
-									imageUrls = imageUrls;
-									tick().then(() => {
+									}}
+									on:keydown={(event) => {
+										if (event.key === 'Enter' && !event.shiftKey && innerWidth > 880) {
+											event.preventDefault();
+											sendMessage();
+										}
+									}}
+									on:input={async () => {
 										autoresizeTextarea();
-									});
-								}
-							}
-						}}
-						on:keydown={(event) => {
-							if (event.key === 'Enter' && !event.shiftKey && window.innerWidth > 880) {
-								event.preventDefault();
-								sendMessage();
-							}
-						}}
-						on:input={async () => {
-							autoresizeTextarea();
 
-							const imageLinkedUrls = content.match(imageUrlRegex) || [];
-							for (const url of imageLinkedUrls) {
-								if (!imageUrls.includes(url) && !imageUrlsBlacklist.includes(url)) {
-									imageUrls.push(url);
-									imageUrls = imageUrls;
-									tick().then(() => {
-										autoresizeTextarea();
-									});
-								}
-							}
-						}}
-					/>
-					{#if content.length > 0}
-						<button
-							transition:fly={{ x: 2, duration: 300 }}
-							disabled={content.length === 0}
-							class="group absolute bottom-[15px] right-3 rounded-full bg-slate-800 p-2 transition-transform hover:-translate-y-1 md:hidden"
-							on:click={sendMessage}
-						>
-							<Icon
-								icon={feArrowUp}
-								class="h-3 w-3 text-white transition-colors group-disabled:text-slate-100"
-							/>
-						</button>
-					{/if}
+										const imageLinkedUrls = content.match(imageUrlRegex) || [];
+										for (const url of imageLinkedUrls) {
+											if (!imageUrls.includes(url) && !imageUrlsBlacklist.includes(url)) {
+												imageUrls.push(url);
+												imageUrls = imageUrls;
+												tick().then(() => {
+													autoresizeTextarea();
+												});
+											}
+										}
+									}}
+								/>
+								{#if content.length > 0}
+									<button
+										transition:fly={{ x: 2, duration: 300 }}
+										disabled={content.length === 0}
+										class="group absolute bottom-[15px] right-3 rounded-full bg-slate-800 p-2 transition-transform hover:-translate-y-1 md:hidden"
+										on:click={sendMessage}
+									>
+										<Icon
+											icon={feArrowUp}
+											class="h-3 w-3 text-white transition-colors group-disabled:text-slate-100"
+										/>
+									</button>
+								{/if}
+							</div>
+						</div>
+					</div>
 				</div>
-			</section>
+
+				{#if splitView}
+					{@const toolresponse = convo.messages.find(
+						(msg) => msg.tool_call_id === activeToolcall.id
+					)}
+					<div in:fade={{ duration: 500 }} class="w-[40%] p-3.5">
+						<Toolcall
+							toolcall={activeToolcall}
+							{toolresponse}
+							collapsable={false}
+							closeButton
+							class="!rounded-xl"
+							on:close={() => {
+								activeToolcall = null;
+							}}
+						/>
+					</div>
+				{/if}
+			</div>
 		</div>
 
 		<KnobsSidebar {knobsOpen} />
@@ -1948,7 +1999,7 @@
 
 <SettingsModal open={settingsModalOpen} trigger="settings" on:fetchModels={fetchModels} />
 
-{#if $config.compactToolsView}
+{#if innerWidth <= 1215 && $config.compactToolsView}
 	<Modal
 		trigger="toolcall"
 		class="!p-0"
@@ -1967,11 +2018,11 @@
 {/if}
 
 <style lang="postcss">
-	:global(.standalone .section-input-bottom) {
+	:global(.standalone .input-floating) {
 		bottom: 32px;
 	}
 	:global(.standalone .scrollable) {
-		@apply pb-[140px];
+		@apply pb-[100px];
 	}
 	:global(.standalone .settings-trigger-container) {
 		@apply pb-10;
