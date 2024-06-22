@@ -5,176 +5,111 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"reflect"
-	"strings"
 	"syscall"
 
+	"github.com/byte-sat/llum-tools/tools"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/zakkor/server/llm"
-	"github.com/zakkor/server/tools"
+	"github.com/zakkor/server/llama"
+	"github.com/zakkor/server/toolfns"
 )
 
-var llamaPath = flag.String("llama", "", "Path to the llama.cpp directory. You only need this if you want to run local models using llama.cpp.")
+var (
+	llamaPath = flag.String("llama", "", "Path to the llama.cpp directory. You only need this if you want to run local models using llama.cpp.")
+	password  = flag.String("password", "", "Password for basic auth.")
+)
+
+const llamaPort = 8082
 
 func main() {
 	flag.Parse()
 
-	var activeLlama *llm.LlamaServer
+	var activeLlama *llama.ServerInstance
 
-	router := chi.NewRouter()
-	router.Use(cors.Handler(cors.Options{
+	r := chi.NewRouter()
+	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
 		AllowedHeaders: []string{"*"},
 	}))
-	router.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if os.Getenv("PASSWORD") != "" && r.Header.Get("Authorization") != ("Basic "+os.Getenv("PASSWORD")) {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	})
+	r.Use(authMiddleware)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
 
 	// Serve client:
 	if embedStaticFiles {
 		staticFS, err := fs.Sub(staticFiles, "dist-client")
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		fileServer := http.FileServer(http.FS(staticFS))
-		router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
+		r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
 			fileServer.ServeHTTP(w, r)
 		})
 	}
 
-	router.Get("/v1/models", func(w http.ResponseWriter, r *http.Request) {
-		data, err := json.Marshal(map[string]any{
-			"data": listLocalModels(),
-		})
+	th := &ToolHandler{toolfns.Repo}
+	r.Get("/tool_schema", th.ToolSchema)
+	r.Post("/tool", th.InvokeTool)
+
+	r.Get("/v1/models", func(w http.ResponseWriter, r *http.Request) {
+		models, err := llama.ListLocalModels(*llamaPath)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		w.Write(data)
+		if err := json.NewEncoder(w).Encode(map[string]any{"data": models}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 
-	router.Get("/model", func(w http.ResponseWriter, r *http.Request) {
-		if activeLlama == nil {
+	r.Get("/model", func(w http.ResponseWriter, r *http.Request) {
+		modelMap := map[string]any{
+			"model": "",
+		}
+		if activeLlama != nil {
+			modelMap["model"] = activeLlama.ModelName
+		}
 
-			data, err := json.Marshal(map[string]any{
-				"model": "",
-			})
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			w.Write(data)
+		if err := json.NewEncoder(w).Encode(modelMap); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		data, err := json.Marshal(map[string]any{
-			"model": activeLlama.ModelName,
-		})
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		w.Write(data)
 	})
-	router.Post("/model", func(w http.ResponseWriter, r *http.Request) {
+	r.Post("/model", func(w http.ResponseWriter, r *http.Request) {
 		var newModel map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&newModel); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if activeLlama != nil {
-			activeLlama.Close()
+			activeLlama.Kill()
 		}
-		activeLlama = llm.Serve(*llamaPath, newModel["model"].(string), []string{"-c", "4096", "-ngl", "1", "-t", "8", "-tb", "12", "-b", "4096"})
-	})
-
-	router.Post("/tokenize_count", func(w http.ResponseWriter, r *http.Request) {
-		var content map[string]any
-		if err := json.NewDecoder(r.Body).Decode(&content); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		if activeLlama == nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		count := llm.TokenizeCount(activeLlama, content["content"].(string))
-
-		fmt.Fprintf(w, "%d", count)
-	})
-
-	router.Get("/tool_schema", func(w http.ResponseWriter, r *http.Request) {
-		schemas := []tools.Schema{}
-		for _, tool := range tools.Tools {
-			schemas = append(schemas, tool.Schema)
-		}
-
-		schemasJSON, err := json.Marshal(schemas)
+		var err error
+		activeLlama, err = llama.Serve(*llamaPath, llamaPort, newModel["model"].(string), []string{"-c", "4096", "-ngl", "1", "-t", "8", "-tb", "12", "-b", "4096"})
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(schemasJSON)
-	})
-
-	router.Post("/tool", func(w http.ResponseWriter, r *http.Request) {
-		var toolcall struct {
-			Name      string          `json:"name"`
-			Arguments tools.Arguments `json:"arguments"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&toolcall); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		schema := tools.Tools[toolcall.Name].Schema
-
-		// Validate arguments
-		for name, property := range schema.Function.Parameters.Properties {
-			arg, ok := toolcall.Arguments[name]
-			if !ok {
-				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprintf(w, "error performing tool call: expected argument \"%s\", but it is missing",
-					name)
-				return
-			}
-
-			if reflect.TypeOf(arg).Name() != property.Type {
-				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprintf(w, "error performing tool call: expected argument \"%s\" to be of type %s, but it is of type %s",
-					name, property.Type, reflect.TypeOf(arg).Name())
-				return
-			}
-		}
-
-		// Call the tool
-		fn := tools.Tools[toolcall.Name].Fn
-		result := fn(toolcall.Arguments)
-
-		// Return the result
-		w.Write([]byte(result))
 	})
 
 	fmt.Println("Running at http://localhost:8081")
-	httpServer := &http.Server{Addr: ":8081", Handler: router}
+	httpServer := &http.Server{Addr: ":8081", Handler: r}
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			panic(err)
+			log.Fatal(err)
 		}
 	}()
 
@@ -186,38 +121,48 @@ func main() {
 
 	// Graceful shutdown
 	if err := httpServer.Shutdown(context.Background()); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 
-type ModelInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
-func listLocalModels() []ModelInfo {
-	// Open models directory and get a list of file names inside it
-	dir, err := os.Open(filepath.Join(*llamaPath, "models"))
-	if err != nil {
-		panic(err)
-	}
-	defer dir.Close()
-
-	files, err := dir.Readdirnames(0)
-	if err != nil {
-		panic(err)
-	}
-
-	// Get only files ending in .gguf
-	models := []ModelInfo{}
-	for _, file := range files {
-		if !strings.HasPrefix(file, "ggml-vocab") && filepath.Ext(file) == ".gguf" {
-			models = append(models, ModelInfo{
-				ID:   file,
-				Name: strings.TrimSuffix(file, ".gguf"),
-			})
+func authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if *password != "" && r.Header.Get("Authorization") != ("Basic "+*password) {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+type ToolHandler struct {
+	*tools.Repo
+}
+
+func (tr *ToolHandler) ToolSchema(w http.ResponseWriter, r *http.Request) {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	err := enc.Encode(tr.Schema())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (tr *ToolHandler) InvokeTool(w http.ResponseWriter, r *http.Request) {
+	var call struct {
+		ChatID string         `json:"chat_id"`
+		Name   string         `json:"name"`
+		Args   map[string]any `json:"arguments"`
+	}
+	if err := json.NewDecoder(io.TeeReader(r.Body, os.Stdout)).Decode(&call); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	return models
+	out, err := tr.Invoke(nil, call.Name, call.Args)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	json.NewEncoder(w).Encode(out)
 }

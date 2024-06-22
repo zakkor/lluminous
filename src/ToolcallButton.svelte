@@ -11,11 +11,11 @@
 <button
 	data-trigger="toolcall"
 	class="{toolresponse ? '' : 'animate-pulse'} {active
-		? 'bg-gray-200'
-		: 'bg-gray-100/80'} group/toolcall relative self-start rounded-full bg-gray-100/80 p-2 transition-colors hover:bg-gray-200"
+		? 'bg-slate-800'
+		: 'bg-gray-200 hover:bg-gray-300'} group/toolcall relative self-start rounded-full p-2 transition-colors duration-500"
 	on:click
 >
-	<Icon icon={feTerminal} class="h-4 w-4 text-slate-800" />
+	<Icon icon={feTerminal} class="{active ? 'text-white' : 'text-slate-800'} h-4 w-4" />
 	<!-- <span
 		class="absolute -top-1 right-0 inline-flex h-3 w-3 items-center justify-center rounded-full bg-slate-800 text-[6px] font-semibold text-white"
 	>

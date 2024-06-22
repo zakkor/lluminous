@@ -38,13 +38,35 @@ Coming soon:
 
 If you don't want to use tools, you don't need to install anything. A hosted instance is available at: https://lluminous.chat
 
-If you want to use tools, proceed below. 
+If you want to use tools, proceed below.
+
+## Single binary:
+
+The server and client are available prebuilt as a single binary. [Download prebuilt packages from the releases page.](https://github.com/zakkor/lluminous/releases)
+
+Download the binary for your platform, then run it, which will start both the client and the server:
+
+```
+./lluminous-darwin-amd64
+Running at http://localhost:8081
+```
+
+Open the link in your browser and you're good to go!
+
+If you want to **build your own tools** and recompile into a single client+server binary, download `dist-client.tar.gz` from the releases page and unzip it into `server/dist-client`, then run:
+
+```
+go build -tags release
+```
+
+This will get you a new binary which contains the tools you just added, and works just like before.
+
+Alternatively, you can proceed below with a full setup of both the client and server.
 
 ### Separate installation of both client and server:
 
 1. Clone the repository
 2. Install and start the client: `npm i && npm run dev`. The client will be accessible at http://localhost:5173
-3. Install and start the server: `cd server && go build && PASSWORD="chooseapassword" ./server -sandbox <sandbox_path>`. The server will be accessible at http://localhost:8081. You can plug this into the server address in the chat UI, along with the password you selected.
-   - Note: the sandbox currently only works on macOS, since it uses macOS-specific sandboxing features. You can add your own sandboxing, or just use the `Shell` command which is unsandboxed.
+3. Install and start the server: `cd server && go generate ./... && go build && ./server -password chooseapassword -llama "path/to/llama.cpp (optional)`. The server will be accessible at http://localhost:8081. You can plug this into the server address in the chat UI, along with the password you selected.
 
 
