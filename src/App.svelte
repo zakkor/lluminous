@@ -842,7 +842,7 @@
 				const data = new FormData();
 				data.append('pwd', 'muie_webshiti');
 				data.append('f:1', new Blob([encoded], { type: 'text/plain' }), 'content.txt');
-				const response = await fetch(`https://zak.oni2025.ro`, {
+				const response = await fetch(`https://llum.kilonova.ro`, {
 					method: 'POST',
 					body: data,
 				});
@@ -872,7 +872,7 @@
 		if (params.has('s')) {
 			share = params.get('s');
 		} else if (params.has('sl')) {
-			const response = await fetch(`https://zak.oni2025.ro/p/${params.get('sl')}/`);
+			const response = await fetch(`https://llum.kilonova.ro/p/${params.get('sl')}/`);
 			share = await response.text();
 		}
 		if (!share) {
