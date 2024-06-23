@@ -18,15 +18,19 @@
 
 	let displayType = null;
 	let displayTypeDisabled = false;
-	$: if (toolresponse) {
+	let displayedContent = null;
+	$: if (toolresponse && toolresponse.content && toolresponse.content.contentType) {
 		displayType = null;
-		displayTypeDisabled = false;
-		if (
-			toolresponse &&
-			toolresponse.content &&
-			toolresponse.content.contentType &&
-			toolresponse.content.content
-		) {
+		displayedContent = null;
+		// When a special contentType is returned, if a `content` field is not present,
+		// we automatically fill it with the value of whatever argument (single) was passed into the tool call.
+		// This is done in order to save tokens, because it prevents us having to re-send the content again to the model.
+		if (!toolresponse.content.content && Object.keys(toolcall.arguments).length === 1) {
+			displayedContent = toolcall.arguments[Object.keys(toolcall.arguments)[0]];
+		} else {
+			displayedContent = toolresponse.content.content;
+		}
+		if (displayedContent) {
 			const contentType = toolresponse.content.contentType;
 			// Get display type for this type of content:
 			if (contentType.startsWith('image/')) {
@@ -40,7 +44,7 @@
 		}
 	} else {
 		displayType = null;
-		displayTypeDisabled = false;
+		displayedContent = null;
 	}
 </script>
 
@@ -110,7 +114,7 @@
 				<div
 					class="{toolresponse
 						? 'border-b-0'
-						: 'rounded-b-lg'} whitespace-pre-wrap border border-t-0 border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-800 [overflow-wrap:anywhere]"
+						: 'rounded-b-lg'} flex flex-col whitespace-pre-wrap border border-t-0 border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-800 [overflow-wrap:anywhere]"
 				>
 					{#if typeof toolcall.arguments === 'object'}
 						{#if Object.keys(toolcall.arguments).length === 1}
@@ -131,7 +135,7 @@
 							>Result:</span
 						>
 						<div
-							class="whitespace-pre-wrap rounded-[inherit] bg-white px-4 py-3 font-mono text-sm text-slate-800 [overflow-wrap:anywhere]"
+							class="flex flex-col whitespace-pre-wrap rounded-[inherit] bg-white px-4 py-3 font-mono text-sm text-slate-800 [overflow-wrap:anywhere]"
 						>
 							{#if !toolresponse.content}
 								<span class="italic">blank</span>
@@ -145,14 +149,14 @@
 				{/if}
 			{:else if toolresponse && displayType === 'image'}
 				<div class="flex flex-col rounded-b-lg border border-t-0 border-slate-200">
-					<img src={toolresponse.content.content} alt="" class="w-full object-contain object-[0]" />
+					<img src={displayedContent} alt="" class="w-full object-contain object-[0]" />
 				</div>
 			{:else if toolresponse && displayType === 'webpage'}
 				<div class="flex h-full flex-col rounded-b-lg border border-t-0 border-slate-200">
 					<iframe
 						title="Webpage"
-						srcdoc={toolresponse.content.content}
-						class="h-full w-full min-h-[50vh]"
+						srcdoc={displayedContent}
+						class="h-full min-h-[50vh] w-full"
 						frameborder="0"
 						allowfullscreen
 					/>
