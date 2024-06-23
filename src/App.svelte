@@ -31,6 +31,7 @@
 		openrouterAPIKey,
 		config,
 		params,
+		toolSchema,
 	} from './stores.js';
 	import SettingsModal from './SettingsModal.svelte';
 	import ToolcallButton from './ToolcallButton.svelte';
@@ -294,7 +295,7 @@
 
 	let innerWidth = window.innerWidth;
 
-	$: splitView = innerWidth > 1215 && activeToolcall && $config.compactToolsView;
+	$: splitView = innerWidth > 1215 && activeToolcall && !$config.explicitToolView;
 
 	let settingsModalOpen = false;
 
@@ -441,7 +442,7 @@
 								arguments: '',
 								expanded: true,
 							};
-							if (innerWidth > 1215 && $config.compactToolsView) {
+							if (innerWidth > 1215 && !$config.explicitToolView) {
 								activeToolcall = convo.messages[i].toolcalls[index];
 							}
 						}
@@ -483,34 +484,48 @@
 						try {
 							toolcall.arguments = JSON.parse(toolcall.arguments);
 						} catch (err) {
-							convo.messages[i].error = 'Failed to parse tool call arguments: ' + err + toolcall.arguments;
+							convo.messages[i].error =
+								'Failed to parse tool call arguments: ' + err + toolcall.arguments;
 							saveMessage(convo.messages[i]);
 							return;
 						}
 
-						// Call the tool
-						const promise = fetch(`${$remoteServer.address}/tool`, {
-							method: 'POST',
-							// credentials: 'include',
-							headers: {
-								Authorization: `Basic ${$remoteServer.password}`,
-							},
-							body: JSON.stringify({
-								id: toolcall.id,
-								chat_id: convo.id,
-								name: toolcall.name,
-								arguments: toolcall.arguments,
-							}),
-						}).then((resp) => {
-							// Mark tool call as finished to we can display it nicely in the UI
-							// (still need to await all tool calls to deliver the final response).
-							convo.messages[i].toolcalls[ti].finished = true;
-							saveMessage(convo.messages[i]);
+						// Do we have a client-side tool for this?
+						const clientToolIndex = $toolSchema.findIndex(
+							(t) => t.clientDefinition && t.clientDefinition.name === toolcall.name
+						);
+						if (clientToolIndex !== -1 && convo.tools.includes(toolcall.name)) {
+							const clientTool = $toolSchema[clientToolIndex];
+							const clientFn = new Function('args', clientTool.clientDefinition.body);
+							const result = clientFn(toolcall.arguments);
+							toolPromises.push(Promise.resolve(result));
+						} else {
+							// Otherwise, call server-side tool
+							const promise = fetch(`${$remoteServer.address}/tool`, {
+								method: 'POST',
+								// credentials: 'include',
+								headers: {
+									Authorization: `Basic ${$remoteServer.password}`,
+								},
+								body: JSON.stringify({
+									id: toolcall.id,
+									chat_id: convo.id,
+									name: toolcall.name,
+									arguments: toolcall.arguments,
+								}),
+							}).then((resp) => {
+								// Mark tool call as finished to we can display it nicely in the UI
+								// (still need to await all tool calls to deliver the final response).
+								convo.messages[i].toolcalls[ti].finished = true;
+								saveMessage(convo.messages[i]);
 
-							return resp.text();
-						});
+								return resp.text().then((text) => {
+									return JSON.parse(text);
+								});
+							});
 
-						toolPromises.push(promise);
+							toolPromises.push(promise);
+						}
 					}
 
 					const toolResponses = await Promise.all(toolPromises);
@@ -591,7 +606,9 @@
 						convo.messages[i].toolcalls[ti].finished = true;
 						saveMessage(convo.messages[i]);
 
-						return resp.text();
+						return resp.text().then((text) => {
+							return JSON.parse(text);
+						});
 					});
 
 					toolPromises.push(promise);
@@ -1124,7 +1141,7 @@
 	// inside which we'll display all the tool calls.
 	// Returns a list of ranges of messages containing the start and end indices of messages that should be collapsed.
 	let collapsedRanges = [];
-	$: if ($config.compactToolsView) {
+	$: if (!$config.explicitToolView) {
 		collapsedRanges = [];
 		let range = { starti: null, endi: null };
 		for (let i = convo.messages.length - 1; i >= 0; i--) {
@@ -1283,6 +1300,7 @@
 									}
 
 									historyOpen = false;
+									activeToolcall = null;
 
 									$convoId = historyConvo.id;
 									convo = convos[$convoId];
@@ -1419,7 +1437,7 @@
 									: ''} mb-3 flex w-full !list-none flex-col divide-y divide-slate-200/50 border-b border-slate-200/50"
 							>
 								{#each convo.messages as message, i (message.id)}
-									{#if ['system', 'user', 'assistant'].includes(message.role) && (!$config.compactToolsView || !collapsedRanges.some((r) => i >= r.starti && i < r.endi))}
+									{#if ['system', 'user', 'assistant'].includes(message.role) && ($config.explicitToolView || !collapsedRanges.some((r) => i >= r.starti && i < r.endi))}
 										{@const hasLogo = hasCompanyLogo(message.model)}
 										<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
 										<li
@@ -1518,9 +1536,8 @@
 													/>
 												{:else}
 													<div class="flex w-full flex-col gap-6">
-														{#if $config.compactToolsView}
+														{#if !$config.explicitToolView}
 															{@const collapsedRange = collapsedRanges.find((r) => i === r.endi)}
-															<!-- collapsedRange :{JSON.stringify(collapsedRange)} -->
 															{#if collapsedRange}
 																{@const collapsedMessages = convo.messages
 																	.slice(collapsedRange.starti, collapsedRange.endi)
@@ -1567,7 +1584,7 @@
 
 														<MessageContent {message} />
 
-														{#if $config.compactToolsView && message.toolcalls?.length > 0}
+														{#if !$config.explicitToolView && message.toolcalls?.length > 0}
 															<div class="-mb-1 flex flex-wrap gap-3 [&:first-child]:mt-1">
 																{#each message.toolcalls as toolcall, ti}
 																	{@const toolresponse = convo.messages.find(
@@ -1587,7 +1604,7 @@
 														{/if}
 
 														<!-- OAI toolcalls will always be at the end -->
-														{#if message.toolcalls && !$config.compactToolsView}
+														{#if message.toolcalls && $config.explicitToolView}
 															{#each message.toolcalls as toolcall, ti}
 																{@const toolresponse = convo.messages.find(
 																	(msg) => msg.tool_call_id === toolcall.id
@@ -1997,13 +2014,21 @@
 	</div>
 </main>
 
-<SettingsModal open={settingsModalOpen} trigger="settings" on:fetchModels={fetchModels} />
+<SettingsModal
+	open={settingsModalOpen}
+	trigger="settings"
+	on:fetchModels={fetchModels}
+	on:disableTool={({ detail: name }) => {
+		convo.tools = convo.tools.filter((n) => n !== name);
+		saveConversation(convo);
+	}}
+/>
 
-{#if innerWidth <= 1215 && $config.compactToolsView}
+{#if innerWidth <= 1215 && !$config.explicitToolView}
 	<Modal
 		trigger="toolcall"
 		class="!p-0"
-		buttonClass="!top-2 !right-2 !p-2"
+		buttonClass="hidden"
 		on:close={() => {
 			activeToolcall = null;
 		}}
@@ -2012,6 +2037,7 @@
 			toolcall={activeToolcall}
 			toolresponse={convo.messages.find((msg) => msg.tool_call_id === activeToolcall.id)}
 			collapsable={false}
+			closeButton
 			class="!rounded-xl"
 		/>
 	</Modal>

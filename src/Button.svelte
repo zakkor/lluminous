@@ -2,13 +2,15 @@
 	export let variant = 'outline';
 	let className = '';
 	export { className as class };
+	export let trigger = null;
 
 	const variantClass = {
 		outline:
 			'border bg-white border-slate-300 hover:border-slate-400 transition-colors text-slate-600 text-sm px-3 py-1.5 rounded-lg',
+		transparent: 'rounded-full p-3 transition-colors hover:bg-gray-100',
 	}[variant];
 </script>
 
-<button class="{className} {variantClass} flex items-center" on:click>
+<button data-trigger={trigger} class="{className} {variantClass} flex items-center" on:click>
 	<slot />
 </button>

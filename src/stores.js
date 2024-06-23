@@ -9,7 +9,7 @@ export const params = persisted('params', {
 });
 
 export const config = persisted('config', {
-	compactToolsView: false,
+	explicitToolView: false,
 });
 
 export const openaiAPIKey = persisted('openaiAPIKey', '');

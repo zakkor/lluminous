@@ -28,7 +28,7 @@ func init() {
 }
 
 type ContentTypeResponse struct {
-	ContentType string `json:"content_type"`
+	ContentType string `json:"contentType"`
 	Content     string `json:"content"`
 }
 

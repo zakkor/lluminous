@@ -16,6 +16,7 @@
 
 <svelte:window
 	on:click={(event) => {
+		if (!trigger) return;
 		if (event.target.closest(`[data-trigger=${trigger}]`)) {
 			open = !open;
 			if (!open) {

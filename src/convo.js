@@ -135,6 +135,8 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 					},
 					...msg.contentParts,
 				];
+			} else if (msg.role === 'tool') {
+				msgOAI.content = JSON.stringify(msg.content);
 			} else {
 				msgOAI.content = msg.content;
 			}
@@ -171,7 +173,12 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 		}
 
 		const schema = get(toolSchema);
-		const activeSchema = schema.filter((tool) => (convo.tools || []).includes(tool.function.name));
+		const activeSchema = schema
+			.filter((tool) => (convo.tools || []).includes(tool.function.name))
+			.map((tool) => ({
+				type: tool.type,
+				function: tool.function,
+			}));
 		const param = get(params);
 
 		const provider = providers.find((p) => p.name === convo.model.provider);
