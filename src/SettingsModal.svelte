@@ -36,6 +36,8 @@
 
 	let addClientToolOpen = false;
 	let loadClientTool = null;
+
+	let flashRefreshToolSchema;
 </script>
 
 <Modal bind:open {trigger}>
@@ -185,7 +187,7 @@
 					/></label
 				>
 			{:else if activeTab === 'tools'}
-				<label class="my-2 flex items-center gap-x-3 text-sm text-gray-600">
+				<label class="my-2 flex items-center gap-x-3 text-sm text-slate-700">
 					<input
 						type="checkbox"
 						bind:checked={$config.explicitToolView}
@@ -194,48 +196,57 @@
 					Use explicit view for tool calls
 				</label>
 
-				<label class="mt-1 flex flex-col text-[10px] uppercase tracking-wide">
-					<span class="mb-2 ml-[3px] flex items-center"
-						>Remote tool schema
+				<div class="mt-1 flex flex-col">
+					<span class="mb-3 ml-[3px] flex items-center text-[10px] uppercase tracking-wide"
+						>Tool schema
 						<span class="group relative">
 							<Icon icon={feHelpCircle} class="ml-2 h-3 w-3 text-slate-800" />
 							<div
-								class="pointer-events-none absolute left-0 top-[calc(100%+8px)] w-[280px] rounded-lg bg-black px-3 py-2 text-xs font-normal normal-case tracking-normal text-white opacity-0 transition-opacity group-hover:opacity-100"
+								class="pointer-events-none absolute left-1/2 top-[calc(100%+8px)] w-[280px] -translate-x-1/2 rounded-lg bg-black px-3 py-2 text-xs font-normal normal-case tracking-normal text-white opacity-0 transition-opacity group-hover:opacity-100"
 							>
 								If you want to use remote tool calls or local models, you will need to have the
 								lluminous server running on your machine.
 							</div>
 						</span>
 					</span>
-					<textarea
-						value={JSON.stringify($toolSchema)}
-						on:change={(event) => {
-							const schema = event.target.value.length > 0 ? event.target.value : '[]';
-							$toolSchema = JSON.parse(schema);
+					<p class="ml-[3px] text-sm text-slate-700">
+						{$toolSchema.length} tools defined
+						{#if $toolSchema.length > 0}
+							<button
+								class="cursor-pointer text-slate-800 hover:text-slate-900"
+								on:click={() => ($toolSchema = $toolSchema.filter((t) => t.clientDefinition))}
+							>
+								(Clear)
+							</button>
+						{/if}
+					</p>
+					<Button
+						variant="outline"
+						class="self-start mt-3"
+						bind:flash={flashRefreshToolSchema}
+						on:click={async () => {
+							try {
+								const schema = await (
+									await fetch(`${$remoteServer.address}/tool_schema`, {
+										method: 'GET',
+										headers: {
+											Authorization: `Basic ${$remoteServer.password}`,
+										},
+									})
+								).text();
+								const clientToolsSchema = $toolSchema.filter((t) => t.clientDefinition);
+								$toolSchema = JSON.parse(schema).concat(clientToolsSchema);
+								flashRefreshToolSchema('success');
+							} catch (e) {
+								flashRefreshToolSchema('error');
+								console.error(e);
+							}
 						}}
-						rows={6}
-						class="rounded-lg border border-slate-300 px-3 py-2 text-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none"
-					/></label
-				>
-				<Button
-					variant="outline"
-					class="self-start"
-					on:click={async () => {
-						const schema = await (
-							await fetch(`${$remoteServer.address}/tool_schema`, {
-								method: 'GET',
-								headers: {
-									Authorization: `Basic ${$remoteServer.password}`,
-								},
-							})
-						).text();
-						const clientToolsSchema = $toolSchema.filter((t) => t.clientDefinition);
-						$toolSchema = JSON.parse(schema).concat(clientToolsSchema);
-					}}
-				>
-					<Icon icon={feRefreshCw} class="mr-2 h-3 w-3 text-slate-700" />
-					Sync tools from server
-				</Button>
+					>
+						<Icon icon={feRefreshCw} class="mr-2 h-3 w-3 text-slate-700" />
+						Sync tools from server
+					</Button>
+				</div>
 
 				<div>
 					<p class="mt-1 flex flex-col text-[10px] uppercase tracking-wide">
@@ -244,7 +255,7 @@
 							<span class="group relative">
 								<Icon icon={feHelpCircle} class="ml-2 h-3 w-3 text-slate-800" />
 								<div
-									class="pointer-events-none absolute left-0 top-[calc(100%+8px)] w-[280px] rounded-lg bg-black px-3 py-2 text-xs font-normal normal-case tracking-normal text-white opacity-0 transition-opacity group-hover:opacity-100"
+									class="pointer-events-none absolute left-1/2 top-[calc(100%+8px)] w-[280px] -translate-x-1/2 rounded-lg bg-black px-3 py-2 text-xs font-normal normal-case tracking-normal text-white opacity-0 transition-opacity group-hover:opacity-100"
 								>
 									Allows you to define custom tools that run directly in your browser (JavaScript
 									only).
@@ -269,37 +280,37 @@
 								}}
 							/>
 						{/each}
+						<Button
+							class="self-start"
+							on:click={async () => {
+								addClientToolOpen = true;
+								await tick();
+
+								loadClientTool({
+									name: '',
+									description: '',
+									arguments: [
+										{
+											name: '',
+											type: 'string',
+											description: '',
+										},
+									],
+									body: '',
+								});
+							}}
+						>
+							<Icon icon={fePlus} strokeWidth={3} class="mr-2 h-3 w-3 text-slate-700" />
+							Add new tool
+						</Button>
 					</div>
 				</div>
-				<Button
-					class="self-start"
-					on:click={async () => {
-						addClientToolOpen = true;
-						await tick();
-
-						loadClientTool({
-							name: '',
-							description: '',
-							arguments: [
-								{
-									name: '',
-									type: 'string',
-									description: '',
-								},
-							],
-							body: '',
-						});
-					}}
-				>
-					<Icon icon={fePlus} strokeWidth={3} class="mr-2 h-3 w-3 text-slate-700" />
-					Add new tool
-				</Button>
 			{/if}
 		</div>
 	</div>
 </Modal>
 
-<Modal bind:open={addClientToolOpen} class="!px-8 transition-[all] sm:!w-[800px]">
+<Modal bind:open={addClientToolOpen} class="!px-8 transition-[all] md:!w-[800px]">
 	<ClientToolSetting
 		bind:load={loadClientTool}
 		on:save={({ detail }) => {

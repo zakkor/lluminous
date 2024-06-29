@@ -298,6 +298,7 @@
 	$: splitView = innerWidth > 1215 && activeToolcall && !$config.explicitToolView;
 
 	let settingsModalOpen = false;
+	let toolcallModalOpen = false;
 
 	function submitEdit(i) {
 		// Update the ID of the edited message:
@@ -442,15 +443,12 @@
 								arguments: '',
 								expanded: true,
 							};
-							if (innerWidth > 1215 && !$config.explicitToolView) {
-								activeToolcall = convo.messages[i].toolcalls[index];
-							}
+							activeToolcall = convo.messages[i].toolcalls[index];
+							toolcallModalOpen = true;
 						}
 						if (tool_call.function.arguments) {
 							convo.messages[i].toolcalls[index].arguments += tool_call.function.arguments;
-							if (splitView) {
-								activeToolcall = convo.messages[i].toolcalls[index];
-							}
+							activeToolcall = convo.messages[i].toolcalls[index];
 						}
 						saveMessage(convo.messages[i]);
 					}
@@ -677,6 +675,7 @@
 				const systemMsg = {
 					id: uuidv4(),
 					role: 'system',
+					customInstructions: true,
 					content: $params.customInstructions,
 				};
 				convo.messages.push(systemMsg);
@@ -849,7 +848,7 @@
 
 				const shortenedLink = await response.text();
 				resolve(
-					`${window.location.protocol}//${window.location.host}/?sl=${shortenedLink.slice(25, shortenedLink.length - 13)}`
+					`${window.location.protocol}//${window.location.host}/?sl=${shortenedLink.split('/').reverse()[1]}`
 				);
 			} else {
 				resolve(`${window.location.protocol}//${window.location.host}/?s=${encoded}`);
@@ -1437,7 +1436,14 @@
 									: ''} mb-3 flex w-full !list-none flex-col divide-y divide-slate-200/50 border-b border-slate-200/50"
 							>
 								{#each convo.messages as message, i (message.id)}
-									{#if ['system', 'user', 'assistant'].includes(message.role) && ($config.explicitToolView || !collapsedRanges.some((r) => i >= r.starti && i < r.endi))}
+									{@const showMessage =
+										(['user', 'assistant'].includes(message.role) ||
+											(message.role === 'system' &&
+												(!message.customInstructions ||
+													(message.customInstructions && message.showCustomInstructions)))) &&
+										($config.explicitToolView ||
+											!collapsedRanges.some((r) => i >= r.starti && i < r.endi))}
+									{#if showMessage}
 										{@const hasLogo = hasCompanyLogo(message.model)}
 										<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
 										<li
@@ -1464,6 +1470,18 @@
 												>
 													<Icon icon={feMessageCircle} class="mr-2 h-3 w-3 text-slate-600" />
 													Add system prompt
+												</Button>
+											{:else if i === 1 && convo.messages[i - 1].role === 'system' && convo.messages[i - 1].customInstructions && !convo.messages[i - 1].showCustomInstructions}
+												<Button
+													variant="outline"
+													class="absolute left-1/2 top-0 z-[98] -translate-x-1/2 rounded-t-none !border-t-0 text-xs opacity-0 transition-opacity group-hover:opacity-100"
+													on:click={() => {
+														convo.messages[i - 1].showCustomInstructions = true;
+														saveMessage(convo.messages[i - 1]);
+													}}
+												>
+													<Icon icon={feEdit2} class="mr-2 h-3 w-3 text-slate-600" />
+													Custom instructions
 												</Button>
 											{/if}
 											<div
@@ -2026,6 +2044,7 @@
 
 {#if innerWidth <= 1215 && !$config.explicitToolView}
 	<Modal
+		bind:open={toolcallModalOpen}
 		trigger="toolcall"
 		class="!p-0"
 		buttonClass="hidden"
@@ -2039,6 +2058,10 @@
 			collapsable={false}
 			closeButton
 			class="!rounded-xl"
+			on:close={() => {
+				toolcallModalOpen = false;
+				activeToolcall = null;
+			}}
 		/>
 	</Modal>
 {/if}

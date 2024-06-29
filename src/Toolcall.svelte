@@ -77,7 +77,7 @@
 						event.stopPropagation();
 						displayTypeDisabled = !displayTypeDisabled;
 					}}
-					class="flex rounded-full border border-slate-200 px-3 py-1 text-xs font-medium transition-colors hover:bg-gray-100"
+					class="flex rounded-full border border-slate-200 px-3 whitespace-nowrap py-1 text-[10px] md:text-xs font-medium transition-colors hover:bg-gray-100"
 				>
 					{#if displayTypeDisabled}
 						View component
