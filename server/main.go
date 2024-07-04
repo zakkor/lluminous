@@ -13,7 +13,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/byte-sat/llum-tools/tools"
+	"github.com/byte-sat/llum-tools/schema"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -57,7 +57,7 @@ func main() {
 		})
 	}
 
-	th := &ToolHandler{toolfns.Repo}
+	th := &ToolHandler{Groups: toolfns.ToolGroups}
 	r.Get("/tool_schema", th.ToolSchema)
 	r.Post("/tool", th.InvokeTool)
 
@@ -136,15 +136,29 @@ func authMiddleware(next http.Handler) http.Handler {
 }
 
 type ToolHandler struct {
-	*tools.Repo
+	Groups []*toolfns.Group
 }
 
 func (tr *ToolHandler) ToolSchema(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	err := enc.Encode(tr.Schema())
+
+	type encodedGroup struct {
+		Name   string            `json:"name"`
+		Schema []schema.Function `json:"schema"`
+	}
+
+	var encodedGroups []encodedGroup
+	for _, group := range tr.Groups {
+		encodedGroups = append(encodedGroups, encodedGroup{
+			Name:   group.Name,
+			Schema: group.Repo.Schema(),
+		})
+	}
+	err := enc.Encode(encodedGroups)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -159,10 +173,18 @@ func (tr *ToolHandler) InvokeTool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out, err := tr.Invoke(nil, call.Name, call.Args)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var err error
+	for _, group := range tr.Groups {
+		var out any
+		out, err = group.Repo.Invoke(nil, call.Name, call.Args)
+		if err != nil {
+			continue
+		}
+		json.NewEncoder(w).Encode(out)
 		return
 	}
-	json.NewEncoder(w).Encode(out)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 }

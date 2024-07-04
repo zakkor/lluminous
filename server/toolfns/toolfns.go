@@ -12,18 +12,34 @@ import (
 // Note: Generated filename is significant. The init function for the generated file must run first.
 //go:generate go run github.com/noonien/codoc/cmd/codoc@latest -out generated_toolfns.go -pkg toolfns .
 
-var Repo *tools.Repo
+var ToolGroups []*Group
 
 func init() {
-	var err error
-	Repo, err = tools.New(nil,
-		Shell,
-		WebSearch,
-		WebNavigate,
-		DisplayImage,
-	)
+	ToolGroups = []*Group{
+		NewGroup("Miscellaneous",
+			WebSearch,
+			WebNavigate,
+		),
+		NewGroup("System",
+			Shell,
+			DisplayImage,
+		),
+	}
+}
+
+type Group struct {
+	Name string      `json:"name"`
+	Repo *tools.Repo `json:"-"`
+}
+
+func NewGroup(name string, fns ...any) *Group {
+	repo, err := tools.New(nil, fns...)
 	if err != nil {
 		log.Fatal(err)
+	}
+	return &Group{
+		Name: name,
+		Repo: repo,
 	}
 }
 

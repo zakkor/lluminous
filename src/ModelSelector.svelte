@@ -29,7 +29,7 @@
 	let toolsOpen = false;
 	let query = '';
 
-	let collapsed = false;
+	let collapsed = {};
 
 	$: filteredModels =
 		query.length > 0
@@ -131,7 +131,7 @@
 								<button
 									class="text-xs text-gray-600 hover:text-gray-800"
 									on:click={() => {
-										dispatch('changeTools', []);
+										dispatch('clearTools');
 									}}
 								>
 									Clear all
@@ -146,71 +146,68 @@
 							/>
 						</div>
 						<ul class="max-h-[400px] overflow-y-auto pb-1.5 scrollbar-ultraslim">
-							<div class="relative w-full">
-								<label
-									class="flex w-full items-center gap-x-3 whitespace-nowrap py-2 pl-4 pr-3 text-left text-xs transition-colors hover:bg-gray-100"
-								>
-									<input
-										type="checkbox"
-										checked={$toolSchema.every((t) => convo.tools.includes(t.function.name))}
-										on:change={(event) => {
-											if (event.target.checked) {
-												dispatch(
-													'changeTools',
-													$toolSchema.map((t) => t.function.name)
-												);
-											} else {
-												dispatch('changeTools', []);
-											}
-										}}
-										class="h-4 w-4 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
-									/>
-									<p class="w-full text-xs font-semibold text-slate-800">Miscellaneous</p>
-								</label>
+							{#each $toolSchema as group}
+								<div class="relative w-full">
+									<label
+										class="flex w-full items-center gap-x-3 whitespace-nowrap py-2 pl-4 pr-3 text-left text-xs transition-colors hover:bg-gray-100"
+									>
+										<input
+											type="checkbox"
+											checked={group.schema.every((t) => convo.tools.includes(t.function.name))}
+											on:change={(event) => {
+												const names = group.schema.map((t) => t.function.name);
+												if (event.target.checked) {
+													dispatch('setTools', names);
+												} else {
+													dispatch('unsetTools', names);
+												}
+											}}
+											class="h-4 w-4 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
+										/>
+										<p class="w-full text-xs font-semibold text-slate-800">{group.name}</p>
+									</label>
 
-								<button
-									on:click={() => (collapsed = !collapsed)}
-									class="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 rounded-full transition-colors hover:bg-gray-100"
-								>
-									<Icon
-										icon={feChevronDown}
-										class="{collapsed
-											? 'rotate-180'
-											: ''} m-auto h-4 w-4 text-slate-600 transition-transform"
-									/>
-								</button>
-							</div>
-
-							{#if !collapsed}
-								<div transition:slide={{ duration: 300 }}>
-									{#each $toolSchema as schema, i}
-										<li class="flex w-full">
-											<label
-												class="flex w-full items-center gap-x-3 whitespace-nowrap py-2 pl-6 pr-3 text-left text-xs transition-colors hover:bg-gray-100"
-											>
-												<input
-													type="checkbox"
-													checked={convo.tools.includes(schema.function.name)}
-													on:change={() => {
-														if (convo.tools.includes(schema.function.name)) {
-															dispatch(
-																'changeTools',
-																convo.tools.filter((item) => item !== schema.function.name)
-															);
-														} else {
-															dispatch('changeTools', [...convo.tools, schema.function.name]);
-														}
-													}}
-													class="h-4 w-4 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
-												/>
-												<p class="w-full text-xs font-medium text-slate-800">
-													{schema.function.name}
-												</p>
-											</label>
-										</li>
-									{/each}
+									<button
+										on:click={() => (collapsed[group.name] = !collapsed[group.name])}
+										class="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 rounded-full transition-colors hover:bg-gray-100"
+									>
+										<Icon
+											icon={feChevronDown}
+											class="{collapsed[group.name]
+												? 'rotate-180'
+												: ''} m-auto h-4 w-4 text-slate-600 transition-transform"
+										/>
+									</button>
 								</div>
-							{/if}
+
+								{#if !collapsed[group.name]}
+									<div transition:slide={{ duration: 300 }}>
+										{#each group.schema as schema, i}
+											<li class="flex w-full">
+												<label
+													class="flex w-full items-center gap-x-3 whitespace-nowrap py-2 pl-6 pr-3 text-left text-xs transition-colors hover:bg-gray-100"
+												>
+													<input
+														type="checkbox"
+														checked={convo.tools.includes(schema.function.name)}
+														on:change={(event) => {
+															if (event.target.checked) {
+																dispatch('setTools', [schema.function.name]);
+															} else {
+																dispatch('unsetTools', [schema.function.name]);
+															}
+														}}
+														class="h-4 w-4 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
+													/>
+													<p class="w-full text-xs font-medium text-slate-800">
+														{schema.function.name}
+													</p>
+												</label>
+											</li>
+										{/each}
+									</div>
+								{/if}
+							{/each}
 						</ul>
 					</div>
 				</div>

@@ -172,7 +172,7 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 			messages.pop();
 		}
 
-		const schema = get(toolSchema);
+		const schema = get(toolSchema).map(group => group.schema).flat();
 		const activeSchema = schema
 			.filter((tool) => (convo.tools || []).includes(tool.function.name))
 			.map((tool) => ({

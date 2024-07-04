@@ -22,6 +22,7 @@
 		fePlus,
 		feRefreshCw,
 		feTool,
+		feX,
 	} from './feather.js';
 	import ClientToolSetting from './ClientToolSetting.svelte';
 	import ClientTool from './ClientTool.svelte';
@@ -187,15 +188,7 @@
 					/></label
 				>
 			{:else if activeTab === 'tools'}
-				<label class="my-2 flex items-center gap-x-3 text-sm text-slate-700">
-					<input
-						type="checkbox"
-						bind:checked={$config.explicitToolView}
-						class="h-5 w-5 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
-					/>
-					Use explicit view for tool calls
-				</label>
-
+				{@const toolSchemaFlat = $toolSchema.map((g) => g.schema).flat()}
 				<div class="mt-1 flex flex-col">
 					<span class="mb-3 ml-[3px] flex items-center text-[10px] uppercase tracking-wide"
 						>Tool schema
@@ -210,42 +203,59 @@
 						</span>
 					</span>
 					<p class="ml-[3px] text-sm text-slate-700">
-						{$toolSchema.length} tools defined
-						{#if $toolSchema.length > 0}
-							<button
-								class="cursor-pointer text-slate-800 hover:text-slate-900"
-								on:click={() => ($toolSchema = $toolSchema.filter((t) => t.clientDefinition))}
-							>
-								(Clear)
-							</button>
-						{/if}
+						{toolSchemaFlat.length}
+						{toolSchemaFlat.length === 1 ? 'tool' : 'tools'} defined
 					</p>
-					<Button
-						variant="outline"
-						class="self-start mt-3"
-						bind:flash={flashRefreshToolSchema}
-						on:click={async () => {
-							try {
-								const schema = await (
-									await fetch(`${$remoteServer.address}/tool_schema`, {
-										method: 'GET',
-										headers: {
-											Authorization: `Basic ${$remoteServer.password}`,
-										},
-									})
-								).text();
-								const clientToolsSchema = $toolSchema.filter((t) => t.clientDefinition);
-								$toolSchema = JSON.parse(schema).concat(clientToolsSchema);
-								flashRefreshToolSchema('success');
-							} catch (e) {
-								flashRefreshToolSchema('error');
-								console.error(e);
-							}
-						}}
-					>
-						<Icon icon={feRefreshCw} class="mr-2 h-3 w-3 text-slate-700" />
-						Sync tools from server
-					</Button>
+					<textarea
+						rows={4}
+						readonly
+						class="mt-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors scrollbar-ultraslim placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
+						value={JSON.stringify($toolSchema, null, 2)}
+					/>
+					<div class="mt-3 flex gap-x-3 text-sm">
+						<Button
+							variant="outline"
+							class=""
+							bind:flash={flashRefreshToolSchema}
+							on:click={async () => {
+								try {
+									const schema = await (
+										await fetch(`${$remoteServer.address}/tool_schema`, {
+											method: 'GET',
+											headers: {
+												Authorization: `Basic ${$remoteServer.password}`,
+											},
+										})
+									).text();
+									const clientToolsSchema = $toolSchema.find((g) => g.name === 'Client-side');
+									$toolSchema = JSON.parse(schema).concat(
+										clientToolsSchema ? clientToolsSchema : []
+									);
+									flashRefreshToolSchema('success');
+								} catch (e) {
+									flashRefreshToolSchema('error');
+									console.error(e);
+								}
+							}}
+						>
+							<Icon icon={feRefreshCw} class="mr-2 h-3 w-3 text-slate-700" />
+							Sync tools from server
+						</Button>
+						{#if $toolSchema.length > 0}
+							<Button
+								variant="outline"
+								on:click={() => {
+									const clientToolsSchemaIndex = $toolSchema.findIndex(
+										(g) => g.name === 'Client-side'
+									);
+									$toolSchema = $toolSchema.filter((_g, i) => i === clientToolsSchemaIndex);
+								}}
+							>
+								<Icon icon={feX} class="mr-2 h-3 w-3 text-slate-700" />
+								Clear server tools
+							</Button>
+						{/if}
+					</div>
 				</div>
 
 				<div>
@@ -263,8 +273,10 @@
 							</span>
 						</span>
 					</p>
-					<div class="mt-2 flex flex-col gap-y-2">
-						{#each $toolSchema.filter((t) => t.clientDefinition) as tool}
+					<div class="mt-3 flex flex-col gap-y-3">
+						{#each $toolSchema
+							.find((g) => g.name === 'Client-side')
+							?.schema.filter((t) => t.clientDefinition) || [] as tool}
 							<ClientTool
 								definition={tool.clientDefinition}
 								on:edit={async () => {
@@ -274,7 +286,12 @@
 								}}
 								on:delete={() => {
 									dispatch('disableTool', tool.clientDefinition.name);
-									$toolSchema = $toolSchema.filter(
+									const clientToolsSchemaIndex = $toolSchema.findIndex(
+										(g) => g.name === 'Client-side'
+									);
+									$toolSchema[clientToolsSchemaIndex].schema = $toolSchema[
+										clientToolsSchemaIndex
+									].schema.filter(
 										(t) => t.clientDefinition && t.clientDefinition.id !== tool.clientDefinition.id
 									);
 								}}
@@ -305,6 +322,16 @@
 						</Button>
 					</div>
 				</div>
+
+				<div class="mt-3">
+					<label class="inline-flex cursor-pointer items-center">
+						<input type="checkbox" bind:checked={$config.explicitToolView} class="peer sr-only" />
+						<div
+							class="peer relative h-5 w-[37px] rounded-full bg-gray-300 after:absolute after:start-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-slate-900 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none rtl:peer-checked:after:-translate-x-full"
+						></div>
+						<span class="ms-3 text-sm text-slate-700">Use explicit view for tool calls</span>
+					</label>
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -314,14 +341,23 @@
 	<ClientToolSetting
 		bind:load={loadClientTool}
 		on:save={({ detail }) => {
-			const i = $toolSchema.findIndex(
+			let clientToolsSchemaIndex = $toolSchema.findIndex((g) => g.name === 'Client-side');
+			if (clientToolsSchemaIndex === -1) {
+				$toolSchema.push({
+					name: 'Client-side',
+					schema: [],
+				});
+				$toolSchema = $toolSchema;
+				clientToolsSchemaIndex = $toolSchema.length - 1;
+			}
+			const i = $toolSchema[clientToolsSchemaIndex].schema.findIndex(
 				(tool) => tool.clientDefinition && tool.clientDefinition.id === detail.clientDefinition.id
 			);
 			if (i > -1) {
-				$toolSchema[i] = detail;
+				$toolSchema[clientToolsSchemaIndex].schema[i] = detail;
 			} else {
-				$toolSchema = [
-					...$toolSchema,
+				$toolSchema[clientToolsSchemaIndex].schema = [
+					...$toolSchema[clientToolsSchemaIndex].schema,
 					{ ...detail, clientDefinition: { id: uuidv4(), ...detail.clientDefinition } },
 				];
 			}

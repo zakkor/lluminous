@@ -455,6 +455,11 @@
 				}
 			}
 
+			// Scroll to bottom if we're at or near the bottom of the conversation:
+			if (scrollableEl.scrollHeight - scrollableEl.scrollTop - scrollableEl.clientHeight < 100) {
+				scrollableEl.scrollTop = scrollableEl.scrollHeight;
+			}
+
 			// Check for stoppage:
 			// For local models, `.stop` will be true.
 			// For external models, `.choices[0].finish_reason` will be 'stop'.
@@ -489,11 +494,12 @@
 						}
 
 						// Do we have a client-side tool for this?
-						const clientToolIndex = $toolSchema.findIndex(
+						const clientGroup = $toolSchema.find((g) => g.name === 'Client-side');
+						const clientToolIndex = clientGroup.schema?.findIndex(
 							(t) => t.clientDefinition && t.clientDefinition.name === toolcall.name
 						);
 						if (clientToolIndex !== -1 && convo.tools.includes(toolcall.name)) {
-							const clientTool = $toolSchema[clientToolIndex];
+							const clientTool = clientGroup.schema[clientToolIndex];
 							const clientFn = new Function('args', clientTool.clientDefinition.body);
 							const result = clientFn(toolcall.arguments);
 							toolPromises.push(Promise.resolve(result));
@@ -935,20 +941,25 @@
 	let models = [];
 
 	async function fetchLoadedModel() {
-		const response = await fetch(`${$remoteServer.address}/model`, {
-			method: 'GET',
-			headers: {
-				Authorization: `Basic ${$remoteServer.password}`,
-			},
-		});
-		const json = await response.json();
+		try {
+			const response = await fetch(`${$remoteServer.address}/model`, {
+				method: 'GET',
+				headers: {
+					Authorization: `Basic ${$remoteServer.password}`,
+				},
+			});
+			if (!response.ok) {
+				return;
+			}
+			const json = await response.json();
 
-		loadedModel = {
-			provider: 'Local',
-			id: json.model,
-			// Strip .gguf suffix:
-			name: json.model.replace(/\.gguf$/, ''),
-		};
+			loadedModel = {
+				provider: 'Local',
+				id: json.model,
+				// Strip .gguf suffix:
+				name: json.model.replace(/\.gguf$/, ''),
+			};
+		} catch (error) {}
 	}
 
 	let loading = false;
@@ -1238,8 +1249,16 @@
 						loadModel(convo.model);
 					}
 				}}
-				on:changeTools={({ detail }) => {
-					convo.tools = detail;
+				on:setTools={({ detail }) => {
+					convo.tools = convo.tools.concat(detail);
+					saveConversation(convo);
+				}}
+				on:unsetTools={({ detail }) => {
+					convo.tools = convo.tools.filter((t) => !detail.includes(t));
+					saveConversation(convo);
+				}}
+				on:clearTools={() => {
+					convo.tools = [];
 					saveConversation(convo);
 				}}
 				class="!absolute left-1/2 z-[99] -translate-x-1/2"
@@ -1377,8 +1396,16 @@
 								loadModel(convo.model);
 							}
 						}}
-						on:changeTools={({ detail }) => {
-							convo.tools = detail;
+						on:setTools={({ detail }) => {
+							convo.tools = convo.tools.concat(detail);
+							saveConversation(convo);
+						}}
+						on:unsetTools={({ detail }) => {
+							convo.tools = convo.tools.filter((t) => !detail.includes(t));
+							saveConversation(convo);
+						}}
+						on:clearTools={() => {
+							convo.tools = [];
 							saveConversation(convo);
 						}}
 						class="!absolute left-1/2 z-[99] -translate-x-1/2"
