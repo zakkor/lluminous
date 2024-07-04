@@ -18,7 +18,7 @@ export const groqAPIKey = persisted('groqAPIKey', '');
 export const mistralAPIKey = persisted('mistralAPIKey', '');
 
 export const remoteServer = persisted('remoteServer', { address: '', password: '' });
-export const toolSchema = persisted('toolSchema', []);
+export const toolSchema = persisted('toolSchemaGroups', []);
 
 export function pick(parentStore, getFn) {
 	const { subscribe, set } = writable(getFn(get(parentStore)));

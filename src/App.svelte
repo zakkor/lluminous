@@ -1140,6 +1140,12 @@
 	}
 
 	onMount(async () => {
+		// Clear old deprecated local storage data:
+		localStorage.removeItem('tools');
+		localStorage.removeItem('toolSchema');
+		localStorage.removeItem('history');
+		localStorage.removeItem('remoteServerAddress');
+
 		initializePWAStyles();
 
 		// Async
