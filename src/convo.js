@@ -165,7 +165,7 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 			return msgOAI;
 		});
 
-		if (param.messagesContextLimit > 0) {
+		if (param.messagesContextLimit > 0 && !messages.some((msg) => msg.role === 'tool')) {
 			// Keep only the last messagesContextLimit pairs of messages, and always keep the first message if it's a system message
 			const firstMessage = messages[0];
 			const isFirstMessageSystem = firstMessage && firstMessage.role === 'system';
