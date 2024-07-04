@@ -1,4 +1,4 @@
-import { get, writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 import { persisted } from './localstorage.js';
 
 export const controller = writable(null);
@@ -6,6 +6,7 @@ export const controller = writable(null);
 export const params = persisted('params', {
 	temperature: 0.3,
 	maxTokens: 0,
+	messagesContextLimit: 0,
 });
 
 export const config = persisted('config', {
@@ -19,32 +20,3 @@ export const mistralAPIKey = persisted('mistralAPIKey', '');
 
 export const remoteServer = persisted('remoteServer', { address: '', password: '' });
 export const toolSchema = persisted('toolSchemaGroups', []);
-
-export function pick(parentStore, getFn) {
-	const { subscribe, set } = writable(getFn(get(parentStore)));
-
-	const unsubscribe = parentStore.subscribe((value) => {
-		set(getFn(value));
-	});
-
-	return {
-		subscribe,
-		set: (value) => {
-			parentStore.update((current) => {
-				const parent = { ...current };
-				const updatedValue = getFn(parent);
-				Object.assign(updatedValue, value);
-				return parent;
-			});
-		},
-		update: (updateFn) => {
-			parentStore.update((current) => {
-				const parent = { ...current };
-				const updatedValue = getFn(parent);
-				Object.assign(updatedValue, updateFn(updatedValue));
-				return parent;
-			});
-		},
-		unsubscribe,
-	};
-}

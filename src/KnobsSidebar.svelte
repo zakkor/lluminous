@@ -40,6 +40,18 @@
 		/>
 	</label>
 
+	<label class="mb-4 flex flex-col text-[10px] uppercase tracking-wide">
+		<div class="mb-2 ml-[3px] flex items-baseline">
+			<span>Messages context limit</span>
+		</div>
+		<input
+			type="number"
+			min={0}
+			bind:value={$params.messagesContextLimit}
+			class="rounded-lg border border-slate-300 px-2 py-1.5 text-xs text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
+		/>
+	</label>
+
 	<!-- FIXME: -->
 	<!-- {#if convo.local}
 		<select

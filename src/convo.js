@@ -122,7 +122,9 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 
 		streamResponse(response.body, onupdate, onabort);
 	} else {
-		const messages = convo.messages.map((msg) => {
+		const param = get(params);
+
+		let messages = convo.messages.map((msg) => {
 			const msgOAI = {
 				role: msg.role,
 			};
@@ -163,6 +165,20 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 			return msgOAI;
 		});
 
+		if (param.messagesContextLimit > 0) {
+			// Keep only the last messagesContextLimit pairs of messages, and always keep the first message if it's a system message
+			const firstMessage = messages[0];
+			const isFirstMessageSystem = firstMessage && firstMessage.role === 'system';
+
+			if (isFirstMessageSystem) {
+				const systemMessage = messages.shift();
+				messages = messages.slice(-param.messagesContextLimit * 2);
+				messages.unshift(systemMessage);
+			} else {
+				messages = messages.slice(-param.messagesContextLimit * 2);
+			}
+		}
+
 		// TODO: Actually it works with Anthropic also. How to show it as disabled for unsupported?
 		// Filter out unclosed messages from being submitted if using external models
 		if (
@@ -172,14 +188,15 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 			messages.pop();
 		}
 
-		const schema = get(toolSchema).map(group => group.schema).flat();
+		const schema = get(toolSchema)
+			.map((group) => group.schema)
+			.flat();
 		const activeSchema = schema
 			.filter((tool) => (convo.tools || []).includes(tool.function.name))
 			.map((tool) => ({
 				type: tool.type,
 				function: tool.function,
 			}));
-		const param = get(params);
 
 		const provider = providers.find((p) => p.name === convo.model.provider);
 

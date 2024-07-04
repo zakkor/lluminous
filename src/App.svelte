@@ -495,10 +495,10 @@
 
 						// Do we have a client-side tool for this?
 						const clientGroup = $toolSchema.find((g) => g.name === 'Client-side');
-						const clientToolIndex = clientGroup.schema?.findIndex(
+						const clientToolIndex = clientGroup?.schema.findIndex(
 							(t) => t.clientDefinition && t.clientDefinition.name === toolcall.name
 						);
-						if (clientToolIndex !== -1 && convo.tools.includes(toolcall.name)) {
+						if (clientGroup && clientToolIndex !== -1 && convo.tools.includes(toolcall.name)) {
 							const clientTool = clientGroup.schema[clientToolIndex];
 							const clientFn = new Function('args', clientTool.clientDefinition.body);
 							const result = clientFn(toolcall.arguments);
@@ -1145,6 +1145,11 @@
 		localStorage.removeItem('toolSchema');
 		localStorage.removeItem('history');
 		localStorage.removeItem('remoteServerAddress');
+
+		// Populate params with default values, in case of old data:
+		if ($params.messagesContextLimit == null) {
+			$params.messagesContextLimit = 0;
+		}
 
 		initializePWAStyles();
 
