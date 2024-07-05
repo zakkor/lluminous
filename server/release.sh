@@ -43,10 +43,7 @@ for GOOS in "${GOOS_VALUES[@]}"; do
     fi
 done
 
-# Delete the current release
-gh release delete v0.0.0 --yes
-
 # Create a new release with the new builds
-gh release create v0.0.0 dist/* dist-client.tar.gz --notes ''
+gh release create v0.0.1 dist/* dist-client.tar.gz --notes ''
 
 echo "Builds and release process completed successfully."

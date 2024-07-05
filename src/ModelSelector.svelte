@@ -1,6 +1,7 @@
 <script>
 	import { createEventDispatcher, tick } from 'svelte';
-	import { fade, slide } from 'svelte/transition';
+	import { scale, slide } from 'svelte/transition';
+	import { cubicIn } from 'svelte/easing';
 	import { formatModelName } from './convo.js';
 	import { toolSchema } from './stores.js';
 	import CompanyLogo from './CompanyLogo.svelte';
@@ -122,7 +123,7 @@
 					class="absolute left-1/2 top-[calc(100%+6px)] z-10 flex w-[max-content] -translate-x-1/2 rounded-lg"
 				>
 					<div
-						transition:fade={{ duration: 100 }}
+						transition:scale={{ opacity: 0, start: 0.98, duration: 100, easing: cubicIn }}
 						class="flex h-auto w-auto min-w-[250px] flex-col self-start overflow-y-auto rounded-lg border border-slate-300 bg-white"
 					>
 						<div class="w-full px-3 pb-2 pt-2.5">
@@ -219,7 +220,7 @@
 			class="pointer-events-none absolute left-1/2 top-[calc(100%+6px)] z-10 flex w-[max-content] -translate-x-1/2 rounded-lg"
 		>
 			<div
-				transition:fade={{ duration: 100 }}
+				transition:scale={{ opacity: 0, start: 0.98, duration: 100, easing: cubicIn }}
 				class="pointer-events-auto min-w-[240px] rounded-lg border border-slate-300 bg-white"
 			>
 				<input

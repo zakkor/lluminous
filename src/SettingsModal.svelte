@@ -294,6 +294,10 @@
 									].schema.filter(
 										(t) => t.clientDefinition && t.clientDefinition.id !== tool.clientDefinition.id
 									);
+
+									if ($toolSchema[clientToolsSchemaIndex].schema.length === 0) {
+										$toolSchema = $toolSchema.filter((g) => g.name !== 'Client-side');
+									}
 								}}
 							/>
 						{/each}

@@ -61,6 +61,7 @@
 		feUser,
 		feX,
 	} from './feather.js';
+	import { defaultToolSchema } from './tools.js';
 
 	marked.use(
 		markedKatex({
@@ -1149,6 +1150,12 @@
 		// Populate params with default values, in case of old data:
 		if ($params.messagesContextLimit == null) {
 			$params.messagesContextLimit = 0;
+		}
+
+		// Init client tools with default values
+		if ($toolSchema.length === 0 && !window.localStorage.getItem('initializedClientTools')) {
+			$toolSchema = defaultToolSchema;
+			window.localStorage.setItem('initializedClientTools', 'true');
 		}
 
 		initializePWAStyles();

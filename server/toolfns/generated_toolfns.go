@@ -1,4 +1,4 @@
-// generated @ 2024-07-04T23:26:45+03:00 by gendoc
+// generated @ 2024-07-05T17:46:44+03:00 by gendoc
 package toolfns
 
 import "github.com/noonien/codoc"
@@ -7,7 +7,7 @@ func init() {
 	codoc.Register(codoc.Package{
 		ID:   "github.com/zakkor/server/toolfns",
 		Name: "toolfns",
-		Doc:  "generated @ 2024-07-04T22:57:36+03:00 by gendoc",
+		Doc:  "generated @ 2024-07-04T23:26:45+03:00 by gendoc",
 		Functions: map[string]codoc.Function{
 			"DisplayImage": {
 				Name: "DisplayImage",
