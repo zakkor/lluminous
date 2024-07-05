@@ -1037,11 +1037,21 @@
 				{ startsWith: ['deepseek'] },
 				{
 					exactly: [
+						'mistralai/mixtral-8x22b-instruct',
+						'mistralai/mistral-large',
+						'mistralai/mistral-medium',
+						'mistralai/mistral-small',
+					],
+				},
+				{ exactly: ['google/gemini-flash-1.5', 'google/gemini-pro-1.5'] },
+				{ startsWith: ['cohere/'] },
+				{
+					exactly: [
 						'perplexity/llama-3-sonar-large-32k-online',
 						'perplexity/llama-3-sonar-small-32k-online',
 					],
 				},
-				{ exactly: ['google/gemini-flash-1.5', 'google/gemini-pro-1.5'] },
+				{ startsWith: ['nousresearch/'] },
 				{ fromProvider: 'OpenAI' },
 				{
 					startsWith: [
@@ -1081,7 +1091,7 @@
 					],
 				},
 				{ fromProvider: 'Mistral' },
-				{ startsWith: ['mistralai/', 'cohere/', 'nous'] },
+				{ startsWith: ['mistralai/'] },
 			];
 
 			function getPriorityIndex(model) {
