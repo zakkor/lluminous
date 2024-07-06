@@ -165,18 +165,8 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 			return msgOAI;
 		});
 
-		if (param.messagesContextLimit > 0 && !messages.some((msg) => msg.role === 'tool')) {
-			// Keep only the last messagesContextLimit pairs of messages, and always keep the first message if it's a system message
-			const firstMessage = messages[0];
-			const isFirstMessageSystem = firstMessage && firstMessage.role === 'system';
-
-			if (isFirstMessageSystem) {
-				const systemMessage = messages.shift();
-				messages = messages.slice(-param.messagesContextLimit * 2);
-				messages.unshift(systemMessage);
-			} else {
-				messages = messages.slice(-param.messagesContextLimit * 2);
-			}
+		if (param.messagesContextLimit > 0) {
+			messages = limitMessagesContext(messages, param.messagesContextLimit);
 		}
 
 		// TODO: Actually it works with Anthropic also. How to show it as disabled for unsupported?
@@ -314,6 +304,37 @@ async function streamResponse(readableStream, onupdate, onabort) {
 			throw error;
 		}
 	}
+}
+
+function limitMessagesContext(messages, messagesContextLimit) {
+	if (messagesContextLimit <= 0) return messages;
+
+	const isFirstMessageSystem = messages[0]?.role === 'system';
+	const systemMessage = isFirstMessageSystem ? messages[0] : null;
+	const conversationMessages = isFirstMessageSystem ? messages.slice(1) : messages;
+
+	const turns = [];
+	let currentTurn = [];
+
+	for (const message of conversationMessages) {
+		if (message.role === 'user' && currentTurn.length > 0) {
+			turns.push(currentTurn);
+			currentTurn = [];
+		}
+		currentTurn.push(message);
+	}
+	if (currentTurn.length > 0) {
+		turns.push(currentTurn);
+	}
+
+	const limitedTurns = turns.slice(-messagesContextLimit);
+	const limitedMessages = limitedTurns.flat();
+
+	if (systemMessage) {
+		limitedMessages.unshift(systemMessage);
+	}
+
+	return limitedMessages;
 }
 
 export function readFileAsDataURL(file) {
