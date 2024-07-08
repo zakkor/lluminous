@@ -2,7 +2,7 @@
 	import { createEventDispatcher, tick } from 'svelte';
 	import { scale, slide } from 'svelte/transition';
 	import { cubicIn } from 'svelte/easing';
-	import { formatModelName } from './convo.js';
+	import { formatModelName } from './providers.js';
 	import { toolSchema } from './stores.js';
 	import CompanyLogo from './CompanyLogo.svelte';
 	import { feCheckCircle, feChevronDown, feImage, feLoader, feTool } from './feather.js';

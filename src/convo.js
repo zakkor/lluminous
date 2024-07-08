@@ -1,100 +1,6 @@
 import { get } from 'svelte/store';
-import { controller, openaiAPIKey, openrouterAPIKey, params, toolSchema } from './stores.js';
+import { controller, params, toolSchema } from './stores.js';
 import { providers } from './providers.js';
-
-// OpenAI doesn't provide any metadata for their models, so we have to harddcode which ones are multimodal
-export const additionalModelsMultimodal = ['gpt-4o', 'gpt-4-turbo', 'gpt-4-turbo-2024-04-09'];
-export const imageGenerationModels = ['dall-e-3'];
-
-export function hasCompanyLogo(model) {
-	return (
-		model &&
-		model.provider &&
-		(model.provider === 'OpenAI' ||
-			model.id.startsWith('openai') ||
-			model.id.startsWith('anthropic') ||
-			model.id.startsWith('meta-llama') ||
-			model.id.startsWith('mistralai') ||
-			model.provider === 'Mistral' ||
-			model.id.startsWith('cohere') ||
-			model.provider === 'Groq' ||
-			model.id.startsWith('nous') ||
-			model.id.startsWith('google') ||
-			model.id.startsWith('perplexity') ||
-			model.id.startsWith('deepseek'))
-	);
-}
-
-export function formatModelName(model) {
-	if (model.id === null) {
-		return model.name;
-	}
-
-	let name = model.name;
-
-	// If providers clash, disambiguate provider name
-	const disambiguate = get(openaiAPIKey).length > 0 && get(openrouterAPIKey).length > 0;
-
-	if (model.provider === 'OpenAI') {
-		name = name.replace('gpt', 'GPT').replace('dall-e-3', 'DALL-E 3');
-	}
-
-	if (model.provider === 'Groq') {
-		return model.provider + ': ' + name;
-	}
-	if (disambiguate && model.provider === 'OpenRouter' && name.includes(': ')) {
-		return model.provider + ': ' + name.split(': ')[1];
-	}
-	if (disambiguate) {
-		return model.provider + ': ' + name;
-	}
-
-	return name;
-}
-
-export function conversationToString(convo) {
-	let result = '';
-	convo.messages.forEach((msg) => {
-		result += messageToString(msg, convo.model.template);
-	});
-	return result;
-}
-
-function conversationStop(convo) {
-	switch (convo.model.template) {
-		case 'chatml':
-			return ['<|im_end|>', '<|im_start|>', '</tool_call>'];
-		case 'deepseek':
-			return ['### Instruction:', '### Response:'];
-		case 'none':
-			return ['</s>'];
-		default:
-			throw new Error('Unknown template');
-	}
-}
-
-function messageToString(message, template) {
-	switch (template) {
-		case 'chatml':
-			let s = '<|im_start|>' + message.role + '\n' + message.content;
-			if (!message.unclosed) {
-				s += '<|im_end|>\n';
-			}
-			return s;
-		case 'deepseek':
-			if (message.role === 'system') {
-				return message.content + '\n';
-			}
-			if (message.role === 'user') {
-				return '### Instruction:\n' + message.content + '\n';
-			}
-			if (message.role === 'assistant') {
-				return '### Response:\n' + message.content + '\n';
-			}
-		case 'none':
-			return message.content;
-	}
-}
 
 export async function complete(convo, onupdate, onabort, ondirect) {
 	controller.set(new AbortController());
@@ -124,46 +30,15 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 	} else {
 		const param = get(params);
 
-		let messages = convo.messages.map((msg) => {
-			const msgOAI = {
-				role: msg.role,
-			};
+		const openAICompatibleFormat =
+			convo.model.provider === 'OpenAI' ||
+			convo.model.provider === 'OpenRouter' ||
+			convo.model.provider === 'Groq';
 
-			if (msg.contentParts) {
-				msgOAI.content = [
-					{
-						type: 'text',
-						text: msg.content,
-					},
-					...msg.contentParts,
-				];
-			} else if (msg.role === 'tool') {
-				msgOAI.content = JSON.stringify(msg.content);
-			} else {
-				msgOAI.content = msg.content;
-			}
-
-			// Additional data for tool calls
-			if (msg.toolcalls) {
-				msgOAI.tool_calls = msg.toolcalls.map((t) => {
-					return {
-						id: t.id,
-						type: 'function',
-						function: {
-							name: t.name,
-							arguments: JSON.stringify(t.arguments),
-						},
-					};
-				});
-			}
-			// Additional data for tool responses
-			if (msg.tool_call_id && msg.name) {
-				msgOAI.tool_call_id = msg.tool_call_id;
-				msgOAI.name = msg.name;
-			}
-
-			return msgOAI;
-		});
+		let messages = openAICompatibleFormat
+			? convo.messages.map(messageToOpenAIFormat)
+			: // TODO: Support for Anthropic
+				convo.messages;
 
 		if (param.messagesContextLimit > 0) {
 			messages = limitMessagesContext(messages, param.messagesContextLimit);
@@ -226,6 +101,57 @@ export async function complete(convo, onupdate, onabort, ondirect) {
 			ondirect(await response.json());
 		}
 	}
+}
+
+function messageToOpenAIFormat(msg) {
+	const msgConverted = {
+		role: msg.role,
+	};
+
+	if (msg.contentParts) {
+		msgConverted.content = [
+			{
+				type: 'text',
+				text: msg.content,
+			},
+			...msg.contentParts,
+		];
+	} else if (msg.role === 'tool') {
+		// FIXME: This might double stringify the content
+		// FIXME: This might double stringify the content
+		// FIXME: This might double stringify the content
+		// FIXME: This might double stringify the content
+		// FIXME: This might double stringify the content
+		// FIXME: This might double stringify the content
+		msgConverted.content = JSON.stringify(msg.content);
+	} else {
+		msgConverted.content = msg.content;
+	}
+
+	// Additional data for tool calls
+	if (msg.toolcalls) {
+		msgConverted.tool_calls = msg.toolcalls.map((t) => {
+			return {
+				id: t.id,
+				type: 'function',
+				function: {
+					name: t.name,
+					// FIXME: This might double stringify the content (???)
+					// FIXME: This might double stringify the content (???)
+					// FIXME: This might double stringify the content (???)
+					// FIXME: This might double stringify the content (???)
+					arguments: JSON.stringify(t.arguments),
+				},
+			};
+		});
+	}
+	// Additional data for tool responses
+	if (msg.toolcallId && msg.name) {
+		msgConverted.tool_call_id = msg.toolcallId;
+		msgConverted.name = msg.name;
+	}
+
+	return msgConverted;
 }
 
 async function streamResponse(readableStream, onupdate, onabort) {
@@ -337,15 +263,6 @@ function limitMessagesContext(messages, messagesContextLimit) {
 	return limitedMessages;
 }
 
-export function readFileAsDataURL(file) {
-	return new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onload = () => resolve(reader.result);
-		reader.onerror = () => reject(reader.error);
-		reader.readAsDataURL(file);
-	});
-}
-
 export async function generateImage(convo, { oncomplete }) {
 	const provider = providers.find((p) => p.name === convo.model.provider);
 	const userMessages = convo.messages.filter((msg) => msg.role === 'user');
@@ -368,4 +285,48 @@ export async function generateImage(convo, { oncomplete }) {
 	});
 	const json = await resp.json();
 	oncomplete(json);
+}
+
+export function conversationToString(convo) {
+	let result = '';
+	convo.messages.forEach((msg) => {
+		result += messageToString(msg, convo.model.template);
+	});
+	return result;
+}
+
+function conversationStop(convo) {
+	switch (convo.model.template) {
+		case 'chatml':
+			return ['<|im_end|>', '<|im_start|>', '</tool_call>'];
+		case 'deepseek':
+			return ['### Instruction:', '### Response:'];
+		case 'none':
+			return ['</s>'];
+		default:
+			throw new Error('Unknown template');
+	}
+}
+
+function messageToString(message, template) {
+	switch (template) {
+		case 'chatml':
+			let s = '<|im_start|>' + message.role + '\n' + message.content;
+			if (!message.unclosed) {
+				s += '<|im_end|>\n';
+			}
+			return s;
+		case 'deepseek':
+			if (message.role === 'system') {
+				return message.content + '\n';
+			}
+			if (message.role === 'user') {
+				return '### Instruction:\n' + message.content + '\n';
+			}
+			if (message.role === 'assistant') {
+				return '### Response:\n' + message.content + '\n';
+			}
+		case 'none':
+			return message.content;
+	}
 }

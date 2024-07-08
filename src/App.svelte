@@ -2,16 +2,7 @@
 	import { v4 as uuidv4 } from 'uuid';
 	import { onMount, tick } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
-	import {
-		complete,
-		conversationToString,
-		formatModelName,
-		hasCompanyLogo,
-		additionalModelsMultimodal,
-		readFileAsDataURL,
-		imageGenerationModels,
-		generateImage,
-	} from './convo.js';
+	import { complete, generateImage } from './convo.js';
 	import KnobsSidebar from './KnobsSidebar.svelte';
 	import Button from './Button.svelte';
 	import { marked } from 'marked';
@@ -20,7 +11,13 @@
 	import { persisted } from './localstorage.js';
 	import { getRelativeDate } from './date.js';
 	import { compressAndEncode, decodeAndDecompress } from './share.js';
-	import { providers } from './providers.js';
+	import {
+		formatModelName,
+		providers,
+		hasCompanyLogo,
+		additionalModelsMultimodal,
+		imageGenerationModels,
+	} from './providers.js';
 	import ModelSelector from './ModelSelector.svelte';
 	import CompanyLogo from './CompanyLogo.svelte';
 	import {
@@ -62,6 +59,7 @@
 		feX,
 	} from './feather.js';
 	import { defaultToolSchema } from './tools.js';
+	import { debounce, readFileAsDataURL } from './util.js';
 
 	marked.use(
 		markedKatex({
@@ -120,6 +118,17 @@
 		console.error(event.target.error);
 	};
 
+	const saveMessage = debounce((msg) => {
+		const transaction = db.transaction(['messages'], 'readwrite');
+		const store = transaction.objectStore('messages');
+
+		store.put(msg);
+
+		transaction.onerror = () => {
+			console.error('Message save failed', transaction.error);
+		};
+	}, 100);
+
 	async function fetchAllConversations() {
 		const transaction = db.transaction(['conversations', 'messages'], 'readonly');
 		const conversationsStore = transaction.objectStore('conversations');
@@ -145,7 +154,15 @@
 				const messagesRequest = messagesStore.getAll();
 				messagesRequest.onsuccess = (event) => {
 					const messages = event.target.result;
+
 					messages.forEach((message) => {
+						// Migrate old tool_call_id to toolcallId
+						if ('tool_call_id' in message) {
+							message.toolcallId = message.tool_call_id;
+							delete message.tool_call_id;
+							saveMessage(message);
+						}
+
 						for (let cid in convosData) {
 							const index = convosData[cid].messages.indexOf(message.id);
 							if (index !== -1) {
@@ -182,25 +199,6 @@
 		} catch (error) {
 			console.error('Error fetching history:', error);
 		}
-	}
-
-	function debounce(func, wait) {
-		const timers = new Map();
-
-		return function (...args) {
-			const id = args[0].id; // Assuming the first argument has an `id` property
-
-			if (timers.has(id)) {
-				clearTimeout(timers.get(id));
-			}
-
-			const timer = setTimeout(() => {
-				func.apply(this, args);
-				timers.delete(id);
-			}, wait);
-
-			timers.set(id, timer);
-		};
 	}
 
 	const saveConversation = debounce((convo) => {
@@ -240,17 +238,6 @@
 		};
 	}
 
-	const saveMessage = debounce((msg) => {
-		const transaction = db.transaction(['messages'], 'readwrite');
-		const store = transaction.objectStore('messages');
-
-		store.put(msg);
-
-		transaction.onerror = () => {
-			console.error('Message save failed', transaction.error);
-		};
-	}, 100);
-
 	$: isMultimodal =
 		convo.model.modality === 'multimodal' || additionalModelsMultimodal.includes(convo.model.id);
 
@@ -279,10 +266,6 @@
 	let imageUrlsBlacklist = [];
 	const imageUrlRegex = /https?:\/\/[^\s]+?\.(png|jpe?g)(?=\s|$)/gi;
 	let generating = false;
-
-	let currentTokens = 0;
-	let totalTokens = 0;
-	let hidingTokenCount = false;
 
 	let historyOpen = false;
 	let knobsOpen = false;
@@ -539,7 +522,7 @@
 						const msg = {
 							id: uuidv4(),
 							role: 'tool',
-							tool_call_id: convo.messages[i].toolcalls[ti].id,
+							toolcallId: convo.messages[i].toolcalls[ti].id,
 							name: convo.messages[i].toolcalls[ti].name,
 							content: toolResponses[ti],
 						};
@@ -626,7 +609,7 @@
 					const msg = {
 						id: uuidv4(),
 						role: 'tool',
-						tool_call_id: toolcall.id,
+						toolcallId: toolcall.id,
 						name: toolcall.function.name,
 						content: toolResponses[ti],
 					};
@@ -643,17 +626,6 @@
 		};
 
 		complete(convo, onupdate, onabort, ondirect);
-	}
-
-	async function tokenizeCount(content) {
-		const tokenizeResp = await fetch(`${$remoteServer.address}/tokenize_count`, {
-			method: 'POST',
-			headers: {
-				Authorization: `Basic ${$remoteServer.password}`,
-			},
-			body: JSON.stringify({ content }),
-		});
-		return parseInt(await tokenizeResp.text());
 	}
 
 	async function insertSystemPrompt() {
@@ -721,7 +693,6 @@
 			content = '';
 			imageUrls = [];
 			imageUrlsBlacklist = [];
-			currentTokens = 0;
 
 			await tick();
 			if (innerWidth < 880) {
@@ -1473,16 +1444,6 @@
 						class="{splitView
 							? 'scrollbar-none'
 							: 'scrollbar-ultraslim'} scrollable flex h-full w-full flex-col overflow-y-auto pb-[80px]"
-						on:scroll={() => {
-							if (
-								scrollableEl.scrollTop + scrollableEl.clientHeight >=
-								scrollableEl.scrollHeight - 100
-							) {
-								hidingTokenCount = false;
-							} else {
-								hidingTokenCount = true;
-							}
-						}}
 					>
 						{#if convo.messages.length > 0}
 							<ul
@@ -1630,10 +1591,9 @@
 																			<div class="-mb-1 flex flex-wrap gap-3 [&:first-child]:mt-1">
 																				{#each toolcallsOnLine as toolcall, ti}
 																					{@const toolresponse = convo.messages.find(
-																						(msg) => msg.tool_call_id === toolcall.id
+																						(msg) => msg.toolcallId === toolcall.id
 																					)}
 																					<ToolcallButton
-																						i={ti}
 																						{toolcall}
 																						{toolresponse}
 																						active={toolcall.id === activeToolcall?.id}
@@ -1661,10 +1621,9 @@
 															<div class="-mb-1 flex flex-wrap gap-3 [&:first-child]:mt-1">
 																{#each message.toolcalls as toolcall, ti}
 																	{@const toolresponse = convo.messages.find(
-																		(msg) => msg.tool_call_id === toolcall.id
+																		(msg) => msg.toolcallId === toolcall.id
 																	)}
 																	<ToolcallButton
-																		i={ti}
 																		{toolcall}
 																		{toolresponse}
 																		active={toolcall.id === activeToolcall?.id}
@@ -1680,7 +1639,7 @@
 														{#if message.toolcalls && $config.explicitToolView}
 															{#each message.toolcalls as toolcall, ti}
 																{@const toolresponse = convo.messages.find(
-																	(msg) => msg.tool_call_id === toolcall.id
+																	(msg) => msg.toolcallId === toolcall.id
 																)}
 																<Toolcall
 																	{toolcall}
@@ -2064,9 +2023,7 @@
 				</div>
 
 				{#if splitView}
-					{@const toolresponse = convo.messages.find(
-						(msg) => msg.tool_call_id === activeToolcall.id
-					)}
+					{@const toolresponse = convo.messages.find((msg) => msg.toolcallId === activeToolcall.id)}
 					<div in:fade={{ duration: 500 }} class="w-[40%] p-3.5">
 						<Toolcall
 							toolcall={activeToolcall}
@@ -2109,7 +2066,7 @@
 	>
 		<Toolcall
 			toolcall={activeToolcall}
-			toolresponse={convo.messages.find((msg) => msg.tool_call_id === activeToolcall.id)}
+			toolresponse={convo.messages.find((msg) => msg.toolcallId === activeToolcall.id)}
 			collapsable={false}
 			closeButton
 			class="!rounded-xl"
