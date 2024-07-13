@@ -87,7 +87,7 @@
 				<p class="line-clamp-1 text-xs text-slate-800">
 					{formatModelName(convo.model)}
 				</p>
-				{#if convo.model.modality === 'image-generation'}
+				{#if convo.model.modality === 'text->image'}
 					<Icon icon={feImage} class="mt-px h-3 w-3 text-slate-800" />
 				{/if}
 			</div>
@@ -253,7 +253,7 @@
 								{/if}
 								<CompanyLogo {model} />
 								{formatModelName(model)}
-								{#if model.modality === 'image-generation'}
+								{#if model.modality === 'text->image'}
 									<Icon icon={feImage} class="mt-px h-3 w-3 text-slate-800" />
 								{/if}
 							</button>

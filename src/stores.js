@@ -15,6 +15,7 @@ export const config = persisted('config', {
 
 export const openaiAPIKey = persisted('openaiAPIKey', '');
 export const openrouterAPIKey = persisted('openrouterkey', '');
+export const anthropicAPIKey = persisted('anthropicAPIKey', '');
 export const groqAPIKey = persisted('groqAPIKey', '');
 export const mistralAPIKey = persisted('mistralAPIKey', '');
 

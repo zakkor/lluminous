@@ -5,13 +5,40 @@ import {
 	openrouterAPIKey,
 	remoteServer,
 	mistralAPIKey,
+	anthropicAPIKey,
 } from './stores.js';
 
 export const providers = [
-	{ name: 'OpenAI', url: 'https://api.openai.com', apiKeyFn: () => get(openaiAPIKey) },
-	{ name: 'OpenRouter', url: 'https://openrouter.ai/api', apiKeyFn: () => get(openrouterAPIKey) },
-	{ name: 'Groq', url: 'https://api.groq.com/openai', apiKeyFn: () => get(groqAPIKey) },
-	{ name: 'Mistral', url: 'https://api.mistral.ai', apiKeyFn: () => get(mistralAPIKey) },
+	{
+		name: 'OpenRouter',
+		url: 'https://openrouter.ai/api',
+		completionUrl: '/v1/chat/completions',
+		apiKeyFn: () => get(openrouterAPIKey),
+	},
+	{
+		name: 'Anthropic',
+		url: 'http://localhost:8090/https://api.anthropic.com',
+		completionUrl: '/v1/messages',
+		apiKeyFn: () => get(anthropicAPIKey),
+	},
+	{
+		name: 'OpenAI',
+		url: 'https://api.openai.com',
+		completionUrl: '/v1/chat/completions',
+		apiKeyFn: () => get(openaiAPIKey),
+	},
+	{
+		name: 'Groq',
+		url: 'https://api.groq.com/openai',
+		completionUrl: '/v1/chat/completions',
+		apiKeyFn: () => get(groqAPIKey),
+	},
+	{
+		name: 'Mistral',
+		url: 'https://api.mistral.ai',
+		completionUrl: '/v1/chat/completions',
+		apiKeyFn: () => get(mistralAPIKey),
+	},
 	// { name: 'Local', url: 'http://localhost:8081', apiKeyFn: () => get(remoteServer).password },
 ].filter(Boolean);
 
@@ -25,14 +52,15 @@ export function hasCompanyLogo(model) {
 	return (
 		model &&
 		model.provider &&
-		(model.provider === 'OpenAI' ||
+		(model.provider == 'Anthropic' ||
+			model.provider === 'OpenAI' ||
+			model.provider === 'Mistral' ||
+			model.provider === 'Groq' ||
 			model.id.startsWith('openai') ||
 			model.id.startsWith('anthropic') ||
 			model.id.startsWith('meta-llama') ||
 			model.id.startsWith('mistralai') ||
-			model.provider === 'Mistral' ||
 			model.id.startsWith('cohere') ||
-			model.provider === 'Groq' ||
 			model.id.startsWith('nous') ||
 			model.id.startsWith('google') ||
 			model.id.startsWith('perplexity') ||
@@ -48,7 +76,9 @@ export function formatModelName(model) {
 	let name = model.name;
 
 	// If providers clash, disambiguate provider name
-	const disambiguate = get(openaiAPIKey).length > 0 && get(openrouterAPIKey).length > 0;
+	const disambiguate =
+		(get(openaiAPIKey).length > 0 && get(openrouterAPIKey).length > 0) ||
+		(get(anthropicAPIKey).length > 0 && get(openrouterAPIKey).length > 0);
 
 	if (model.provider === 'OpenAI') {
 		name = name.replace('gpt', 'GPT').replace('dall-e-3', 'DALL-E 3');

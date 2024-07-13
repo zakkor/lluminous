@@ -9,7 +9,7 @@
 {#if model && model.provider}
 	{#if model.provider === 'OpenAI' || model.id.startsWith('openai')}
 		<img src="/logos/openai.ico" loading="lazy" class="{size} {rounded || 'rounded-sm'}" alt="" />
-	{:else if model.id.startsWith('anthropic')}
+	{:else if model.provider === 'Anthropic' || model.id.startsWith('anthropic')}
 		<img
 			src="/logos/anthropic.jpeg"
 			loading="lazy"

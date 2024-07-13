@@ -60,6 +60,7 @@
 	} from './feather.js';
 	import { defaultToolSchema } from './tools.js';
 	import { debounce, readFileAsDataURL } from './util.js';
+	import FilePreview from './FilePreview.svelte';
 
 	marked.use(
 		markedKatex({
@@ -239,7 +240,8 @@
 	}
 
 	$: isMultimodal =
-		convo.model.modality === 'multimodal' || additionalModelsMultimodal.includes(convo.model.id);
+		convo.model.modality === 'text+image->text' ||
+		additionalModelsMultimodal.includes(convo.model.id);
 
 	let historyBuckets = [];
 	$: {
@@ -265,6 +267,8 @@
 	let imageUrls = [];
 	let imageUrlsBlacklist = [];
 	const imageUrlRegex = /https?:\/\/[^\s]+?\.(png|jpe?g)(?=\s|$)/gi;
+	let pendingFiles = [];
+
 	let generating = false;
 
 	let historyOpen = false;
@@ -367,7 +371,7 @@
 
 		const i = convo.messages.length - 1;
 
-		if (convo.model.modality === 'image-generation') {
+		if (convo.model.modality === 'text->image') {
 			await generateImage(convo, {
 				oncomplete: (resp) => {
 					convo.messages[i].generatedImageUrl = resp.data[0].url;
@@ -391,7 +395,7 @@
 				saveMessage(convo.messages[i]);
 			} else {
 				if (chunk.choices.length === 0) {
-					convo.messages[i].error = 'Refused to respond';
+					convo.messages[i].error = 'Refused to respond.';
 					generating = false;
 					saveMessage(convo.messages[i]);
 					return;
@@ -445,8 +449,6 @@
 			}
 
 			// Check for stoppage:
-			// For local models, `.stop` will be true.
-			// For external models, `.choices[0].finish_reason` will be 'stop'.
 			if (convo.model.provider === 'Local' && chunk.stop) {
 				generating = false;
 				return;
@@ -457,6 +459,7 @@
 				convo.model.provider !== 'Local' &&
 				chunk.choices &&
 				(chunk.choices[0].finish_reason === 'stop' ||
+					chunk.choices[0].finish_reason === 'end_turn' ||
 					chunk.choices[0].finish_reason === 'tool_calls')
 			) {
 				generating = false;
@@ -543,89 +546,7 @@
 			generating = false;
 		};
 
-		const ondirect = async (chatResp) => {
-			if (convo.model.provider === 'Local') {
-				// TODO:
-				return;
-			}
-
-			const choice = chatResp.choices[0];
-
-			if (choice.message.content) {
-				convo.messages[i].content = choice.message.content;
-				saveMessage(convo.messages[i]);
-			}
-
-			let toolPromises = [];
-			if (choice.message.tool_calls) {
-				for (let ti = 0; ti < choice.message.tool_calls.length; ti++) {
-					const toolcall = choice.message.tool_calls[ti];
-
-					if (!convo.messages[i].toolcalls) {
-						convo.messages[i].toolcalls = [];
-					}
-
-					convo.messages[i].toolcalls[ti] = {
-						id: toolcall.id,
-						name: toolcall.function.name,
-						arguments: JSON.parse(toolcall.function.arguments),
-						expanded: true,
-					};
-					activeToolcall = convo.messages[i].toolcalls[ti];
-
-					saveMessage(convo.messages[i]);
-
-					// Call the tool
-					const promise = fetch(`${$remoteServer.address}/tool`, {
-						method: 'POST',
-						// credentials: 'include',
-						headers: {
-							Authorization: `Basic ${$remoteServer.password}`,
-						},
-						body: JSON.stringify({
-							id: toolcall.id,
-							chat_id: convo.id,
-							name: convo.messages[i].toolcalls[ti].name,
-							arguments: convo.messages[i].toolcalls[ti].arguments,
-						}),
-					}).then((resp) => {
-						// Mark tool call as finished to we can display it nicely in the UI
-						// (still need to await all tool calls to deliver the final response).
-						convo.messages[i].toolcalls[ti].finished = true;
-						saveMessage(convo.messages[i]);
-
-						return resp.text().then((text) => {
-							return JSON.parse(text);
-						});
-					});
-
-					toolPromises.push(promise);
-				}
-
-				const toolResponses = await Promise.all(toolPromises);
-
-				for (let ti = 0; ti < toolResponses.length; ti++) {
-					const toolcall = choice.message.tool_calls[ti];
-					const msg = {
-						id: uuidv4(),
-						role: 'tool',
-						toolcallId: toolcall.id,
-						name: toolcall.function.name,
-						content: toolResponses[ti],
-					};
-					convo.messages.push(msg);
-					convo.messages = convo.messages;
-					saveMessage(msg);
-					saveConversation(convo);
-				}
-
-				submitCompletion();
-			}
-
-			generating = false;
-		};
-
-		complete(convo, onupdate, onabort, ondirect);
+		complete(convo, onupdate, onabort);
 	}
 
 	async function insertSystemPrompt() {
@@ -682,6 +603,19 @@
 				msg.contentParts = [...imageUrls.map(imageUrlMapper)];
 			}
 
+			let fileContent = '';
+			if (pendingFiles.length > 0) {
+				for (const file of pendingFiles) {
+					fileContent += `\`\`\` filename="${file.name}"
+${file.text}
+\`\`\`
+
+`;
+				}
+
+				msg.content = fileContent + msg.content;
+			}
+
 			convo.messages.push(msg);
 			convo.messages = convo.messages;
 			await tick();
@@ -693,6 +627,7 @@
 			content = '';
 			imageUrls = [];
 			imageUrlsBlacklist = [];
+			pendingFiles = [];
 
 			await tick();
 			if (innerWidth < 880) {
@@ -943,6 +878,36 @@
 				if (!provider.apiKeyFn()) {
 					return [];
 				}
+				// Anthropic doesn't support the /v1/models endpoint, so we hardcode it:
+				if (provider.name === 'Anthropic') {
+					return [
+						{
+							id: 'claude-3-5-sonnet-20240620',
+							name: 'Claude 3.5 Sonnet',
+							provider: 'Anthropic',
+							modality: 'text+image->text',
+						},
+						{
+							id: 'claude-3-opus-20240229',
+							name: 'Claude 3 Opus',
+							provider: 'Anthropic',
+							modality: 'text+image->text',
+						},
+						{
+							id: 'claude-3-sonnet-20240229',
+							name: 'Claude 3 Sonnet',
+							provider: 'Anthropic',
+							modality: 'text+image->text',
+						},
+						{
+							id: 'claude-3-haiku-20240307',
+							name: 'Claude 3 Haiku',
+							provider: 'Anthropic',
+							modality: 'text+image->text',
+						},
+					];
+				}
+
 				return fetch(`${provider.url}/v1/models`, {
 					method: 'GET',
 					headers: {
@@ -960,7 +925,7 @@
 							provider: provider.name,
 							modality:
 								m.architecture?.modality ||
-								(imageGenerationModels.includes(m.id) ? 'image-generation' : undefined),
+								(imageGenerationModels.includes(m.id) ? 'text->image' : undefined),
 						}));
 						return externalModels;
 					})
@@ -998,6 +963,15 @@
 						'anthropic/claude-3-opus',
 						'anthropic/claude-3-sonnet',
 						'anthropic/claude-3-haiku',
+					],
+				},
+				{
+					fromProvider: 'Anthropic',
+					exactly: [
+						'claude-3-5-sonnet-20240620',
+						'claude-3-opus-20240229',
+						'claude-3-sonnet-20240229',
+						'claude-3-haiku-20240307',
 					],
 				},
 				{
@@ -1434,10 +1408,51 @@
 			</div>
 
 			<div class="flex h-full w-full">
+				<!-- svelte-ignore a11y-no-static-element-interactions -->
 				<div
 					class="{splitView
-						? 'w-[60%]'
+						? 'w-[50%]'
 						: 'w-full'} relative max-h-[calc(100vh-49px)] transition-[width] duration-500 ease-in-out"
+					on:dragover={(event) => {
+						event.preventDefault();
+					}}
+					on:drop={async (event) => {
+						event.preventDefault();
+
+						let filenames = [];
+						let promises = [];
+						if (event.dataTransfer.items) {
+							// Use DataTransferItemList interface to access the file(s)
+							[...event.dataTransfer.items].forEach((item, _) => {
+								// If dropped items aren't files, reject them
+								if (item.kind !== 'file') {
+									return;
+								}
+
+								const file = item.getAsFile();
+								filenames.push(file.name);
+								promises.push(file.text());
+							});
+						} else {
+							// Use DataTransfer interface to access the file(s)
+							[...event.dataTransfer.files].forEach((file, _) => {
+								filenames.push(file.name);
+								promises.push(file.text());
+							});
+						}
+
+						const texts = await Promise.all(promises);
+						for (let i = 0; i < texts.length; i++) {
+							const text = texts[i];
+							const filename = filenames[i];
+							pendingFiles.push({ name: filename, text: text });
+							pendingFiles = pendingFiles;
+						}
+
+						tick().then(() => {
+							autoresizeTextarea();
+						});
+					}}
 				>
 					<div
 						bind:this={scrollableEl}
@@ -1897,6 +1912,7 @@
 										variant="outline"
 										on:click={() => {
 											$controller.abort();
+											generating = false;
 										}}
 									>
 										<Icon icon={feSquare} class="mr-2 h-3.5 w-3.5 text-slate-500" />
@@ -1905,14 +1921,37 @@
 								{/if}
 							</div>
 							<div class="relative flex">
-								{#if imageUrls.length > 0}
+								{#if imageUrls.length > 0 || pendingFiles.length > 0}
 									<div class="absolute left-[50px] top-2.5 flex gap-x-3">
+										{#each pendingFiles as file, i}
+											<div class="relative">
+												<FilePreview
+													filename={file.name}
+													class="my-auto !gap-1 whitespace-pre-wrap px-4 text-center [overflow-wrap:anywhere]"
+													outerClass="!gap-1 h-20 w-28"
+													filenameClass="!text-xs !leading-relaxed line-clamp-2"
+													badgeClass="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2"
+												/>
+												<button
+													on:click={() => {
+														pendingFiles.splice(i, 1);
+														pendingFiles = pendingFiles;
+														tick().then(() => {
+															autoresizeTextarea();
+														});
+													}}
+													class="absolute -bottom-1 -right-1 flex h-4 w-4 rounded-full bg-black transition-transform hover:scale-110"
+												>
+													<Icon icon={feX} class="m-auto h-3 w-3 text-white" />
+												</button>
+											</div>
+										{/each}
 										{#each imageUrls as url, i}
 											<div class="relative">
 												<img
 													src={url}
 													alt=""
-													class="h-16 w-16 rounded-lg border border-slate-300 object-cover"
+													class="h-20 w-28 rounded-lg border border-slate-200 object-cover"
 												/>
 												<button
 													on:click={() => {
@@ -1923,9 +1962,9 @@
 															autoresizeTextarea();
 														});
 													}}
-													class="absolute -right-1 -top-1 flex h-3 w-3 rounded-full bg-black"
+													class="absolute -bottom-1 -right-1 flex h-4 w-4 rounded-full bg-black transition-transform hover:scale-110"
 												>
-													<Icon icon={feX} class="m-auto h-2.5 w-2.5 text-white" />
+													<Icon icon={feX} class="m-auto h-3 w-3 text-white" />
 												</button>
 											</div>
 										{/each}
@@ -1938,7 +1977,6 @@
 									>
 										<input
 											type="file"
-											accept="image/*"
 											class="hidden"
 											bind:this={fileInputEl}
 											on:change={async (event) => {
@@ -1949,6 +1987,13 @@
 														const dataUrl = await readFileAsDataURL(file);
 														imageUrls.push(dataUrl);
 														imageUrls = imageUrls;
+														tick().then(() => {
+															autoresizeTextarea();
+														});
+													} else {
+														const text = await file.text();
+														pendingFiles.push({ name: file.name, text });
+														pendingFiles = pendingFiles;
 														tick().then(() => {
 															autoresizeTextarea();
 														});
@@ -1964,8 +2009,9 @@
 								{/if}
 								<textarea
 									bind:this={inputTextareaEl}
-									class="{isMultimodal ? '!pl-[52px]' : ''} {imageUrls.length > 0
-										? '!pt-[88px]'
+									class="{isMultimodal ? '!pl-[52px]' : ''} {imageUrls.length > 0 ||
+									pendingFiles.length > 0
+										? '!pt-[112px]'
 										: ''} max-h-[90dvh] w-full resize-none rounded-xl border border-slate-200 py-4 pl-5 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:px-4 md:pl-5"
 									rows={1}
 									bind:value={content}
@@ -2024,7 +2070,7 @@
 
 				{#if splitView}
 					{@const toolresponse = convo.messages.find((msg) => msg.toolcallId === activeToolcall.id)}
-					<div in:fade={{ duration: 500 }} class="w-[40%] p-3.5">
+					<div in:fade={{ duration: 500 }} class="w-[50%] p-3.5">
 						<Toolcall
 							toolcall={activeToolcall}
 							{toolresponse}

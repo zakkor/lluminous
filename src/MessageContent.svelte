@@ -19,7 +19,7 @@
 				/>
 			{/each}
 		{/if}
-		<Markdown source={message.content} />
+		<Markdown source={message.content} {message} />
 	</div>
 {:else if message.generatedImageUrl}
 	<img
