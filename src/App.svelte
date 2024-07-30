@@ -1906,20 +1906,6 @@ ${file.text}
 						class="input-floating absolute bottom-4 left-1/2 z-[99] w-full -translate-x-1/2 px-5 ld:px-8"
 					>
 						<div class="mx-auto flex w-full max-w-[680px] flex-col ld:max-w-[768px]">
-							<div class="absolute bottom-full mb-3 flex gap-4 self-center">
-								{#if generating && convo.messages.filter((msg) => msg.generated).length > 0}
-									<Button
-										variant="outline"
-										on:click={() => {
-											$controller.abort();
-											generating = false;
-										}}
-									>
-										<Icon icon={feSquare} class="mr-2 h-3.5 w-3.5 text-slate-500" />
-										<span>Stop generating</span>
-									</Button>
-								{/if}
-							</div>
 							<div class="relative flex">
 								{#if imageUrls.length > 0 || pendingFiles.length > 0}
 									<div class="absolute left-[50px] top-2.5 flex gap-x-3">
@@ -1928,8 +1914,8 @@ ${file.text}
 												<FilePreview
 													filename={file.name}
 													class="my-auto !gap-1 whitespace-pre-wrap px-4 text-center [overflow-wrap:anywhere]"
-													outerClass="!gap-1 h-20 w-28"
-													filenameClass="!text-xs !leading-relaxed line-clamp-2"
+													outerClass="!gap-1 h-20 w-20"
+													filenameClass="!text-[10px] !leading-relaxed line-clamp-2"
 													badgeClass="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2"
 												/>
 												<button
@@ -1951,7 +1937,7 @@ ${file.text}
 												<img
 													src={url}
 													alt=""
-													class="h-20 w-28 rounded-lg border border-slate-200 object-cover"
+													class="h-20 w-20 rounded-lg border border-slate-200 object-cover"
 												/>
 												<button
 													on:click={() => {
@@ -1972,7 +1958,7 @@ ${file.text}
 								{/if}
 								{#if isMultimodal}
 									<button
-										class="absolute bottom-[15px] left-3.5 rounded-lg bg-slate-800 p-2 transition-colors"
+										class="absolute bottom-[13px] left-4 h-8 w-8 rounded-full bg-slate-800 transition-colors"
 										on:click={() => fileInputEl.click()}
 									>
 										<input
@@ -2003,16 +1989,16 @@ ${file.text}
 										/>
 										<Icon
 											icon={fePaperclip}
-											class="h-3 w-3 text-white transition-colors group-disabled:text-slate-400"
+											class="m-auto h-3.5 w-3.5 text-white transition-colors group-disabled:text-slate-400"
 										/>
 									</button>
 								{/if}
 								<textarea
 									bind:this={inputTextareaEl}
-									class="{isMultimodal ? '!pl-[52px]' : ''} {imageUrls.length > 0 ||
+									class="{isMultimodal ? '!pl-[58px]' : ''} {imageUrls.length > 0 ||
 									pendingFiles.length > 0
 										? '!pt-[112px]'
-										: ''} max-h-[90dvh] w-full resize-none rounded-xl border border-slate-200 py-4 pl-5 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:px-4 md:pl-5"
+										: ''} max-h-[90dvh] w-full resize-none rounded-2xl border border-slate-200 py-4 pl-5 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:px-4 md:pl-5"
 									rows={1}
 									bind:value={content}
 									on:paste={async (event) => {
@@ -2054,12 +2040,27 @@ ${file.text}
 									<button
 										transition:fly={{ x: 2, duration: 300 }}
 										disabled={content.length === 0}
-										class="group absolute bottom-[15px] right-3 rounded-full bg-slate-800 p-2 transition-transform hover:-translate-y-1 md:hidden"
+										class="group absolute bottom-[13px] right-4 flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110 md:hidden"
 										on:click={sendMessage}
 									>
 										<Icon
 											icon={feArrowUp}
-											class="h-3 w-3 text-white transition-colors group-disabled:text-slate-100"
+											class="m-auto h-4 w-4 text-white transition-colors group-disabled:text-slate-100"
+										/>
+									</button>
+								{:else if generating && convo.messages.filter((msg) => msg.generated).length > 0}
+									<button
+										transition:fly={{ x: 2, duration: 300 }}
+										class="group absolute bottom-[13px] right-4 flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110"
+										on:click={() => {
+											$controller.abort();
+											generating = false;
+										}}
+									>
+										<Icon
+											icon={feSquare}
+											strokeWidth={4}
+											class="m-auto h-3.5 w-3.5 text-white transition-colors group-disabled:text-slate-100"
 										/>
 									</button>
 								{/if}
