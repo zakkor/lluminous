@@ -1958,7 +1958,7 @@ ${file.text}
 								{/if}
 								{#if isMultimodal}
 									<button
-										class="absolute bottom-[13px] left-4 h-8 w-8 rounded-full bg-slate-800 transition-colors"
+										class="absolute bottom-[13px] left-4 h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110"
 										on:click={() => fileInputEl.click()}
 									>
 										<input
@@ -2040,7 +2040,7 @@ ${file.text}
 									<button
 										transition:fly={{ x: 2, duration: 300 }}
 										disabled={content.length === 0}
-										class="group absolute bottom-[13px] right-4 flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110 md:hidden"
+										class="group absolute bottom-[13px] right-4 flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110"
 										on:click={sendMessage}
 									>
 										<Icon
