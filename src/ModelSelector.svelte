@@ -63,7 +63,7 @@
 	<div class="relative">
 		<button
 			class="{$toolSchema.length > 0
-				? 'min-w-[140px] pr-3 sm:pr-7'
+				? 'min-w-[160px] pr-3 sm:pr-7'
 				: 'min-w-[180px] pr-7'} {loadingModel ? 'animate-pulse' : ''} {success
 				? 'border-green-200 bg-green-50'
 				: ''} flex w-full max-w-[180px] items-center gap-2 rounded-lg border border-slate-300 py-2 pl-3 text-left transition-colors hover:border-slate-400 sm:min-w-[290px]"
@@ -79,10 +79,10 @@
 			<CompanyLogo model={convo.model} />
 			<div class="flex items-center gap-x-1.5">
 				{#if loadingModel}
-					<Icon icon={feLoader} class="h-3 shrink-0 animate-spin text-slate-800" />
+					<Icon icon={feLoader} class="h-3 w-3 shrink-0 animate-spin text-slate-800" />
 				{/if}
 				{#if convo.model.provider === 'Local' && loadedModel && loadedModel.id === convo.model.id}
-					<Icon icon={feCheckCircle} class="h-3 shrink-0 text-slate-800" />
+					<Icon icon={feCheckCircle} class="h-3 w-3 shrink-0 text-slate-800" />
 				{/if}
 				<p class="line-clamp-1 text-xs text-slate-800">
 					{formatModelName(convo.model)}
@@ -249,7 +249,7 @@
 								}}
 							>
 								{#if model.provider === 'Local' && loadedModel && loadedModel.id === model.id}
-									<Icon icon={feCheckCircle} class="h-3 text-slate-800" />
+									<Icon icon={feCheckCircle} class="h-3 w-3 text-slate-800" />
 								{/if}
 								<CompanyLogo {model} />
 								{formatModelName(model)}

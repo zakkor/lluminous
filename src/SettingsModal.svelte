@@ -195,7 +195,7 @@
 					<input
 						type="text"
 						bind:value={$remoteServer.address}
-						placeholder="Enter server address (e.g. http://localhost:8081)"
+						placeholder="Enter server address (default http://localhost:8081)"
 						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
 					/></label
 				>
@@ -209,6 +209,8 @@
 						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
 					/></label
 				>
+
+				<p class="mt-auto text-xs text-slate-600">Version: {import.meta.env.BUILD_TIMESTAMP}</p>
 			{:else if activeTab === 'tools'}
 				{@const toolSchemaFlat = $toolSchema.map((g) => g.schema).flat()}
 				<div class="mt-1 flex flex-col">
@@ -229,10 +231,10 @@
 						class="mt-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors scrollbar-ultraslim placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
 						value={JSON.stringify($toolSchema, null, 2)}
 					/>
-					<div class="mt-3 flex gap-x-3 text-sm">
+					<div class="mt-3 flex flex-col gap-3 text-sm sm:flex-row">
 						<Button
 							variant="outline"
-							class=""
+							class="self-start"
 							bind:flash={flashRefreshToolSchema}
 							on:click={async () => {
 								try {
@@ -261,6 +263,7 @@
 						{#if $toolSchema.length > 0}
 							<Button
 								variant="outline"
+								class="self-start"
 								on:click={() => {
 									const clientToolsSchemaIndex = $toolSchema.findIndex(
 										(g) => g.name === 'Client-side'

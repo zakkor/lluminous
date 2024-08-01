@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/byte-sat/llum-tools/schema"
@@ -178,7 +179,13 @@ func (tr *ToolHandler) InvokeTool(w http.ResponseWriter, r *http.Request) {
 		var out any
 		out, err = group.Repo.Invoke(nil, call.Name, call.Args)
 		if err != nil {
-			continue
+			if strings.HasPrefix(err.Error(), "tool not found") {
+				continue
+			}
+			json.NewEncoder(w).Encode(map[string]any{
+				"error": err.Error(),
+			})
+			return
 		}
 		json.NewEncoder(w).Encode(out)
 		return

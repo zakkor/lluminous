@@ -54,22 +54,22 @@
 		this={collapsable ? 'button' : 'div'}
 		class="{!collapsable || toolcall.expanded ? '' : 'rounded-b-lg'} {collapsable
 			? 'transition-colors hover:bg-gray-50'
-			: ''} flex items-center gap-3 rounded-t-lg border border-slate-200 py-3 pl-4 pr-5 text-sm text-slate-700"
+			: ''} flex items-center gap-4 rounded-t-lg border border-slate-200 py-3 pl-4 pr-5 text-sm text-slate-700 sm:gap-3"
 		on:click
 	>
 		{#if finished}
 			<span in:fade={{ duration: 300 }}>
-				<Icon icon={feCheck} class="{finished ? '' : 'animate-spin'} h-5 w-5 text-slate-700" />
+				<Icon icon={feCheck} class="h-5 w-5 text-slate-700" />
 			</span>
 		{:else}
 			<span in:fade={{ duration: 300 }}>
 				<Icon icon={feLoader} class="h-5 w-5 animate-spin text-slate-700" />
 			</span>
 		{/if}
-		<span>
-			{finished ? 'Used' : 'Using'} tool:
-			<code class="ml-1 font-semibold">{toolcall.name}</code>
-		</span>
+		<div class="flex flex-col gap-1.5 sm:flex-row sm:items-baseline">
+			<span>{finished ? 'Used' : 'Using'} tool:</span>
+			<code class="font-semibold tracking-tight">{toolcall.name}</code>
+		</div>
 		<div class="-my-1.5 -mr-2 ml-auto flex items-center gap-2">
 			{#if displayType !== null}
 				<button
@@ -77,7 +77,7 @@
 						event.stopPropagation();
 						displayTypeDisabled = !displayTypeDisabled;
 					}}
-					class="flex rounded-full border border-slate-200 px-3 whitespace-nowrap py-1 text-[10px] md:text-xs font-medium transition-colors hover:bg-gray-100"
+					class="flex whitespace-nowrap rounded-full border border-slate-200 px-3 py-1 text-[10px] font-medium transition-colors hover:bg-gray-100 md:text-xs"
 				>
 					{#if displayTypeDisabled}
 						View component

@@ -39,14 +39,153 @@ export const providers = [
 		completionUrl: '/v1/chat/completions',
 		apiKeyFn: () => get(mistralAPIKey),
 	},
-	// { name: 'Local', url: 'http://localhost:8081', apiKeyFn: () => get(remoteServer).password },
+	{
+		name: 'Local',
+		url: get(remoteServer).address || 'http://localhost:8081',
+		completionUrl: '/v1/chat/completions',
+		apiKeyFn: () => get(remoteServer).password,
+	},
 ].filter(Boolean);
 
+// Anthropic provider:
+export const anthropicModels = [
+	{
+		id: 'claude-3-5-sonnet-20240620',
+		name: 'Claude 3.5 Sonnet',
+		provider: 'Anthropic',
+		modality: 'text+image->text',
+	},
+	{
+		id: 'claude-3-opus-20240229',
+		name: 'Claude 3 Opus',
+		provider: 'Anthropic',
+		modality: 'text+image->text',
+	},
+	{
+		id: 'claude-3-sonnet-20240229',
+		name: 'Claude 3 Sonnet',
+		provider: 'Anthropic',
+		modality: 'text+image->text',
+	},
+	{
+		id: 'claude-3-haiku-20240307',
+		name: 'Claude 3 Haiku',
+		provider: 'Anthropic',
+		modality: 'text+image->text',
+	},
+];
+
 // OpenAI provider: OpenAI doesn't provide any metadata for their models, so we have to harddcode which ones are multimodal
-export const additionalModelsMultimodal = ['gpt-4o', 'gpt-4-turbo', 'gpt-4-turbo-2024-04-09'];
+export const openAIAdditionalModelsMultimodal = ['gpt-4o', 'gpt-4-turbo', 'gpt-4-turbo-2024-04-09'];
 
 // OpenAI provider:
-export const imageGenerationModels = ['dall-e-3'];
+export const openAIImageGenerationModels = ['dall-e-3'];
+
+export const openAIIgnoreIds = [
+	'dall-e-2',
+	'whisper-1',
+	'davinci-002',
+	'tts-1-hd-1106',
+	'tts-1-hd',
+	'tts-1',
+	'babbage-002',
+	'tts-1-1106',
+	'text-embedding-3-large',
+	'text-embedding-3-small',
+	'text-embedding-ada-002',
+];
+
+export const priorityOrder = [
+	{ fromProvider: 'Local' },
+	{
+		exactly: ['openai/gpt-4o', 'openai/gpt-4o-mini', 'openai/gpt-4-turbo'],
+	},
+	{ exactly: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'dall-e-3'] },
+	{
+		exactly: [
+			'anthropic/claude-3.5-sonnet',
+			'anthropic/claude-3-opus',
+			'anthropic/claude-3-sonnet',
+			'anthropic/claude-3-haiku',
+		],
+	},
+	{
+		fromProvider: 'Anthropic',
+		exactly: [
+			'claude-3-5-sonnet-20240620',
+			'claude-3-opus-20240229',
+			'claude-3-sonnet-20240229',
+			'claude-3-haiku-20240307',
+		],
+	},
+	{
+		exactly: [
+			'llama3-70b-8192',
+			'llama3-8b-8192',
+			'mixtral-8x7b-32768',
+			'gemma2-9b-it',
+		],
+	},
+	{ exactly: ['meta-llama/llama-3-70b-instruct', 'meta-llama/llama-3-8b-instruct'] },
+	{ startsWith: ['deepseek'] },
+	{
+		exactly: [
+			'mistralai/mixtral-8x22b-instruct',
+			'mistralai/mistral-large',
+			'mistralai/mistral-medium',
+			'mistralai/mistral-small',
+		],
+	},
+	{ exactly: ['google/gemini-flash-1.5', 'google/gemini-pro-1.5'] },
+	{ startsWith: ['cohere/'] },
+	{
+		exactly: [
+			'perplexity/llama-3-sonar-large-32k-online',
+			'perplexity/llama-3-sonar-small-32k-online',
+		],
+	},
+	{ startsWith: ['nousresearch/'] },
+	{ fromProvider: 'OpenAI' },
+	{
+		startsWith: [
+			'anthropic/claude-2',
+			'anthropic/claude-2.1',
+			'anthropic/claude-2.0',
+			'anthropic/claude-instant-1',
+		],
+		exactlyNot: [
+			'anthropic/claude-2',
+			'anthropic/claude-2.1',
+			'anthropic/claude-2.0',
+			'anthropic/claude-instant-1',
+			'anthropic/claude-instant-1.0',
+			'anthropic/claude-instant-1.1',
+			'anthropic/claude-instant-1.2',
+			'anthropic/claude-1.2',
+			'anthropic/claude-1',
+			'anthropic/claude-2:beta',
+			'anthropic/claude-2.0:beta',
+			'anthropic/claude-2.1:beta',
+			'anthropic/claude-instant-1:beta',
+		],
+	},
+	{
+		startsWith: ['openai/gpt-3.5-turbo', 'openai/gpt-4'],
+		exactlyNot: [
+			'openai/gpt-3.5-turbo-0125',
+			'openai/gpt-3.5-turbo-0301',
+			'openai/gpt-3.5-turbo-0613',
+			'openai/gpt-3.5-turbo-1106',
+			'openai/gpt-3.5-turbo-instruct',
+			'openai/gpt-4',
+			'openai/gpt-4-0314',
+			'openai/gpt-4-1106-preview',
+			'openai/gpt-4-32k-0314',
+		],
+	},
+	{ fromProvider: 'Mistral' },
+	{ startsWith: ['mistralai/'] },
+];
 
 export function hasCompanyLogo(model) {
 	return (

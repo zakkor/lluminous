@@ -15,8 +15,11 @@
 		formatModelName,
 		providers,
 		hasCompanyLogo,
-		additionalModelsMultimodal,
-		imageGenerationModels,
+		openAIAdditionalModelsMultimodal,
+		openAIImageGenerationModels,
+		anthropicModels,
+		openAIIgnoreIds,
+		priorityOrder,
 	} from './providers.js';
 	import ModelSelector from './ModelSelector.svelte';
 	import CompanyLogo from './CompanyLogo.svelte';
@@ -29,6 +32,7 @@
 		config,
 		params,
 		toolSchema,
+		anthropicAPIKey,
 	} from './stores.js';
 	import SettingsModal from './SettingsModal.svelte';
 	import ToolcallButton from './ToolcallButton.svelte';
@@ -109,10 +113,6 @@
 				convo.tools = [];
 				saveConversation(convo);
 			}
-		}
-
-		if (!convo.shared && $openaiAPIKey === '' && $groqAPIKey === '' && $openrouterAPIKey === '') {
-			settingsModalOpen = true;
 		}
 	};
 	request.onerror = (event) => {
@@ -241,7 +241,7 @@
 
 	$: isMultimodal =
 		convo.model.modality === 'text+image->text' ||
-		additionalModelsMultimodal.includes(convo.model.id);
+		openAIAdditionalModelsMultimodal.includes(convo.model.id);
 
 	let historyBuckets = [];
 	$: {
@@ -875,37 +875,12 @@ ${file.text}
 		loading = true;
 		try {
 			const promises = providers.map((provider) => {
-				if (!provider.apiKeyFn()) {
+				if (!provider.apiKeyFn() && provider.name !== 'Local') {
 					return [];
 				}
 				// Anthropic doesn't support the /v1/models endpoint, so we hardcode it:
 				if (provider.name === 'Anthropic') {
-					return [
-						{
-							id: 'claude-3-5-sonnet-20240620',
-							name: 'Claude 3.5 Sonnet',
-							provider: 'Anthropic',
-							modality: 'text+image->text',
-						},
-						{
-							id: 'claude-3-opus-20240229',
-							name: 'Claude 3 Opus',
-							provider: 'Anthropic',
-							modality: 'text+image->text',
-						},
-						{
-							id: 'claude-3-sonnet-20240229',
-							name: 'Claude 3 Sonnet',
-							provider: 'Anthropic',
-							modality: 'text+image->text',
-						},
-						{
-							id: 'claude-3-haiku-20240307',
-							name: 'Claude 3 Haiku',
-							provider: 'Anthropic',
-							modality: 'text+image->text',
-						},
-					];
+					return anthropicModels;
 				}
 
 				return fetch(`${provider.url}/v1/models`, {
@@ -925,7 +900,7 @@ ${file.text}
 							provider: provider.name,
 							modality:
 								m.architecture?.modality ||
-								(imageGenerationModels.includes(m.id) ? 'text->image' : undefined),
+								(openAIImageGenerationModels.includes(m.id) ? 'text->image' : undefined),
 						}));
 						return externalModels;
 					})
@@ -935,109 +910,10 @@ ${file.text}
 					});
 			});
 
-			const ignoreIds = [
-				'dall-e-2',
-				'whisper-1',
-				'davinci-002',
-				'tts-1-hd-1106',
-				'tts-1-hd',
-				'tts-1',
-				'babbage-002',
-				'tts-1-1106',
-				'text-embedding-3-large',
-				'text-embedding-3-small',
-				'text-embedding-ada-002',
-			];
+			const ignoreIds = [...openAIIgnoreIds];
 
 			const results = await Promise.all(promises);
 			const externalModels = results.flat().filter((m) => !ignoreIds.includes(m.id));
-
-			const priorityOrder = [
-				{ fromProvider: 'Local' },
-				{ exactly: ['gpt-4o'] },
-				{ exactly: ['openai/gpt-4o', 'openai/gpt-4-turbo', 'openai/gpt-3.5-turbo'] },
-				{ exactly: ['dall-e-3'] },
-				{
-					exactly: [
-						'anthropic/claude-3.5-sonnet',
-						'anthropic/claude-3-opus',
-						'anthropic/claude-3-sonnet',
-						'anthropic/claude-3-haiku',
-					],
-				},
-				{
-					fromProvider: 'Anthropic',
-					exactly: [
-						'claude-3-5-sonnet-20240620',
-						'claude-3-opus-20240229',
-						'claude-3-sonnet-20240229',
-						'claude-3-haiku-20240307',
-					],
-				},
-				{
-					fromProvider: 'Groq',
-					exactlyNot: ['llama2-70b-4096', 'gemma-7b-it', 'whisper-large-v3'],
-				},
-				{ exactly: ['meta-llama/llama-3-70b-instruct', 'meta-llama/llama-3-8b-instruct'] },
-				{ startsWith: ['deepseek'] },
-				{
-					exactly: [
-						'mistralai/mixtral-8x22b-instruct',
-						'mistralai/mistral-large',
-						'mistralai/mistral-medium',
-						'mistralai/mistral-small',
-					],
-				},
-				{ exactly: ['google/gemini-flash-1.5', 'google/gemini-pro-1.5'] },
-				{ startsWith: ['cohere/'] },
-				{
-					exactly: [
-						'perplexity/llama-3-sonar-large-32k-online',
-						'perplexity/llama-3-sonar-small-32k-online',
-					],
-				},
-				{ startsWith: ['nousresearch/'] },
-				{ fromProvider: 'OpenAI' },
-				{
-					startsWith: [
-						'anthropic/claude-2',
-						'anthropic/claude-2.1',
-						'anthropic/claude-2.0',
-						'anthropic/claude-instant-1',
-					],
-					exactlyNot: [
-						'anthropic/claude-2',
-						'anthropic/claude-2.1',
-						'anthropic/claude-2.0',
-						'anthropic/claude-instant-1',
-						'anthropic/claude-instant-1.0',
-						'anthropic/claude-instant-1.1',
-						'anthropic/claude-instant-1.2',
-						'anthropic/claude-1.2',
-						'anthropic/claude-1',
-						'anthropic/claude-2:beta',
-						'anthropic/claude-2.0:beta',
-						'anthropic/claude-2.1:beta',
-						'anthropic/claude-instant-1:beta',
-					],
-				},
-				{
-					startsWith: ['openai/gpt-3.5-turbo', 'openai/gpt-4'],
-					exactlyNot: [
-						'openai/gpt-3.5-turbo-0125',
-						'openai/gpt-3.5-turbo-0301',
-						'openai/gpt-3.5-turbo-0613',
-						'openai/gpt-3.5-turbo-1106',
-						'openai/gpt-3.5-turbo-instruct',
-						'openai/gpt-4',
-						'openai/gpt-4-0314',
-						'openai/gpt-4-1106-preview',
-						'openai/gpt-4-32k-0314',
-					],
-				},
-				{ fromProvider: 'Mistral' },
-				{ startsWith: ['mistralai/'] },
-			];
 
 			function getPriorityIndex(model) {
 				for (let i = 0; i < priorityOrder.length; i++) {
@@ -1193,16 +1069,16 @@ ${file.text}
 />
 
 <main class="flex h-dvh w-screen flex-col">
-	<div class="flex items-center border-b border-slate-200 px-2 py-1 md:hidden">
+	<div class="flex h-12 items-center gap-1 border-b border-slate-200 px-2 py-1 md:hidden">
 		<button
 			on:click={newConversation}
-			class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
+			class="flex rounded-full p-2 transition-colors hover:bg-gray-100"
 		>
 			<Icon icon={fePlus} strokeWidth={3} class="ml-auto h-4 w-4 text-slate-700" />
 		</button>
 		<button
 			data-trigger="history"
-			class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
+			class="flex rounded-full p-2 transition-colors hover:bg-gray-100"
 			on:click={() => (historyOpen = !historyOpen)}
 		>
 			<Icon icon={feMenu} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
@@ -1246,14 +1122,14 @@ ${file.text}
 		{/if}
 
 		<button
-			class="ml-auto flex rounded-full p-3 transition-colors hover:bg-gray-100"
+			class="ml-auto flex rounded-full p-2 transition-colors hover:bg-gray-100"
 			on:click={shareConversation}
 		>
 			<Icon icon={feShare} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 		<button
 			data-trigger="knobs"
-			class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
+			class="flex rounded-full p-2 transition-colors hover:bg-gray-100"
 			on:click={() => (knobsOpen = !knobsOpen)}
 		>
 			<Icon icon={feSliders} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />

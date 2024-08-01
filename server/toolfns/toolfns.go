@@ -16,13 +16,17 @@ var ToolGroups []*Group
 
 func init() {
 	ToolGroups = []*Group{
-		NewGroup("Miscellaneous",
+		NewGroup("Browser",
+			BrowserOpen,
+			BrowserClick,
+			BrowserType,
+		),
+		NewGroup("Web",
 			WebSearch,
 			WebNavigate,
 		),
 		NewGroup("System",
 			Shell,
-			DisplayImage,
 		),
 	}
 }
@@ -46,15 +50,6 @@ func NewGroup(name string, fns ...any) *Group {
 type ContentTypeResponse struct {
 	ContentType string `json:"contentType"`
 	Content     string `json:"content"`
-}
-
-// Opens a specialized UI element that displays the image to the user so they can view it. You yourself cannot see this image, so do not try to provide any additional information about it.
-// url: URL of the image to display
-func DisplayImage(url string) ContentTypeResponse {
-	return ContentTypeResponse{
-		Content:     url,
-		ContentType: "image/*",
-	}
 }
 
 // Executes the given bash command and returns the output of the command.
