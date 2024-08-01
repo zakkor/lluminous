@@ -98,7 +98,7 @@ export const openAIIgnoreIds = [
 export const priorityOrder = [
 	{ fromProvider: 'Local' },
 	{
-		exactly: ['openai/gpt-4o', 'openai/gpt-4o-mini', 'openai/gpt-4-turbo'],
+		exactly: ['openai/gpt-4-turbo', 'openai/gpt-4o', 'openai/gpt-4o-mini'],
 	},
 	{ exactly: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'dall-e-3'] },
 	{
@@ -119,14 +119,17 @@ export const priorityOrder = [
 		],
 	},
 	{
+		exactly: ['llama3-70b-8192', 'llama3-8b-8192', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
+	},
+	{
 		exactly: [
-			'llama3-70b-8192',
-			'llama3-8b-8192',
-			'mixtral-8x7b-32768',
-			'gemma2-9b-it',
+			'meta-llama/llama-3.1-405b-instruct',
+			'meta-llama/llama-3.1-70b-instruct',
+			'meta-llama/llama-3.1-8b-instruct:free',
+			'meta-llama/llama-3-70b-instruct',
+			'meta-llama/llama-3-8b-instruct:free',
 		],
 	},
-	{ exactly: ['meta-llama/llama-3-70b-instruct', 'meta-llama/llama-3-8b-instruct'] },
 	{ startsWith: ['deepseek'] },
 	{
 		exactly: [
