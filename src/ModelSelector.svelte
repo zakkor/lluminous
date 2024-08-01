@@ -66,7 +66,7 @@
 				? 'min-w-[160px] pr-3 sm:pr-7'
 				: 'min-w-[180px] pr-7'} {loadingModel ? 'animate-pulse' : ''} {success
 				? 'border-green-200 bg-green-50'
-				: ''} flex w-full max-w-[180px] items-center gap-2 rounded-lg border border-slate-300 py-2 pl-3 text-left transition-colors hover:border-slate-400 sm:min-w-[290px]"
+				: ''} flex w-full max-w-[180px] items-center gap-2 rounded-lg border border-slate-300 py-2 pl-3 text-left transition-colors hover:border-slate-400 sm:min-w-[260px]"
 			on:click={async () => {
 				open = !open;
 				toolsOpen = false;
@@ -85,7 +85,7 @@
 					<Icon icon={feCheckCircle} class="h-3 w-3 shrink-0 text-slate-800" />
 				{/if}
 				<p class="line-clamp-1 text-xs text-slate-800">
-					{formatModelName(convo.model)}
+					{formatModelName(convo.model, true)}
 				</p>
 				{#if convo.model.modality === 'text->image'}
 					<Icon icon={feImage} class="mt-px h-3 w-3 text-slate-800" />
@@ -135,7 +135,7 @@
 										dispatch('clearTools');
 									}}
 								>
-									Clear all
+									Unselect all
 								</button>
 							</div>
 							<input

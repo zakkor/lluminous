@@ -1,11 +1,11 @@
 <script>
 	export let filename;
 	export let element = 'div';
-  let className = 'w-full px-6 py-6 my-auto';
-  export { className as class };
-  export let outerClass = 'aspect-[4/5] max-h-[160px] relative';
-  export let filenameClass = 'line-clamp-2 leading-relaxed';
-  export let badgeClass = '';
+	let className = 'w-full px-6 py-6 my-auto';
+	export { className as class };
+	export let outerClass = 'aspect-[4/5] max-h-[160px] relative';
+	export let filenameClass = 'line-clamp-2 leading-relaxed';
+	export let badgeClass = '';
 </script>
 
 <!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -32,9 +32,11 @@
 		>
 	</div>
 	<div class="{className} flex flex-col gap-2">
-		<p class="{filenameClass} font-mono text-sm font-semibold">{filename.slice(0, filename.indexOf('.'))}</p>
+		<p class="{filenameClass} font-mono text-sm font-semibold">
+			{filename.slice(0, filename.indexOf('.'))}
+		</p>
 		<p
-			class="{badgeClass} !m-0 !mx-auto rounded-md bg-black px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest !text-white"
+			class="{badgeClass} !m-0 !mx-auto whitespace-nowrap rounded-md bg-black px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest !text-white"
 		>
 			{filename.slice(filename.indexOf('.') + 1)}
 		</p>
