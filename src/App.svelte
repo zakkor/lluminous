@@ -1874,7 +1874,7 @@ ${file.text}
 									class="{isMultimodal ? '!pl-[58px]' : ''} {imageUrls.length > 0 ||
 									pendingFiles.length > 0
 										? '!pt-[112px]'
-										: ''} max-h-[90dvh] w-full resize-none rounded-2xl border border-slate-200 py-4 pl-5 pr-11 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none md:px-4 md:pl-5"
+										: ''} max-h-[90dvh] w-full resize-none rounded-2xl border border-slate-200 py-4 pl-5 pr-14 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none"
 									rows={1}
 									bind:value={content}
 									on:paste={async (event) => {
