@@ -17,7 +17,7 @@ export const providers = [
 	},
 	{
 		name: 'Anthropic',
-		url: 'http://localhost:8090/https://api.anthropic.com',
+		url: 'https://api.anthropic.com',
 		completionUrl: '/v1/messages',
 		apiKeyFn: () => get(anthropicAPIKey),
 	},

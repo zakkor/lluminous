@@ -116,10 +116,6 @@
 				<label class="flex flex-col text-[10px] uppercase tracking-wide">
 					<span class="mb-2 ml-[3px] flex items-center gap-2">
 						Anthropic API Key
-						<Tooltip icon={feAlertCircle}>
-							Anthropic does not allow their models to be used directly through a browser. You'll
-							need to run a proxy server on your computer in order for this provider to work.
-						</Tooltip>
 					</span>
 					<input
 						type="text"

@@ -91,6 +91,7 @@ export async function complete(convo, onupdate, onabort) {
 							? {
 									'x-api-key': provider.apiKeyFn(),
 									'anthropic-version': '2023-06-01',
+									'anthropic-dangerous-direct-browser-access': 'true',
 								}
 							: {}),
 					'Content-Type': 'application/json',
