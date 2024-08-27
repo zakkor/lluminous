@@ -5,7 +5,7 @@ export const defaultToolSchema = [
 			{
 				clientDefinition: {
 					id: '95c15b96-7bba-44e7-98a7-ffe268b884c5',
-					name: 'RenderWebpage',
+					name: 'Artifact',
 					description: 'Displays the provided HTML content as a webpage to the user.',
 					arguments: [
 						{
@@ -18,7 +18,7 @@ export const defaultToolSchema = [
 				},
 				type: 'function',
 				function: {
-					name: 'RenderWebpage',
+					name: 'Artifact',
 					description: 'Displays the provided HTML content as a webpage to the user.',
 					parameters: {
 						type: 'object',

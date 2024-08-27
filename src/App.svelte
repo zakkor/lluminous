@@ -966,7 +966,7 @@ ${file.text}
 	}
 
 	function initializePWAStyles() {
-		if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+		if (innerWidth < 640 && (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone)) {
 			document.body.classList.add('standalone');
 		}
 	}
@@ -2003,7 +2003,7 @@ ${file.text}
 
 <style lang="postcss">
 	:global(.standalone .input-floating) {
-		bottom: 32px;
+		@apply bottom-[32px];
 	}
 	:global(.standalone .scrollable) {
 		@apply pb-[100px];
