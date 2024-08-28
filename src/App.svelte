@@ -431,12 +431,15 @@
 								arguments: '',
 								expanded: true,
 							};
-							activeToolcall = convo.messages[i].toolcalls[index];
-							toolcallModalOpen = true;
+							if (innerWidth > 1215) {
+								activeToolcall = convo.messages[i].toolcalls[index];
+							}
 						}
 						if (tool_call.function.arguments) {
 							convo.messages[i].toolcalls[index].arguments += tool_call.function.arguments;
-							activeToolcall = convo.messages[i].toolcalls[index];
+							if (innerWidth > 1215) {
+								activeToolcall = convo.messages[i].toolcalls[index];
+							}
 						}
 						saveMessage(convo.messages[i]);
 					}
@@ -970,6 +973,8 @@ ${file.text}
 			document.body.classList.add('standalone');
 		}
 	}
+
+	$: window.convo = convo;
 
 	onMount(async () => {
 		// Clear old deprecated local storage data:

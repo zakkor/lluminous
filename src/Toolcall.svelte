@@ -66,10 +66,7 @@
 				<Icon icon={feLoader} class="h-5 w-5 animate-spin text-slate-700" />
 			</span>
 		{/if}
-		<div class="flex flex-col gap-1.5 sm:flex-row sm:items-baseline">
-			<span>{finished ? 'Used' : 'Using'} tool:</span>
-			<code class="font-semibold tracking-tight">{toolcall.name}</code>
-		</div>
+		<code class="font-semibold tracking-tight">{toolcall.name}</code>
 		<div class="-my-1.5 -mr-2 ml-auto flex items-center gap-2">
 			{#if displayType !== null}
 				<button
