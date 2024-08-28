@@ -395,9 +395,7 @@
 				saveMessage(convo.messages[i]);
 			} else {
 				if (chunk.choices.length === 0) {
-					convo.messages[i].error = 'Refused to respond.';
 					generating = false;
-					saveMessage(convo.messages[i]);
 					return;
 				}
 
