@@ -44,6 +44,6 @@ for GOOS in "${GOOS_VALUES[@]}"; do
 done
 
 # Create a new release with the new builds
-gh release create v0.0.3 dist/* dist-client.tar.gz --notes ''
+gh release create v0.0.5 dist/* dist-client.tar.gz --notes ''
 
 echo "Builds and release process completed successfully."

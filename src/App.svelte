@@ -1914,7 +1914,7 @@ ${file.text}
 														const start = textarea.selectionStart;
 														const end = textarea.selectionEnd;
 														const value = textarea.value;
-														textarea.value =
+														content =
 															value.substring(0, start) + text + value.substring(end);
 														textarea.selectionStart = textarea.selectionEnd = start + text.length;
 														tick().then(() => {
