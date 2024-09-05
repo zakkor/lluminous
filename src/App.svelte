@@ -56,7 +56,7 @@
 		feRefreshCw,
 		feSettings,
 		feShare,
-		feSliders,
+		feSidebar,
 		feSquare,
 		feTrash,
 		feUser,
@@ -65,6 +65,7 @@
 	import { defaultToolSchema } from './tools.js';
 	import { debounce, readFileAsDataURL } from './util.js';
 	import FilePreview from './FilePreview.svelte';
+	import { flash } from './actions';
 
 	marked.use(
 		markedKatex({
@@ -744,7 +745,9 @@ ${file.text}
 		}
 	}
 
-	async function shareConversation() {
+	async function shareConversation(event) {
+		event.currentTarget.dispatchEvent(new CustomEvent('flashSuccess'));
+
 		const sharePromise = new Promise(async (resolve) => {
 			const encoded = await compressAndEncode({
 				model: convo.model,
@@ -967,7 +970,10 @@ ${file.text}
 	}
 
 	function initializePWAStyles() {
-		if (innerWidth < 640 && (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone)) {
+		if (
+			innerWidth < 640 &&
+			(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone)
+		) {
 			document.body.classList.add('standalone');
 		}
 	}
@@ -1126,6 +1132,7 @@ ${file.text}
 
 		<button
 			class="ml-auto flex rounded-full p-2 transition-colors hover:bg-gray-100"
+			use:flash
 			on:click={shareConversation}
 		>
 			<Icon icon={feShare} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
@@ -1135,7 +1142,7 @@ ${file.text}
 			class="flex rounded-full p-2 transition-colors hover:bg-gray-100"
 			on:click={() => (knobsOpen = !knobsOpen)}
 		>
-			<Icon icon={feSliders} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
+			<Icon icon={feSidebar} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 	</div>
 	<div class="relative flex h-full flex-1 overflow-hidden">
@@ -1143,7 +1150,7 @@ ${file.text}
 			data-sidebar="history"
 			class="{historyOpen
 				? ''
-				: '-translate-x-full'} fixed top-0 z-[100] flex h-full w-[230px] flex-col border-r bg-white pl-3 pt-4 transition-transform duration-300 ease-in-out md:static md:translate-x-0"
+				: '-translate-x-full'} fixed top-0 z-[100] flex h-full w-[230px] flex-col border-r bg-white pl-3 pt-4 transition-transform duration-500 ease-in-out md:static md:translate-x-0"
 		>
 			<div class="mb-1 pr-3">
 				<button
@@ -1273,6 +1280,7 @@ ${file.text}
 
 				<button
 					class="ml-auto flex rounded-full p-3 transition-colors hover:bg-gray-100"
+					use:flash
 					on:click={shareConversation}
 				>
 					<Icon icon={feShare} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
@@ -1282,7 +1290,7 @@ ${file.text}
 					class="flex rounded-full p-3 transition-colors hover:bg-gray-100"
 					on:click={() => (knobsOpen = !knobsOpen)}
 				>
-					<Icon icon={feSliders} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
+					<Icon icon={feSidebar} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
 				</button>
 			</div>
 
@@ -1805,7 +1813,7 @@ ${file.text}
 															autoresizeTextarea();
 														});
 													}}
-													class="absolute -bottom-1 -right-1 flex h-4 w-4 rounded-full bg-black transition-transform hover:scale-110"
+													class="absolute -bottom-1 -right-1 flex h-4 w-4 rounded-full bg-black transition-[transform,background-color] hover:scale-110 hover:bg-red-400"
 												>
 													<Icon icon={feX} class="m-auto h-3 w-3 text-white" />
 												</button>
@@ -1827,7 +1835,7 @@ ${file.text}
 															autoresizeTextarea();
 														});
 													}}
-													class="absolute -bottom-1 -right-1 flex h-4 w-4 rounded-full bg-black transition-transform hover:scale-110"
+													class="absolute -bottom-1 -right-1 flex h-4 w-4 rounded-full bg-black transition-[transform,background-color] hover:scale-110 hover:bg-red-400"
 												>
 													<Icon icon={feX} class="m-auto h-3 w-3 text-white" />
 												</button>
@@ -1877,7 +1885,7 @@ ${file.text}
 									class="{isMultimodal ? '!pl-[58px]' : ''} {imageUrls.length > 0 ||
 									pendingFiles.length > 0
 										? '!pt-[112px]'
-										: ''} max-h-[90dvh] w-full resize-none rounded-2xl border border-slate-200 py-4 pl-5 pr-14 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-400 focus:outline-none"
+										: ''} max-h-[90dvh] w-full resize-none rounded-[18px] border border-slate-200 py-4 pl-5 pr-14 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-300 focus:outline-none"
 									rows={1}
 									bind:value={content}
 									on:paste={async (event) => {
@@ -1890,6 +1898,29 @@ ${file.text}
 												imageUrls = imageUrls;
 												tick().then(() => {
 													autoresizeTextarea();
+												});
+											} else if (items[i].kind === 'string' && items[i].type === 'text/plain') {
+												event.preventDefault();
+												items[i].getAsString((text) => {
+													if (text.split('\n').length >= 100) {
+														pendingFiles.push({ name: 'Pasted.txt', text });
+														pendingFiles = pendingFiles;
+														tick().then(() => {
+															autoresizeTextarea();
+														});
+													} else {
+														// If text is less than 100 lines, manually insert it into the textarea
+														const textarea = event.target;
+														const start = textarea.selectionStart;
+														const end = textarea.selectionEnd;
+														const value = textarea.value;
+														textarea.value =
+															value.substring(0, start) + text + value.substring(end);
+														textarea.selectionStart = textarea.selectionEnd = start + text.length;
+														tick().then(() => {
+															autoresizeTextarea();
+														});
+													}
 												});
 											}
 										}
@@ -1915,19 +1946,7 @@ ${file.text}
 										}
 									}}
 								/>
-								{#if content.length > 0}
-									<button
-										transition:fly={{ x: 2, duration: 300 }}
-										disabled={content.length === 0}
-										class="group absolute bottom-[13px] right-4 flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110"
-										on:click={sendMessage}
-									>
-										<Icon
-											icon={feArrowUp}
-											class="m-auto h-4 w-4 text-white transition-colors group-disabled:text-slate-100"
-										/>
-									</button>
-								{:else if generating && convo.messages.filter((msg) => msg.generated).length > 0}
+								{#if generating && convo.messages.filter((msg) => msg.generated).length > 0}
 									<button
 										transition:fly={{ x: 2, duration: 300 }}
 										class="group absolute bottom-[13px] right-4 flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110"
@@ -1940,6 +1959,18 @@ ${file.text}
 											icon={feSquare}
 											strokeWidth={4}
 											class="m-auto h-3.5 w-3.5 text-white transition-colors group-disabled:text-slate-100"
+										/>
+									</button>
+								{:else}
+									<button
+										transition:fly={{ x: 2, duration: 300 }}
+										disabled={content.length === 0}
+										class="group absolute bottom-[13px] right-4 flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110 disabled:bg-slate-400 disabled:hover:scale-100"
+										on:click={sendMessage}
+									>
+										<Icon
+											icon={feArrowUp}
+											class="m-auto h-4 w-4 text-white transition-colors group-disabled:text-slate-100"
 										/>
 									</button>
 								{/if}

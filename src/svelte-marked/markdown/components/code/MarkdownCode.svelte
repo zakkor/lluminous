@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flash } from '../../../../actions.js';
 	import { feCopy, feFile } from '../../../../feather.js';
 	import FilePreview from '../../../../FilePreview.svelte';
 	import Icon from '../../../../Icon.svelte';
@@ -30,14 +31,16 @@
 {:else if attrs.filename}
 	<div class="flex flex-col">
 		<div class="flex items-center rounded-t-lg border bg-white py-2 pl-4 pr-2">
-      <Icon icon={feFile} class="h-4 w-4 text-slate-700 mr-3" />
+			<Icon icon={feFile} class="mr-3 h-4 w-4 text-slate-700" />
 			<p class="!my-0 font-mono text-sm font-semibold !leading-none tracking-tight !text-slate-700">
 				{attrs.filename}
 			</p>
 			<div class="ml-auto flex gap-x-3">
 				<button
 					class="rounded-md border p-1.5 hover:bg-gray-100"
-					on:click={() => {
+					use:flash
+					on:click={(event) => {
+						event.currentTarget.dispatchEvent(new CustomEvent('flashSuccess'));
 						navigator.clipboard.writeText(token.text);
 					}}
 				>

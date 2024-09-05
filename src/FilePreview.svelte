@@ -11,7 +11,7 @@
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <svelte:element
 	this={element}
-	class="{outerClass} group/file flex flex-col gap-2 self-start rounded-lg border border-slate-200 transition-colors hover:border-slate-300"
+	class="{outerClass} group/file bg-white flex flex-col gap-2 self-start rounded-lg border border-slate-200 transition-colors hover:border-slate-300"
 	on:click
 >
 	<div class="absolute right-[-1px] top-[-1px] bg-white">
@@ -36,7 +36,7 @@
 			{filename.slice(0, filename.indexOf('.'))}
 		</p>
 		<p
-			class="{badgeClass} !m-0 !mx-auto whitespace-nowrap rounded-md bg-black px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest !text-white"
+			class="{badgeClass} !m-0 !mx-auto whitespace-nowrap rounded-md bg-black px-1 leading-none py-1 font-mono text-[8px] font-semibold uppercase tracking-widest !text-white"
 		>
 			{filename.slice(filename.indexOf('.') + 1)}
 		</p>

@@ -16,7 +16,6 @@
 	import Modal from './Modal.svelte';
 	import Icon from './Icon.svelte';
 	import {
-		feAlertCircle,
 		feEdit3,
 		feHardDrive,
 		feKey,
@@ -40,7 +39,7 @@
 	let addClientToolOpen = false;
 	let loadClientTool = null;
 
-	let flashRefreshToolSchema;
+	let elRefreshToolSchema;
 </script>
 
 <Modal bind:open {trigger}>
@@ -114,9 +113,7 @@
 					/></label
 				>
 				<label class="flex flex-col text-[10px] uppercase tracking-wide">
-					<span class="mb-2 ml-[3px] flex items-center gap-2">
-						Anthropic API Key
-					</span>
+					<span class="mb-2 ml-[3px] flex items-center gap-2"> Anthropic API Key </span>
 					<input
 						type="text"
 						bind:value={$anthropicAPIKey}
@@ -229,9 +226,9 @@
 					/>
 					<div class="mt-3 flex flex-col gap-3 text-sm sm:flex-row">
 						<Button
+							bind:el={elRefreshToolSchema}
 							variant="outline"
 							class="self-start"
-							bind:flash={flashRefreshToolSchema}
 							on:click={async () => {
 								try {
 									const schema = await (
@@ -246,9 +243,9 @@
 									$toolSchema = JSON.parse(schema).concat(
 										clientToolsSchema ? clientToolsSchema : []
 									);
-									flashRefreshToolSchema('success');
+									elRefreshToolSchema.dispatchEvent(new CustomEvent('flashSuccess'));
 								} catch (e) {
-									flashRefreshToolSchema('error');
+									elRefreshToolSchema.dispatchEvent(new CustomEvent('flashError'));
 									console.error(e);
 								}
 							}}
