@@ -1108,7 +1108,7 @@ ${file.text}
 />
 
 <main class="flex h-dvh w-screen flex-col">
-	<div class="flex h-12 items-center gap-1 border-b border-slate-200 px-2 py-1 md:hidden">
+	<div class="flex h-12 items-center gap-1 px-2 py-1 md:hidden">
 		<button
 			on:click={newConversation}
 			class="flex rounded-full p-2 transition-colors hover:bg-gray-100"
@@ -1270,7 +1270,7 @@ ${file.text}
 			</div>
 		</aside>
 		<div class="flex flex-1 flex-col">
-			<div class="relative hidden items-center border-b border-slate-200 px-2 py-1 md:flex">
+			<div class="relative hidden items-center px-2 py-2 md:flex">
 				{#if !convo.shared}
 					<ModelSelector
 						{convo}
@@ -1418,7 +1418,7 @@ ${file.text}
 											{#if i === 0 && message.role !== 'system'}
 												<Button
 													variant="outline"
-													class="absolute left-1/2 top-0 z-[98] -translate-x-1/2 rounded-t-none !border-t-0 border-dashed text-xs opacity-0 transition-opacity group-hover:opacity-100"
+													class="absolute left-1/2 top-0 z-[98] -translate-x-1/2 border-dashed text-xs opacity-0 transition-[border-color,opacity] group-hover:opacity-100"
 													on:click={insertSystemPrompt}
 												>
 													<Icon icon={feMessageCircle} class="mr-2 h-3 w-3 text-slate-600" />
@@ -1815,7 +1815,7 @@ ${file.text}
 						{:else}
 							<Button
 								variant="outline"
-								class="z-[98] mx-auto rounded-t-none !border-t-0 border-dashed text-xs"
+								class="z-[98] mx-auto border-dashed text-xs"
 								on:click={insertSystemPrompt}
 							>
 								<Icon icon={feMessageCircle} class="mr-2 h-3 w-3 text-slate-600" />
@@ -1899,7 +1899,7 @@ ${file.text}
 															autoresizeTextarea();
 														});
 													} else if (file.type === 'application/pdf') {
-														handlePDF(file);	
+														handlePDF(file);
 													} else {
 														const text = await file.text();
 														pendingFiles.push({ name: file.name, text });

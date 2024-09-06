@@ -66,7 +66,7 @@
 				? 'min-w-[164px] pr-3 sm:pr-7'
 				: 'min-w-[180px] pr-7'} {loadingModel ? 'animate-pulse' : ''} {success
 				? 'border-green-200 bg-green-50'
-				: ''} flex w-full max-w-[180px] items-center gap-2 rounded-lg border border-slate-300 py-2 pl-3 text-left transition-colors hover:border-slate-400 sm:min-w-[260px]"
+				: ''} flex w-full max-w-[180px] items-center gap-2.5 rounded-lg border border-slate-300 py-2 pl-3 text-left transition-colors hover:border-slate-400 sm:min-w-[260px]"
 			on:click={async () => {
 				open = !open;
 				toolsOpen = false;
@@ -76,7 +76,7 @@
 				}
 			}}
 		>
-			<CompanyLogo model={convo.model} />
+			<CompanyLogo model={convo.model} size="w-3.5 h-3.5 sm:w-[18px] sm:h-[18px]" />
 			<div class="flex items-center gap-x-1.5">
 				{#if loadingModel}
 					<Icon icon={feLoader} class="h-3 w-3 shrink-0 animate-spin text-slate-800" />
@@ -84,7 +84,7 @@
 				{#if convo.model.provider === 'Local' && loadedModel && loadedModel.id === convo.model.id}
 					<Icon icon={feCheckCircle} class="h-3 w-3 shrink-0 text-slate-800" />
 				{/if}
-				<p class="line-clamp-1 text-xs text-slate-800">
+				<p class="line-clamp-1 text-xs text-slate-700">
 					{formatModelName(convo.model, true)}
 				</p>
 				{#if convo.model.modality === 'text->image'}
@@ -106,9 +106,9 @@
 					toolsOpen = !toolsOpen;
 					open = false;
 				}}
-				class="flex h-[34px] w-[34px] rounded-lg border border-slate-300 transition-colors hover:border-slate-400"
+				class="flex w-[34px] h-[34px] sm:h-[36px] sm:w-[36px] rounded-lg border border-slate-300 transition-colors hover:border-slate-400"
 			>
-				<Icon icon={feTool} class="m-auto h-3 w-3 fill-slate-700 text-slate-700" />
+				<Icon icon={feTool} class="m-auto w-3 h-3 sm:h-3.5 sm:w-3.5 fill-slate-700 text-slate-700" />
 				{#if convo.tools?.length > 0}
 					<span
 						class="absolute -bottom-1 -right-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[10px] text-white"
