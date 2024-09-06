@@ -608,7 +608,7 @@
 			let fileContent = '';
 			if (pendingFiles.length > 0) {
 				for (const file of pendingFiles) {
-					fileContent += `\`\`\` filename="${file.name}"
+					fileContent += `\`\`\`filename="${file.name}"
 ${file.text}
 \`\`\`
 
@@ -978,6 +978,36 @@ ${file.text}
 		}
 	}
 
+	async function handlePDF(file) {
+		try {
+			const pdfjs = await import('pdfjs-dist');
+
+			pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+				'pdfjs-dist/build/pdf.worker.min.mjs',
+				import.meta.url
+			).toString();
+
+			const arrayBuffer = await file.arrayBuffer();
+			const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+			let text = '';
+
+			for (let i = 1; i <= pdf.numPages; i++) {
+				const page = await pdf.getPage(i);
+				const content = await page.getTextContent();
+				const pageText = content.items.map((item) => item.str).join(' ');
+				text += pageText;
+			}
+
+			pendingFiles.push({ name: file.name, text });
+			pendingFiles = pendingFiles;
+			tick().then(() => {
+				autoresizeTextarea();
+			});
+		} catch (error) {
+			console.error(`Error processing PDF: ${error.message}`);
+		}
+	}
+
 	$: window.convo = convo;
 
 	onMount(async () => {
@@ -1313,6 +1343,11 @@ ${file.text}
 							[...event.dataTransfer.items].forEach((item, _) => {
 								// If dropped items aren't files, reject them
 								if (item.kind !== 'file') {
+									return;
+								}
+
+								if (item.type === 'application/pdf') {
+									handlePDF(item.getAsFile());
 									return;
 								}
 
@@ -1863,6 +1898,8 @@ ${file.text}
 														tick().then(() => {
 															autoresizeTextarea();
 														});
+													} else if (file.type === 'application/pdf') {
+														handlePDF(file);	
 													} else {
 														const text = await file.text();
 														pendingFiles.push({ name: file.name, text });
@@ -1899,6 +1936,8 @@ ${file.text}
 												tick().then(() => {
 													autoresizeTextarea();
 												});
+											} else if (items[i].kind === 'file' && items[i].type === 'application/pdf') {
+												handlePDF(items[i].getAsFile());
 											} else if (items[i].kind === 'string' && items[i].type === 'text/plain') {
 												event.preventDefault();
 												items[i].getAsString((text) => {
@@ -1914,8 +1953,7 @@ ${file.text}
 														const start = textarea.selectionStart;
 														const end = textarea.selectionEnd;
 														const value = textarea.value;
-														content =
-															value.substring(0, start) + text + value.substring(end);
+														content = value.substring(0, start) + text + value.substring(end);
 														textarea.selectionStart = textarea.selectionEnd = start + text.length;
 														tick().then(() => {
 															autoresizeTextarea();

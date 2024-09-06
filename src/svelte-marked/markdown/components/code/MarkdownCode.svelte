@@ -13,16 +13,19 @@
 
 	let showCode = message && message.role === 'assistant';
 	let attrs: Record<string, any> = {};
+
+	function parseAttributes(langString) {
+		const regex = /(\w+)=["'](.+?)["']/g;
+		const attrs = {};
+		let match;
+		while ((match = regex.exec(langString)) !== null) {
+			attrs[match[1]] = match[2];
+		}
+		return attrs;
+	}
+
 	$: if (token.lang) {
-		attrs = Object.fromEntries(
-			token.lang
-				.split(' ')
-				.filter((s) => s.indexOf('=') !== -1)
-				.map((s) => {
-					const [key, value] = s.split('=');
-					return [key, value.slice(1, -1)];
-				})
-		);
+		attrs = parseAttributes(token.lang);
 	}
 </script>
 

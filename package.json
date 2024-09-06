@@ -28,6 +28,7 @@
 		"github-slugger": "^2.0.0",
 		"katex": "^0.16.10",
 		"marked": "^11.0.0",
+		"pdfjs-dist": "^4.6.82",
 		"uuid": "^9.0.1"
 	}
 }
