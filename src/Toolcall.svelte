@@ -62,7 +62,7 @@
 		this={collapsable ? 'button' : 'div'}
 		class="{!collapsable || toolcall.expanded ? '' : 'rounded-b-lg'} {collapsable
 			? 'transition-colors hover:bg-gray-50'
-			: ''} flex items-center gap-4 rounded-t-lg border border-slate-200 py-3 pl-4 pr-5 text-sm text-slate-700 sm:gap-3"
+			: ''} flex items-center gap-4 rounded-t-lg border border-slate-200 px-5 py-3 text-sm text-slate-700 sm:gap-3"
 		on:click
 	>
 		{#if finished}
@@ -71,7 +71,17 @@
 			</span>
 		{:else}
 			<span in:fade={{ duration: 300 }}>
-				<Icon icon={feLoader} class="h-5 w-5 animate-spin text-slate-700" />
+				<span class="animate-pulse">
+					<svg
+						class="mb-0.5 h-[18px] w-[18px] animate-spin text-slate-700"
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 512 512"
+						><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path
+							fill="currentColor"
+							d="M288 39.1v16.7c0 10.8 7.3 20.2 17.7 23.1C383.2 100.4 440 171.5 440 256c0 101.7-82.3 184-184 184-101.7 0-184-82.3-184-184 0-84.5 56.8-155.6 134.3-177.2C216.7 75.9 224 66.5 224 55.7V39.1c0-15.7-14.8-27.2-30-23.2C86.6 43.5 7.4 141.2 8 257.3c.7 137.1 111.5 247 248.5 246.7C393.3 503.7 504 392.8 504 256c0-115.6-79.1-212.8-186.2-240.2C302.7 11.9 288 23.5 288 39.1z"
+						/></svg
+					>
+				</span>
 			</span>
 		{/if}
 		<code class="font-semibold tracking-tight">{toolcall.name}</code>
