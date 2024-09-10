@@ -35,7 +35,7 @@ export const defaultToolSchema = [
 			{
 				clientDefinition: {
 					id: '1407c581-fab6-4dd5-995a-d53ba05ec6e8',
-					name: 'JavaScriptInterpreter',
+					name: 'JavaScript',
 					description: 'Evaluates JavaScript code and returns the result, including console output',
 					arguments: [
 						{
@@ -49,7 +49,7 @@ export const defaultToolSchema = [
 				},
 				type: 'function',
 				function: {
-					name: 'JavaScriptInterpreter',
+					name: 'JavaScript',
 					description: 'Evaluates JavaScript code and returns the result, including console output',
 					parameters: {
 						type: 'object',
@@ -61,6 +61,50 @@ export const defaultToolSchema = [
 							},
 						},
 						required: ['code'],
+					},
+				},
+			},
+			{
+				clientDefinition: {
+					id: '5b9b21b8-c8f2-40df-aea7-9634dec55b6b',
+					name: 'Choice',
+					description:
+						'Prompts the user to select one of the given options. Use this when you need the user to choose between different options.',
+					arguments: [
+						{
+							name: 'choices',
+							type: 'string_array',
+							description: 'The options the user can choose from.',
+						},
+						{
+							name: 'question',
+							type: 'string',
+							description: 'What you are asking the user.',
+						},
+					],
+					body: 'return await choose(args.question, args.choices);',
+				},
+				type: 'function',
+				function: {
+					name: 'Choice',
+					description:
+						'Prompts the user to select one of the given options. Use this when you need the user to choose between different options.',
+					parameters: {
+						type: 'object',
+						properties: {
+							choices: {
+								type: 'array',
+								items: {
+									type: 'string',
+								},
+								description: 'The options the user can choose from.',
+							},
+							question: {
+								type: 'string',
+								description: 'What you are asking the user.',
+							},
+						},
+						required: ['choices', 'question'],
 					},
 				},
 			},

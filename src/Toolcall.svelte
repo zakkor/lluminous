@@ -3,6 +3,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import JsonView from './svelte-json-view/JsonView.svelte';
 	import Icon from './Icon.svelte';
+	import Choice from './Choice.svelte';
 	import { feCheck, feChevronDown, feLoader, feX } from './feather.js';
 
 	const dispatch = createEventDispatcher();
@@ -11,6 +12,13 @@
 	export let toolresponse;
 	export let collapsable = true;
 	export let closeButton = false;
+
+	export let isChoosing = false;
+	export let choiceHandler;
+	export let question = '';
+	export let choices = [];
+	export let chose = null;
+
 	let className = '';
 	export { className as class };
 
@@ -42,9 +50,9 @@
 			}
 			// ...
 		}
-	} else {
-		displayType = null;
-		displayedContent = null;
+	}
+	$: if (isChoosing) {
+		displayType = 'choice';
 	}
 </script>
 
@@ -157,6 +165,10 @@
 						frameborder="0"
 						allowfullscreen
 					/>
+				</div>
+			{:else if displayType === 'choice'}
+				<div class="flex flex-col rounded-b-lg border border-t-0 border-slate-200 px-6 py-5">
+					<Choice bind:chose {choiceHandler} {question} {choices} />
 				</div>
 			{/if}
 		</div>

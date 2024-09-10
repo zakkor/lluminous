@@ -489,14 +489,19 @@
 						);
 						if (clientGroup && clientToolIndex !== -1 && convo.tools.includes(toolcall.name)) {
 							const clientTool = clientGroup.schema[clientToolIndex];
-							const clientFn = new Function('args', clientTool.clientDefinition.body);
-							const result = clientFn(toolcall.arguments);
-							toolPromises.push(Promise.resolve(result));
+							const AsyncFunction = async function () {}.constructor;
+							// @ts-ignore
+							const clientFn = new AsyncFunction(
+								'args',
+								'choose',
+								clientTool.clientDefinition.body
+							);
+							const promise = clientFn(toolcall.arguments, choose);
+							toolPromises.push(promise);
 						} else {
 							// Otherwise, call server-side tool
 							const promise = fetch(`${$remoteServer.address}/tool`, {
 								method: 'POST',
-								// credentials: 'include',
 								headers: {
 									Authorization: `Basic ${$remoteServer.password}`,
 								},
@@ -1008,6 +1013,44 @@ ${file.text}
 		}
 	}
 
+	let choiceHandler;
+	async function makeChoice() {
+		return new Promise((resolve) => {
+			choiceHandler = (choice) => {
+				resolve(choice);
+			};
+		});
+	}
+
+	let isChoosing = false;
+	let question = '';
+	let choices = [];
+	let chose = null; // index
+	export async function choose(newQuestion, newChoices) {
+		chose = null;
+		question = newQuestion;
+		choices = newChoices;
+		isChoosing = true;
+
+		if (innerWidth < 1215) {
+			toolcallModalOpen = true;
+			const lastToolMessage = convo.messages[convo.messages.length - 1];
+			const lastToolcall = lastToolMessage.toolcalls[lastToolMessage.toolcalls.length - 1];
+			activeToolcall = lastToolcall;
+		}
+
+		const choseValue = await makeChoice();
+		chose = choices.findIndex((c) => c === choseValue);
+		isChoosing = false;
+
+		if (innerWidth < 1215) {
+			toolcallModalOpen = false;
+			activeToolcall = null;
+		}
+
+		return choseValue;
+	}
+
 	$: window.convo = convo;
 
 	onMount(async () => {
@@ -1026,6 +1069,26 @@ ${file.text}
 		if ($toolSchema.length === 0 && !window.localStorage.getItem('initializedClientTools')) {
 			$toolSchema = defaultToolSchema;
 			window.localStorage.setItem('initializedClientTools', 'true');
+		} else {
+			// Add any missing client tools to the client-side group
+			const clientGroup = $toolSchema.find((g) => g.name === 'Client-side');
+			const defaultClientGroup = defaultToolSchema.find((g) => g.name === 'Client-side');
+			if (clientGroup && defaultClientGroup) {
+				for (const tool of defaultClientGroup.schema) {
+					const existingTool = clientGroup.schema.find(
+						(t) => t?.clientDefinition?.id === tool.clientDefinition.id
+					);
+					if (!existingTool) {
+						clientGroup.schema.push(tool);
+					}
+					// Or if we already have it, but any field differs
+					else {
+						if (JSON.stringify(existingTool) !== JSON.stringify(tool)) {
+							Object.assign(existingTool, tool);
+						}
+					}
+				}
+			}
 		}
 
 		initializePWAStyles();
@@ -1581,6 +1644,11 @@ ${file.text}
 																<Toolcall
 																	{toolcall}
 																	{toolresponse}
+																	bind:chose
+																	{isChoosing}
+																	{choiceHandler}
+																	{question}
+																	{choices}
 																	class="mb-1"
 																	on:click={() => {
 																		convo.messages[i].toolcalls[ti].expanded =
@@ -2025,6 +2093,11 @@ ${file.text}
 							{toolresponse}
 							collapsable={false}
 							closeButton
+							bind:chose
+							{isChoosing}
+							{choiceHandler}
+							{question}
+							{choices}
 							class="!rounded-xl"
 							on:close={() => {
 								activeToolcall = null;
@@ -2064,6 +2137,11 @@ ${file.text}
 			toolresponse={convo.messages.find((msg) => msg.toolcallId === activeToolcall.id)}
 			collapsable={false}
 			closeButton
+			bind:chose
+			{isChoosing}
+			{choiceHandler}
+			{question}
+			{choices}
 			class="!rounded-xl"
 			on:close={() => {
 				toolcallModalOpen = false;

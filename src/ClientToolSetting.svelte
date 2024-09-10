@@ -44,7 +44,7 @@
 		inputObj.arguments.forEach((arg) => {
 			// Add the argument as a property
 			outputObj.function.parameters.properties[arg.name] = {
-				type: getValidType(arg.type),
+				...getValidType(arg.type),
 				description: arg.description,
 			};
 
@@ -57,8 +57,22 @@
 
 	// Helper function to ensure we only use valid types
 	function getValidType(type) {
-		const validTypes = ['number', 'string', 'object'];
-		return validTypes.includes(type.toLowerCase()) ? type.toLowerCase() : 'string';
+		const validTypes = ['number', 'string', 'string_array', 'number_array', 'object'];
+		if (!validTypes.includes(type.toLowerCase())) {
+			return { type: 'string' };
+		}
+
+		// Check for "_array" suffix
+		if (type.toLowerCase().endsWith('_array')) {
+			return {
+				type: 'array',
+				items: {
+					type: type.replace('_array', ''),
+				},
+			};
+		}
+
+		return { type: type.toLowerCase() };
 	}
 </script>
 
@@ -119,6 +133,8 @@
 						>
 							<option value="string">String</option>
 							<option value="number">Number</option>
+							<option value="string_array">Array of Strings</option>
+							<option value="number_array">Array of Numbers</option>
 						</select>
 					</label>
 					<label class="flex w-full flex-col text-[10px] uppercase tracking-wide">
