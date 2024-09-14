@@ -10,9 +10,9 @@
 - Multiple providers, plug in your API keys (stored entirely locally) and you're good to go
     - Local models (through llama.cpp)
     - OpenAI
+    - Anthropic
     - OpenRouter (which lets you use ALL models across many providers: OpenAI, Anthropic, OSS, 50+ others)
     - Groq
-    - Anthropic (coming soon)
 
 - Tool use. Works with OpenAI, Anthropic, and Groq models. Parallel tool calls are supported.
     - Check out `server/toolfns/toolfns.go`. You only need to write functions. The function comment is the description the model receives, so it knows what to use. Click the `Sync` button in the web UI to refresh your tools.
