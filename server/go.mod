@@ -11,6 +11,7 @@ require (
 	github.com/go-chi/cors v1.2.1
 	github.com/noonien/codoc v0.0.0-20240519154704-25b5fe95209b
 	github.com/playwright-community/playwright-go v0.4501.0
+	github.com/smacker/go-tree-sitter v0.0.0-20240827094217-dd81d9e9be82
 )
 
 require (

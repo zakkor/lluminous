@@ -17,6 +17,8 @@ dist-ssr
 server/sandbox
 server/server
 server/testdata
+indexed
+server/toolfns/cmd/embed/embed
 
 deploy.sh
 jackin.sh
