@@ -20,19 +20,16 @@
 		anthropicModels,
 		openAIIgnoreIds,
 		priorityOrder,
+		thinkingModels,
 	} from './providers.js';
 	import ModelSelector from './ModelSelector.svelte';
 	import CompanyLogo from './CompanyLogo.svelte';
 	import {
 		controller,
 		remoteServer,
-		openaiAPIKey,
-		groqAPIKey,
-		openrouterAPIKey,
 		config,
 		params,
 		toolSchema,
-		anthropicAPIKey,
 	} from './stores.js';
 	import SettingsModal from './SettingsModal.svelte';
 	import ToolcallButton from './ToolcallButton.svelte';
@@ -44,6 +41,7 @@
 		feArrowUp,
 		feCheck,
 		feCheckCircle,
+		feChevronDown,
 		feChevronLeft,
 		feChevronRight,
 		feCpu,
@@ -320,6 +318,9 @@
 		submitCompletion();
 	}
 
+	let thinkingStartTime = null;
+	let thinkingInterval = null;
+
 	async function submitCompletion(insertUnclosed = true) {
 		if (!convo.model.provider) {
 			const msg = {
@@ -352,6 +353,12 @@
 			};
 			convo.messages.push(msg);
 			convo.messages = convo.messages;
+
+			if (thinkingModels.includes(convo.model.id)) {
+				convo.messages[convo.messages.length - 1].reasoning = true;
+				convo.messages[convo.messages.length - 1].thinking = true;
+				startThinkingTimer(convo.messages.length - 1);
+			}
 
 			saveMessage(msg);
 			saveConversation(convo);
@@ -466,6 +473,11 @@
 			) {
 				generating = false;
 
+				if (thinkingModels.includes(convo.model.id)) {
+					convo.messages[i].thinking = false;
+					stopThinkingTimer(i);
+				}
+
 				// Toolcall arguments are now finalized, we can parse them:
 				if (convo.messages[i].toolcalls) {
 					let toolPromises = [];
@@ -554,6 +566,26 @@
 		};
 
 		complete(convo, onupdate, onabort);
+	}
+
+	function startThinkingTimer(messageIndex) {
+		thinkingStartTime = Date.now();
+		updateThinkingTime(messageIndex);
+		thinkingInterval = setInterval(() => updateThinkingTime(messageIndex), 500);
+	}
+
+	function stopThinkingTimer(messageIndex) {
+		if (thinkingInterval) {
+			clearInterval(thinkingInterval);
+			thinkingInterval = null;
+		}
+		updateThinkingTime(messageIndex);
+	}
+
+	function updateThinkingTime(messageIndex) {
+		const thinkingTime = (Date.now() - thinkingStartTime) / 1000; // Convert to seconds
+		convo.messages[messageIndex].thinkingTime = thinkingTime;
+		saveMessage(convo.messages[messageIndex]);
 	}
 
 	async function insertSystemPrompt() {
@@ -1609,6 +1641,27 @@ ${file.text}
 															{/if}
 														{/if}
 
+														{#if message.reasoning}
+															<div
+																class="{message.thinking
+																	? 'animate-pulse'
+																	: ''} -mb-3 flex items-center gap-x-1 text-left text-gray-600"
+															>
+																{message.thinking ? 'Thinking' : 'Thought'} for {message.thinkingTime <
+																1
+																	? 'a bit'
+																	: Math.ceil(message.thinkingTime) + ' seconds'}
+																{#if message.thoughts}
+																	<Icon
+																		icon={feChevronDown}
+																		class="{message.thoughtsExpanded
+																			? 'rotate-180'
+																			: ''} h-4 w-4 transition-transform"
+																	/>
+																{/if}
+															</div>
+														{/if}
+
 														{#if generating && message.role === 'assistant' && i === convo.messages.length - 1 && message.content === '' && !message.toolcalls}
 															<div
 																class="mt-2 h-3 w-3 shrink-0 animate-bounce rounded-full bg-slate-600"
@@ -1770,7 +1823,9 @@ ${file.text}
 													</div>
 
 													<div
-														class="absolute bottom-[-32px] right-1 flex gap-x-2 opacity-0 transition-opacity group-hover:opacity-100 md:gap-x-0.5"
+														class="{!generating
+															? 'group-hover:opacity-100'
+															: ''} absolute bottom-[-32px] right-1 flex gap-x-2 opacity-0 transition-opacity md:gap-x-0.5"
 													>
 														<button
 															class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
@@ -1872,7 +1927,9 @@ ${file.text}
 													saveMessage(msg);
 													saveConversation(convo);
 												}}
-												class="z-1 absolute bottom-0 left-1/2 flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-md border border-slate-200 bg-white opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100"
+												class="{!generating
+													? 'group-hover:opacity-100'
+													: ''} z-1 absolute bottom-0 left-1/2 flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-md border border-slate-200 bg-white opacity-0 transition-opacity hover:bg-gray-200"
 											>
 												<Icon icon={fePlus} class="m-auto h-3 w-3 text-slate-600" />
 											</button>

@@ -78,6 +78,8 @@ export const anthropicModels = [
 // OpenAI provider: OpenAI doesn't provide any metadata for their models, so we have to harddcode which ones are multimodal
 export const openAIAdditionalModelsMultimodal = ['gpt-4o', 'gpt-4-turbo', 'gpt-4-turbo-2024-04-09'];
 
+export const thinkingModels = ['openai/o1-preview', 'openai/o1-mini'];
+
 // OpenAI provider:
 export const openAIImageGenerationModels = ['dall-e-3'];
 
@@ -98,9 +100,16 @@ export const openAIIgnoreIds = [
 export const priorityOrder = [
 	{ fromProvider: 'Local' },
 	{
-		exactly: ['openai/gpt-4-turbo', 'openai/gpt-4o', 'openai/gpt-4o-mini'],
+		exactly: [
+			'openai/o1-preview',
+			'openai/o1-mini',
+			'openai/gpt-4-turbo',
+			'openai/chatgpt-4o-latest',
+			'openai/gpt-4o',
+			'openai/gpt-4o-mini',
+		],
 	},
-	{ exactly: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'dall-e-3'] },
+	{ exactly: ['o1-preview', 'o1-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'dall-e-3'] },
 	{
 		exactly: [
 			'anthropic/claude-3.5-sonnet',

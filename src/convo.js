@@ -107,7 +107,12 @@ export async function complete(convo, onupdate, onabort) {
 					stream: true,
 					model: convo.model.id,
 					temperature: param.temperature,
-					max_tokens: param.maxTokens != null && param.maxTokens > 0 ? param.maxTokens : 4096,
+					max_tokens:
+						param.maxTokens != null && param.maxTokens > 0
+							? param.maxTokens
+							: convo.model.provider === 'Anthropic'
+								? 4096
+								: undefined,
 					tools: activeSchema.length > 0 ? activeSchema : undefined,
 					system,
 					messages,
@@ -196,14 +201,16 @@ function messageToAnthropicFormat(msg) {
 		let content;
 		if (typeof msg.content === 'object') {
 			if (msg.content.contentType === 'image/png') {
-				content = [{
-					type: 'image',
-					source: {
-						type: 'base64',
-						media_type: 'image/png',
-						data: msg.content.content.slice('data:image/png;base64,'.length),
+				content = [
+					{
+						type: 'image',
+						source: {
+							type: 'base64',
+							media_type: 'image/png',
+							data: msg.content.content.slice('data:image/png;base64,'.length),
+						},
 					},
-				}];
+				];
 			} else {
 				content = JSON.stringify(msg.content);
 			}
