@@ -1,4 +1,4 @@
-// generated @ 2024-08-01T16:13:44+03:00 by gendoc
+// generated @ 2024-11-07T18:04:41+02:00 by gendoc
 package toolfns
 
 import "github.com/noonien/codoc"
@@ -7,7 +7,7 @@ func init() {
 	codoc.Register(codoc.Package{
 		ID:   "github.com/zakkor/server/toolfns",
 		Name: "toolfns",
-		Doc:  "generated @ 2024-07-05T17:46:44+03:00 by gendoc",
+		Doc:  "generated @ 2024-08-01T16:13:44+03:00 by gendoc",
 		Functions: map[string]codoc.Function{
 			"BrowserClick": {
 				Name: "BrowserClick",
@@ -31,6 +31,48 @@ func init() {
 					"text",
 				},
 			},
+			"CodeOpenFile": {
+				Name: "CodeOpenFile",
+				Doc:  "CodeOpenFile retrieves the contents of the file at the given path.\npath: The path to the file.",
+				Args: []string{
+					"path",
+				},
+			},
+			"CodeSnippetEdit": {
+				Name: "CodeSnippetEdit",
+				Doc:  "CodeSnippetEdit updates the code at the given path, replacing the code that previously was between the sourceLineStart and sourceLineEnd positions.\npath: The path to the file.\nsourceLineStart: The line number to start code replacement from. Use the exact sourceLineStart previously obtained through CodeSearch.\nsourceLineEnd: The line number to end code replacement at. Use the exact sourceLineEnd previously obtained through CodeSearch\nupdatedCodeSnippet: The updated code snippet to insert between sourceLineStart and sourceLineEnd. Rewrite the entire code snippet previously obtained through CodeSearch.",
+				Args: []string{
+					"path",
+					"sourceLineStart",
+					"sourceLineEnd",
+					"updatedCodeSnippet",
+				},
+			},
+			"CodeSnippetSearch": {
+				Name: "CodeSnippetSearch",
+				Doc:  "CodeSnippetSearch searches for relevant snippets of code matching the search query.\nlocationQuery: A search query which should describe the location (in the filesystem) of the code you are looking for. If no location data can be inferred from the user's query, leave this blank.\nfunctionalityQuery: A search query which should describe the functionality of the code you are looking for.",
+				Args: []string{
+					"locationQuery",
+					"functionalityQuery",
+				},
+			},
+			"Cosine": {
+				Name: "Cosine",
+				Args: []string{
+					"a",
+					"b",
+				},
+				Results: []string{
+					"cosine",
+					"err",
+				},
+			},
+			"EmbeddingVoyage": {
+				Name: "EmbeddingVoyage",
+				Args: []string{
+					"text",
+				},
+			},
 			"GoogleResults": {
 				Name: "GoogleResults",
 				Args: []string{
@@ -41,6 +83,18 @@ func init() {
 				Name: "HtmlToText",
 				Args: []string{
 					"htmlr",
+				},
+			},
+			"IndexDirectory": {
+				Name: "IndexDirectory",
+				Args: []string{
+					"path",
+				},
+			},
+			"IndexFile": {
+				Name: "IndexFile",
+				Args: []string{
+					"path",
 				},
 			},
 			"NewGroup": {
@@ -71,6 +125,12 @@ func init() {
 					"query",
 				},
 			},
+			"findJavaScriptRanges": {
+				Name: "findJavaScriptRanges",
+				Args: []string{
+					"node",
+				},
+			},
 			"init": {
 				Name: "init",
 			},
@@ -87,6 +147,12 @@ func init() {
 			},
 			"Group": {
 				Name: "Group",
+			},
+			"IndexedSnippet": {
+				Name: "IndexedSnippet",
+			},
+			"IndexedSnippetNoEmbedding": {
+				Name: "IndexedSnippetNoEmbedding",
 			},
 		},
 	})

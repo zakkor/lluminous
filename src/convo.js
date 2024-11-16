@@ -125,6 +125,105 @@ export async function complete(convo, onupdate, onabort) {
 	}
 }
 
+export async function completeNoStream(convo, onupdate, onabort) {
+	controller.set(new AbortController());
+	const param = get(params);
+
+	// Query all models in parallel
+	const modelResults = await Promise.all(
+		convo.models.map(async (model) => {
+			const openAICompatibleFormat =
+				model.provider === 'OpenAI' ||
+				model.provider === 'OpenRouter' ||
+				model.provider === 'Groq' ||
+				model.provider === 'Mistral';
+
+			let messages = convo.messages.map(
+				openAICompatibleFormat ? messageToOpenAIFormat : messageToAnthropicFormat
+			);
+
+			if (param.messagesContextLimit > 0) {
+				messages = limitMessagesContext(messages, param.messagesContextLimit);
+			}
+
+			const provider = providers.find((p) => p.name === model.provider);
+
+			const response = await fetch(`${provider.url}${provider.completionUrl}`, {
+				method: 'POST',
+				headers: {
+					...(model.provider === 'OpenRouter' ||
+					model.provider === 'OpenAI' ||
+					model.provider === 'Groq' ||
+					model.provider === 'Mistral'
+						? { Authorization: `Bearer ${provider.apiKeyFn()}` }
+						: model.provider === 'Anthropic'
+							? {
+									'x-api-key': provider.apiKeyFn(),
+									'anthropic-version': '2023-06-01',
+								}
+							: {}),
+					'Content-Type': 'application/json',
+				},
+				signal: get(controller).signal,
+				body: JSON.stringify({
+					stream: false,
+					model: model.id,
+					temperature: param.temperature,
+					messages,
+				}),
+			});
+
+			const result = await response.json();
+			return {
+				model: model.id,
+				response: result.choices[0].message.content,
+			};
+		})
+	);
+
+	// Prepare consensus query
+	const consensusProvider = providers.find((p) => p.name === 'OpenRouter');
+	const consensusModel = 'anthropic/claude-3.5-sonnet';
+	const consensusMessages = [
+		{
+			role: 'system',
+			content:
+				'You are a helpful assistant that analyzes multiple model responses and determines if there is a consensus.',
+		},
+		{
+			role: 'user',
+			content: `Here are responses from different models to the same user query:\n\nUser query:\n${convo.messages[convo.messages.length-2].content}\n\n${modelResults
+				.map((r) => `${r.model}: ${r.response}`)
+				.join(
+					'\n\n'
+				)}\n\nIf there is a clear consensus across all responses, answer the user's query with a summary of the consensus and do not write anything else specifically mentioning the consensus. If no, explain the key differences across responses.`,
+		},
+	];
+
+	const consensusResponse = await fetch(
+		`${consensusProvider.url}${consensusProvider.completionUrl}`,
+		{
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${consensusProvider.apiKeyFn()}`,
+				'Content-Type': 'application/json',
+			},
+			signal: get(controller).signal,
+			body: JSON.stringify({
+				stream: false,
+				model: consensusModel,
+				temperature: param.temperature,
+				messages: consensusMessages,
+			}),
+		}
+	);
+
+	const consensusResult = await consensusResponse.json();
+	onupdate({
+		choices: [{ delta: { content: consensusResult.choices[0].message.content } }],
+	});
+}
+
 function toolSchemaToAnthropicFormat(schema) {
 	return {
 		name: schema.function.name,

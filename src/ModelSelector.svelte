@@ -7,6 +7,7 @@
 	import CompanyLogo from './CompanyLogo.svelte';
 	import { feCheckCircle, feChevronDown, feImage, feLoader, feTool } from './feather.js';
 	import Icon from './Icon.svelte';
+	import Checkbox from './Checkbox.svelte';
 
 	const dispatch = createEventDispatcher();
 
@@ -85,7 +86,9 @@
 					<Icon icon={feCheckCircle} class="h-3 w-3 shrink-0 text-slate-800" />
 				{/if}
 				<p class="line-clamp-1 text-xs text-slate-700">
-					{formatModelName(convo.model, true)}
+					{formatModelName(convo.model, true)}{#if convo.models.length > 0}
+						{' +'} {convo.models.length-1}
+					{/if}
 				</p>
 				{#if convo.model.modality === 'text->image'}
 					<Icon icon={feImage} class="mt-px h-3 w-3 text-slate-800" />
@@ -106,9 +109,12 @@
 					toolsOpen = !toolsOpen;
 					open = false;
 				}}
-				class="flex w-[34px] h-[34px] sm:h-[36px] sm:w-[36px] rounded-lg border border-slate-300 transition-colors hover:border-slate-400"
+				class="flex h-[34px] w-[34px] rounded-lg border border-slate-300 transition-colors hover:border-slate-400 sm:h-[36px] sm:w-[36px]"
 			>
-				<Icon icon={feTool} class="m-auto w-3 h-3 sm:h-3.5 sm:w-3.5 fill-slate-700 text-slate-700" />
+				<Icon
+					icon={feTool}
+					class="m-auto h-3 w-3 fill-slate-700 text-slate-700 sm:h-3.5 sm:w-3.5"
+				/>
 				{#if convo.tools?.length > 0}
 					<span
 						class="absolute -bottom-1 -right-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[10px] text-white"
@@ -149,11 +155,11 @@
 						<ul class="max-h-[400px] overflow-y-auto pb-1.5 scrollbar-ultraslim">
 							{#each $toolSchema as group}
 								<div class="relative w-full">
+									<!-- svelte-ignore a11y-label-has-associated-control -->
 									<label
 										class="flex w-full items-center gap-x-3 whitespace-nowrap py-2 pl-4 pr-3 text-left text-xs transition-colors hover:bg-gray-100"
 									>
-										<input
-											type="checkbox"
+										<Checkbox
 											checked={group.schema.every((t) => convo.tools.includes(t.function.name))}
 											on:change={(event) => {
 												const names = group.schema.map((t) => t.function.name);
@@ -163,7 +169,6 @@
 													dispatch('unsetTools', names);
 												}
 											}}
-											class="h-4 w-4 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
 										/>
 										<p class="w-full text-xs font-semibold text-slate-800">{group.name}</p>
 									</label>
@@ -185,11 +190,11 @@
 									<div transition:slide={{ duration: 300 }}>
 										{#each group.schema as schema, i}
 											<li class="flex w-full">
+												<!-- svelte-ignore a11y-label-has-associated-control -->
 												<label
 													class="flex w-full items-center gap-x-3 whitespace-nowrap py-2 pl-6 pr-3 text-left text-xs transition-colors hover:bg-gray-100"
 												>
-													<input
-														type="checkbox"
+													<Checkbox
 														checked={convo.tools.includes(schema.function.name)}
 														on:change={(event) => {
 															if (event.target.checked) {
@@ -198,7 +203,6 @@
 																dispatch('unsetTools', [schema.function.name]);
 															}
 														}}
-														class="h-4 w-4 rounded border-0 !border-slate-300 accent-slate-800 focus:outline-none focus:outline-0 focus:ring-0"
 													/>
 													<p class="w-full text-xs font-medium text-slate-800">
 														{schema.function.name}
@@ -256,6 +260,16 @@
 								{#if model.modality === 'text->image'}
 									<Icon icon={feImage} class="mt-px h-3 w-3 text-slate-800" />
 								{/if}
+
+								<Checkbox
+									checked={convo.models?.find(m => m.id === model.id)}
+									on:change={() => {}}
+									on:click={(event) => {
+										event.stopPropagation();
+										dispatch('changeMulti', model);
+									}}
+									class="ml-auto"
+								/>
 							</button>
 						</li>
 					{:else}
