@@ -195,29 +195,6 @@ ${file.text}
 				});
 			} else if (items[i].kind === 'file' && items[i].type === 'application/pdf') {
 				handlePDF(items[i].getAsFile());
-			} else if (items[i].kind === 'string' && items[i].type === 'text/plain') {
-				event.preventDefault();
-				items[i].getAsString((text) => {
-					if (text.split('\n').length >= 100) {
-						pendingFiles.push({ name: 'Pasted.txt', text });
-						pendingFiles = pendingFiles;
-						tick().then(() => {
-							autoresizeTextarea();
-						});
-					} else {
-						// If text is less than 100 lines, manually insert it into the textarea
-						// FIXME: An "undo" button should appear for pasted files
-						const textarea = event.target;
-						const start = textarea.selectionStart;
-						const end = textarea.selectionEnd;
-						const value = textarea.value;
-						content = value.substring(0, start) + text + value.substring(end);
-						textarea.selectionStart = textarea.selectionEnd = start + text.length;
-						tick().then(() => {
-							autoresizeTextarea();
-						});
-					}
-				});
 			}
 		}
 	}
@@ -273,21 +250,6 @@ ${file.text}
 							>
 								<Icon icon={feX} class="m-auto h-3 w-3 text-white" />
 							</button>
-							{#if file.name === 'Pasted.txt'}
-								<button
-									on:click={() => {
-										content += file.text;
-										pendingFiles.splice(i, 1);
-										pendingFiles = pendingFiles;
-										tick().then(() => {
-											autoresizeTextarea();
-										});
-									}}
-									class="absolute -bottom-1 -left-1 flex h-4 w-4 rounded-full bg-black transition-[transform,background-color] hover:scale-110 hover:bg-blue-400"
-								>
-									<Icon icon={feArrowUp} class="m-auto h-3 w-3 rotate-[-90deg] text-white" />
-								</button>
-							{/if}
 						</div>
 					{/each}
 					{#each pendingImages as image, i}
@@ -302,7 +264,7 @@ ${file.text}
 									pendingImages[i].fidelity = pendingImages[i].fidelity === 'high' ? 'low' : 'high';
 									pendingImages = pendingImages;
 								}}
-								class="absolute -bottom-1 -left-1 flex h-4 px-1 rounded-full bg-black transition-[transform,background-color] hover:scale-110 hover:bg-blue-400"
+								class="absolute -bottom-1 -left-1 flex h-4 rounded-full bg-black px-1 transition-[transform,background-color] hover:scale-110 hover:bg-blue-400"
 								title="Toggle image fidelity"
 							>
 								<span class="m-auto text-[8px] font-bold text-white">
@@ -358,7 +320,10 @@ ${file.text}
 
 					const imageLinkedUrls = content.match(imageUrlRegex) || [];
 					for (const url of imageLinkedUrls) {
-						if (!pendingImages.find(image => image.url === url) && !imageUrlsBlacklist.includes(url)) {
+						if (
+							!pendingImages.find((image) => image.url === url) &&
+							!imageUrlsBlacklist.includes(url)
+						) {
 							pendingImages.push({ url, fidelity: 'high' });
 							pendingImages = pendingImages;
 							tick().then(() => {
