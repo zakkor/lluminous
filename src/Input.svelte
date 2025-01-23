@@ -24,8 +24,8 @@
 	let pendingFiles = [];
 
 	$: isMultimodal =
-		convo.model.modality === 'text+image->text' ||
-		openAIAdditionalModelsMultimodal.includes(convo.model.id);
+		convo.models[0].modality === 'text+image->text' ||
+		openAIAdditionalModelsMultimodal.includes(convo.models[0].id);
 
 	async function sendMessage() {
 		if (content.length > 0) {

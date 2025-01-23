@@ -2,7 +2,7 @@
 	import { v4 as uuidv4 } from 'uuid';
 	import { onMount, tick } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
-	import { complete, completeNoStream, generateImage } from './convo.js';
+	import { complete, completeConsensus, generateImage } from './convo.js';
 	import KnobsSidebar from './KnobsSidebar.svelte';
 	import Button from './Button.svelte';
 	import { marked } from 'marked';
@@ -166,6 +166,13 @@
 							saveMessage(message);
 						}
 
+						// Migrate `message.model` to `message.models`:
+						if ('model' in message) {
+							message.models = [message.model];
+							delete message.model;
+							saveMessage(message);
+						}
+
 						for (let cid in convosData) {
 							const index = convosData[cid].messages.indexOf(message.id);
 							if (index !== -1) {
@@ -288,7 +295,7 @@
 	let thinkingInterval = null;
 
 	async function submitCompletion(insertUnclosed = true) {
-		if (!convo.model.provider) {
+		if (!convo.models?.[0]?.provider) {
 			const msg = {
 				id: uuidv4(),
 				role: 'assistant',
@@ -315,12 +322,12 @@
 				content: '',
 				unclosed: true,
 				generated: true,
-				model: convo.model,
+				models: convo.models,
 			};
 			convo.messages.push(msg);
 			convo.messages = convo.messages;
 
-			if (thinkingModels.includes(convo.model.id)) {
+			if (thinkingModels.includes(convo.models[0].id)) {
 				convo.messages[convo.messages.length - 1].reasoning = true;
 				convo.messages[convo.messages.length - 1].thinking = true;
 				startThinkingTimer(convo.messages.length - 1);
@@ -345,7 +352,7 @@
 
 		const i = convo.messages.length - 1;
 
-		if (convo.model.modality === 'text->image') {
+		if (convo.models[0].modality === 'text->image') {
 			await generateImage(convo, {
 				oncomplete: (resp) => {
 					convo.messages[i].generatedImageUrl = resp.data[0].url;
@@ -364,7 +371,7 @@
 				return;
 			}
 
-			if (convo.model.provider === 'Local') {
+			if (convo.models[0].provider === 'Local') {
 				convo.messages[i].content += chunk.content;
 				saveMessage(convo.messages[i]);
 			} else {
@@ -390,7 +397,7 @@
 						let index = tool_call.index;
 						// Watch out! Anthropic tool call indices are 1-based, not 0-based, when message.content is involved.
 						// NOTE: No longer the case for OpenRouter, they've changed this.
-						if (convo.model.provider === 'Anthropic' && convo.messages[i].content) {
+						if (convo.models[0].provider === 'Anthropic' && convo.messages[i].content) {
 							index--;
 						}
 
@@ -422,14 +429,14 @@
 			}
 
 			// Check for stoppage:
-			if (convo.model.provider === 'Local' && chunk.stop) {
+			if (convo.models[0].provider === 'Local' && chunk.stop) {
 				generating = false;
 				return;
 			}
 
 			// External tool calls:
 			if (
-				convo.model.provider !== 'Local' &&
+				convo.models[0].provider !== 'Local' &&
 				chunk.choices &&
 				(chunk.choices[0].finish_reason === 'stop' ||
 					chunk.choices[0].finish_reason === 'end_turn' ||
@@ -437,7 +444,7 @@
 			) {
 				generating = false;
 
-				if (thinkingModels.includes(convo.model.id)) {
+				if (thinkingModels.includes(convo.models[0].id)) {
 					convo.messages[i].thinking = false;
 					stopThinkingTimer(i);
 				}
@@ -529,10 +536,10 @@
 			generating = false;
 		};
 
-		if (convo.models.length === 0) {
+		if (convo.models.length === 1) {
 			complete(convo, onupdate, onabort);
 		} else {
-			completeNoStream(
+			completeConsensus(
 				convo,
 				(chunk) => {
 					convo.messages[i].content += chunk.choices[0].delta.content;
@@ -607,7 +614,7 @@
 		const convoData = {
 			id: uuidv4(),
 			time: Date.now(),
-			models: [convo.model || models.find((m) => m.id === 'anthropic/claude-3.5-sonnet')],
+			models: convo.models.length > 0 ? [...convo.models] : [models.find((m) => m.id === 'anthropic/claude-3.5-sonnet')],
 			messages: [],
 			versions: {},
 			tools: [],
@@ -684,7 +691,7 @@
 
 		const sharePromise = new Promise(async (resolve) => {
 			const encoded = await compressAndEncode({
-				model: convo.model,
+				models: convo.models,
 				messages: convo.messages,
 			});
 			const share = `${window.location.protocol}//${window.location.host}/?s=${encoded}`;
@@ -734,6 +741,11 @@
 			if (Array.isArray(decoded)) {
 				decoded = { name: 'Shared conversation', messages: decoded };
 			}
+			// Handle legacy format
+			if (decoded.model) {
+				decoded.models = [decoded.model];
+				delete decoded.model;
+			}
 			let id = uuidv4();
 			const existingShared = Object.values(convos).find((convo) => convo.shared);
 			if (existingShared) {
@@ -743,7 +755,7 @@
 				id,
 				time: Date.now(),
 				shared: true,
-				model: decoded.model,
+				models: decoded.models || [],
 				messages: decoded.messages,
 				versions: {},
 				tools: [],
@@ -1065,16 +1077,14 @@
 				{loadedModel}
 				bind:modelFinishedLoading={modelFinishedLoading[0]}
 				on:change={({ detail }) => {
-					convo.model = detail;
-					convo.models = [];
+					convo.models = [detail];
 					saveConversation(convo);
-					if (convo.model.provider === 'Local' && convo.model.id !== loadedModel.id) {
-						loadModel(convo.model);
+					if (convo.models[0].provider === 'Local' && convo.models[0].id !== loadedModel.id) {
+						loadModel(convo.models[0]);
 					}
 				}}
 				on:changeMulti={({ detail }) => {
-					convo.model = detail;
-					if (convo?.models.find((m) => m.id === detail.id)) {
+					if (convo.models.find((m) => m.id === detail.id)) {
 						convo.models = convo.models.filter((m) => m.id !== detail.id);
 					} else {
 						convo.models = [...(convo.models || []), detail];
@@ -1095,12 +1105,12 @@
 				}}
 				class="!absolute left-1/2 z-[99] -translate-x-1/2"
 			/>
-		{:else if convo.model}
+		{:else if convo.models}
 			<p
 				class="!absolute left-1/2 line-clamp-1 flex -translate-x-1/2 items-center gap-x-2 whitespace-nowrap text-sm font-semibold"
 			>
-				<CompanyLogo model={convo.model} size="w-4 h-4" />
-				{formatModelName(convo.model)}
+				<CompanyLogo model={convo.models[0]} size="w-4 h-4" />
+				{formatModelName(convo.models[0])}
 			</p>
 		{/if}
 
@@ -1223,16 +1233,14 @@
 						{loadedModel}
 						bind:modelFinishedLoading={modelFinishedLoading[1]}
 						on:change={({ detail }) => {
-							convo.model = detail;
-							convo.models = [];
+							convo.models = [detail];
 							saveConversation(convo);
-							if (convo.model.provider === 'Local' && convo.model.id !== loadedModel.id) {
-								loadModel(convo.model);
+							if (convo.models[0].provider === 'Local' && convo.models[0].id !== loadedModel.id) {
+								loadModel(convo.models[0]);
 							}
 						}}
 						on:changeMulti={({ detail }) => {
-							convo.model = detail;
-							if (convo?.models.find((m) => m.id === detail.id)) {
+							if (convo.models.find((m) => m.id === detail.id)) {
 								convo.models = convo.models.filter((m) => m.id !== detail.id);
 							} else {
 								convo.models = [...(convo.models || []), detail];
@@ -1253,12 +1261,12 @@
 						}}
 						class="!absolute left-1/2 z-[99] -translate-x-1/2"
 					/>
-				{:else if convo.model}
+				{:else if convo.models}
 					<p
 						class="!absolute left-1/2 flex -translate-x-1/2 items-center gap-x-2 text-sm font-semibold"
 					>
-						<CompanyLogo model={convo.model} size="w-4 h-4" />
-						{formatModelName(convo.model)}
+						<CompanyLogo model={convo.models[0]} size="w-4 h-4" />
+						{formatModelName(convo.models[0])}
 					</p>
 				{/if}
 

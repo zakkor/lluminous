@@ -77,20 +77,20 @@
 				}
 			}}
 		>
-			<CompanyLogo model={convo.model} size="w-3.5 h-3.5 sm:w-[18px] sm:h-[18px]" />
+			<CompanyLogo model={convo.models[0]} size="w-3.5 h-3.5 sm:w-[18px] sm:h-[18px]" />
 			<div class="flex items-center gap-x-1.5">
 				{#if loadingModel}
 					<Icon icon={feLoader} class="h-3 w-3 shrink-0 animate-spin text-slate-800" />
 				{/if}
-				{#if convo.model.provider === 'Local' && loadedModel && loadedModel.id === convo.model.id}
+				{#if convo.models[0].provider === 'Local' && loadedModel && loadedModel.id === convo.models[0].id}
 					<Icon icon={feCheckCircle} class="h-3 w-3 shrink-0 text-slate-800" />
 				{/if}
 				<p class="line-clamp-1 text-xs text-slate-700">
-					{formatModelName(convo.model, true)}{#if convo.models.length > 0}
+					{formatModelName(convo.models[0], true)}{#if convo.models.length > 0}
 						{' +'} {convo.models.length-1}
 					{/if}
 				</p>
-				{#if convo.model.modality === 'text->image'}
+				{#if convo.models[0].modality === 'text->image'}
 					<Icon icon={feImage} class="mt-px h-3 w-3 text-slate-800" />
 				{/if}
 			</div>

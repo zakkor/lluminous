@@ -45,7 +45,6 @@
 	export let chose;
 	export let activeToolcall;
 	export let textareaEls;
-
 	function submitEdit(i) {
 		// Update the ID of the edited message:
 		if (convo.messages[i].submitted || convo.messages[i].generated) {
@@ -107,7 +106,7 @@
 </script>
 
 {#if (['user', 'assistant'].includes(message.role) || (message.role === 'system' && (!message.customInstructions || (message.customInstructions && message.showCustomInstructions)))) && ($config.explicitToolView || !collapsedRanges.some((r) => i >= r.starti && i < r.endi))}
-	{@const hasLogo = hasCompanyLogo(message.model)}
+	{@const hasLogo = message.role === 'assistant' && message.models.find(hasCompanyLogo)}
 	<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
 	<li
 		data-role={message.role}
@@ -170,7 +169,9 @@
 							: ''}"
 			>
 				{#if message.role === 'assistant' && hasLogo}
-					<CompanyLogo model={message.model} size="w-full h-full" rounded="rounded-[inherit]" />
+					{#each message.models as model}
+						<CompanyLogo {model} size="w-full h-full" rounded="rounded-[inherit]" />
+					{/each}
 				{:else}
 					<span class="m-auto">
 						{#if message.role === 'system'}
@@ -421,8 +422,8 @@
 						</div>
 					{/if}
 
-					{#if (message.role === 'assistant' && i > 2 && convo.messages[i - 2].role === 'assistant' && message.model && convo.messages[i - 2].model && convo.messages[i - 2].model.id !== message.model.id) || (message.role === 'assistant' && (i === 1 || i === 2) && message.model && convo.model.id !== message.model.id)}
-						<p class="text-[10px]">{formatModelName(message.model)}</p>
+					{#if (message.role === 'assistant' && i > 2 && convo.messages[i - 2].role === 'assistant' && message.models?.length > 0 && convo.messages[i - 2].models?.length > 0 && convo.messages[i - 2].models?.[0].id !== message.models?.[0].id) || (message.role === 'assistant' && (i === 1 || i === 2) && message.models[0] && convo.models[0].id !== message.models[0].id)}
+						<p class="text-[10px]">{formatModelName(message.models[0])}</p>
 					{/if}
 				</div>
 

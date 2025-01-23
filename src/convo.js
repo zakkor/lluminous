@@ -5,9 +5,11 @@ import { providers } from './providers.js';
 export async function complete(convo, onupdate, onabort) {
 	controller.set(new AbortController());
 
-	if (convo.model.provider === 'Local') {
-		if (!convo.model.template) {
-			convo.model.template = 'chatml';
+	const model = convo.models[0];
+
+	if (model.provider === 'Local') {
+		if (!model.template) {
+			model.template = 'chatml';
 		}
 		const response = await fetch('http://localhost:8082/completion', {
 			method: 'POST',
@@ -26,22 +28,22 @@ export async function complete(convo, onupdate, onabort) {
 			}),
 		});
 
-		streamResponse(convo.model.provider, response.body, onupdate, onabort);
+		streamResponse(model.provider, response.body, onupdate, onabort);
 	} else {
 		const param = get(params);
 
 		const openAICompatibleFormat =
-			convo.model.provider === 'OpenAI' ||
-			convo.model.provider === 'OpenRouter' ||
-			convo.model.provider === 'Groq' ||
-			convo.model.provider === 'Mistral';
+			model.provider === 'OpenAI' ||
+			model.provider === 'OpenRouter' ||
+			model.provider === 'Groq' ||
+			model.provider === 'Mistral';
 
 		let messages = convo.messages.map(
 			openAICompatibleFormat ? messageToOpenAIFormat : messageToAnthropicFormat
 		);
 
 		let system = undefined;
-		if (convo.model.provider === 'Anthropic' && messages[0].role === 'system') {
+		if (model.provider === 'Anthropic' && messages[0].role === 'system') {
 			system = messages.shift().content;
 		}
 
@@ -65,7 +67,7 @@ export async function complete(convo, onupdate, onabort) {
 		const activeSchema = schema
 			.filter((tool) => (convo.tools || []).includes(tool.function.name))
 			.map((tool) => {
-				if (convo.model.provider === 'Anthropic') {
+				if (model.provider === 'Anthropic') {
 					return toolSchemaToAnthropicFormat(tool);
 				}
 				return {
@@ -74,20 +76,20 @@ export async function complete(convo, onupdate, onabort) {
 				};
 			});
 
-		const provider = providers.find((p) => p.name === convo.model.provider);
+		const provider = providers.find((p) => p.name === model.provider);
 
 		const completions = async (signal) => {
 			return fetch(`${provider.url}${provider.completionUrl}`, {
 				method: 'POST',
 				headers: {
-					...(convo.model.provider === 'OpenRouter' ||
-					convo.model.provider === 'OpenAI' ||
-					convo.model.provider === 'Groq' ||
-					convo.model.provider === 'Mistral'
+					...(model.provider === 'OpenRouter' ||
+					model.provider === 'OpenAI' ||
+					model.provider === 'Groq' ||
+					model.provider === 'Mistral'
 						? {
 								Authorization: `Bearer ${provider.apiKeyFn()}`,
 							}
-						: convo.model.provider === 'Anthropic'
+						: model.provider === 'Anthropic'
 							? {
 									'x-api-key': provider.apiKeyFn(),
 									'anthropic-version': '2023-06-01',
@@ -95,7 +97,7 @@ export async function complete(convo, onupdate, onabort) {
 								}
 							: {}),
 					'Content-Type': 'application/json',
-					...(convo.model.provider === 'OpenRouter'
+					...(model.provider === 'OpenRouter'
 						? {
 								'HTTP-Referer': 'https://lluminous.chat',
 								'X-Title': 'lluminous',
@@ -105,12 +107,12 @@ export async function complete(convo, onupdate, onabort) {
 				signal,
 				body: JSON.stringify({
 					stream: true,
-					model: convo.model.id,
+					model: model.id,
 					temperature: param.temperature,
 					max_tokens:
 						param.maxTokens != null && param.maxTokens > 0
 							? param.maxTokens
-							: convo.model.provider === 'Anthropic'
+							: model.provider === 'Anthropic'
 								? 4096
 								: undefined,
 					tools: activeSchema.length > 0 ? activeSchema : undefined,
@@ -121,11 +123,11 @@ export async function complete(convo, onupdate, onabort) {
 		};
 
 		const response = await completions(get(controller).signal);
-		streamResponse(convo.model.provider, response.body, onupdate, onabort);
+		streamResponse(model.provider, response.body, onupdate, onabort);
 	}
 }
 
-export async function completeNoStream(convo, onupdate, onabort) {
+export async function completeConsensus(convo, onupdate, onabort) {
 	controller.set(new AbortController());
 	const param = get(params);
 
