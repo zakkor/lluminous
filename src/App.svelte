@@ -74,7 +74,7 @@
 	const defaultConvo = {
 		id: uuidv4(),
 		time: Date.now(),
-		model: { id: null, name: 'Select a model', provider: null },
+		models: [{ id: null, name: 'Select a model', provider: null }],
 		messages: [],
 		versions: {},
 		tools: [],
@@ -136,6 +136,13 @@
 				const conversations = event.target.result;
 				const convosData = {};
 				conversations.forEach((conversation) => {
+					// Migrate `convo.model` to `convo.models`:
+					if (conversation.model) {
+						conversation.models = [conversation.model];
+						delete conversation.model;
+						saveConversation(conversation);
+					}
+
 					convosData[conversation.id] = conversation;
 				});
 				resolve(convosData);
@@ -587,10 +594,10 @@
 
 		const existingNewConvo = Object.values(convos).find((convo) => convo.messages.length === 0);
 		if (existingNewConvo) {
-			const oldModel = convo.model;
+			const oldModels = convo.models;
 			$convoId = existingNewConvo.id;
 			convo = convos[$convoId];
-			convo.model = oldModel;
+			convo.models = oldModels;
 
 			historyOpen = false;
 			inputTextareaEl.focus();
@@ -600,8 +607,7 @@
 		const convoData = {
 			id: uuidv4(),
 			time: Date.now(),
-			model: convo.model || models.find((m) => m.id === 'meta-llama/llama-3-8b-instruct'),
-			models: [],
+			models: [convo.model || models.find((m) => m.id === 'anthropic/claude-3.5-sonnet')],
 			messages: [],
 			versions: {},
 			tools: [],
