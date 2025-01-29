@@ -1,5 +1,5 @@
 <script>
-	import { tick } from 'svelte';
+	import { createEventDispatcher, tick } from 'svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import Button from './Button.svelte';
 	import CompanyLogo from './CompanyLogo.svelte';
@@ -24,6 +24,8 @@
 	import { config } from './stores.js';
 	import Toolcall from './Toolcall.svelte';
 	import ToolcallButton from './ToolcallButton.svelte';
+
+	const dispatch = createEventDispatcher();
 
 	export let message;
 	export let i;
@@ -106,7 +108,7 @@
 </script>
 
 {#if (['user', 'assistant'].includes(message.role) || (message.role === 'system' && (!message.customInstructions || (message.customInstructions && message.showCustomInstructions)))) && ($config.explicitToolView || !collapsedRanges.some((r) => i >= r.starti && i < r.endi))}
-	{@const hasLogo = message.role === 'assistant' && message.models.find(hasCompanyLogo)}
+	{@const hasLogo = message.role === 'assistant' && hasCompanyLogo(message.model)}
 	<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
 	<li
 		data-role={message.role}
@@ -136,7 +138,7 @@
 		{:else if i === 1 && convo.messages[i - 1].role === 'system' && convo.messages[i - 1].customInstructions && !convo.messages[i - 1].showCustomInstructions}
 			<Button
 				variant="outline"
-				class="absolute left-1/2 top-0 z-[98] -translate-x-1/2 rounded-t-none !border-t-0 text-xs opacity-0 transition-opacity group-hover:opacity-100"
+				class="absolute left-1/2 top-0 z-[98] -translate-x-1/2 text-xs opacity-0 transition-opacity group-hover:opacity-100"
 				on:click={() => {
 					convo.messages[i - 1].showCustomInstructions = true;
 					saveMessage(convo.messages[i - 1]);
@@ -169,9 +171,7 @@
 							: ''}"
 			>
 				{#if message.role === 'assistant' && hasLogo}
-					{#each message.models as model}
-						<CompanyLogo {model} size="w-full h-full" rounded="rounded-[inherit]" />
-					{/each}
+					<CompanyLogo model={message.model} size="w-full h-full" rounded="rounded-[inherit]" />
 				{:else}
 					<span class="m-auto">
 						{#if message.role === 'system'}
@@ -253,22 +253,44 @@
 						{/if}
 					{/if}
 
-					{#if message.reasoning}
-						<div
-							class="{message.thinking
-								? 'animate-pulse'
-								: ''} -mb-3 flex items-center gap-x-1 text-left text-gray-600"
-						>
-							{message.thinking ? 'Thinking' : 'Thought'} for {message.thinkingTime < 1
-								? 'a bit'
-								: Math.ceil(message.thinkingTime) + ' seconds'}
-							{#if message.thoughts}
-								<Icon
-									icon={feChevronDown}
-									class="{message.thoughtsExpanded
-										? 'rotate-180'
-										: ''} h-4 w-4 transition-transform"
-								/>
+					{#if message.websearch || message.reasoning}
+						<div class="-mb-3 flex flex-col gap-2">
+							{#if message.websearch}
+								<div
+									class="{generating
+										? 'animate-pulse'
+										: ''} flex items-center gap-x-1.5 self-start rounded-full bg-gray-200 px-3.5 py-2 text-left text-xs transition-colors hover:bg-gray-300"
+								>
+									{generating ? 'Searching' : 'Searched'} the web
+								</div>
+							{/if}
+							{#if message.reasoning}
+								<button
+									class="{message.thinking
+										? 'animate-pulse'
+										: ''} flex items-center gap-x-1.5 self-start rounded-full bg-gray-200 px-3.5 py-2 text-left text-xs transition-colors hover:bg-gray-300"
+									on:click={() => {
+										message.thoughtsExpanded = !message.thoughtsExpanded;
+										saveMessage(message);
+									}}
+								>
+									{message.thinking ? 'Thinking' : 'Thought'} for {message.thinkingTime < 1
+										? 'a bit'
+										: Math.ceil(message.thinkingTime) + ' seconds'}
+									{#if message.thoughts}
+										<Icon
+											icon={feChevronDown}
+											class="{message.thoughtsExpanded
+												? 'rotate-180'
+												: ''} h-4 w-4 transition-transform"
+										/>
+									{/if}
+								</button>
+								{#if message.thoughtsExpanded}
+									<div class="border-l border-gray-200 pl-6">
+										<MessageContent message={{ content: message.thoughts }} />
+									</div>
+								{/if}
 							{/if}
 						</div>
 					{/if}
@@ -422,8 +444,8 @@
 						</div>
 					{/if}
 
-					{#if (message.role === 'assistant' && i > 2 && convo.messages[i - 2].role === 'assistant' && message.models?.length > 0 && convo.messages[i - 2].models?.length > 0 && convo.messages[i - 2].models?.[0].id !== message.models?.[0].id) || (message.role === 'assistant' && (i === 1 || i === 2) && message.models[0] && convo.models[0].id !== message.models[0].id)}
-						<p class="text-[10px]">{formatModelName(message.models[0])}</p>
+					{#if message.role === 'assistant' && (convo.models.length > 1 || (i > 2 && convo.messages[i - 2].role === 'assistant' && message.model && convo.messages[i - 2].model && convo.messages[i - 2].model.id !== message.model.id) || (message.role === 'assistant' && (i === 1 || i === 2) && message.model && convo.models[0]?.id !== message.model.id))}
+						<p class="text-[10px]">{formatModelName(message.model)}</p>
 					{/if}
 				</div>
 
@@ -433,7 +455,7 @@
 						: ''} absolute bottom-[-32px] right-1 flex gap-x-2 opacity-0 transition-opacity md:gap-x-0.5"
 				>
 					<button
-						class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
+						class="group/actions flex h-7 w-7 shrink-0 rounded-lg hover:bg-gray-100"
 						on:click={async () => {
 							convo.messages[i].editing = true;
 							convo.messages[i].pendingContent = convo.messages[i].content;
@@ -444,11 +466,15 @@
 							saveMessage(convo.messages[i]);
 						}}
 					>
-						<Icon icon={feEdit2} strokeWidth={3} class="m-auto h-[11px] w-[11px] text-slate-600" />
+						<Icon
+							icon={feEdit2}
+							strokeWidth={3}
+							class="m-auto h-[11px] w-[11px] text-slate-600 group-hover/actions:text-slate-800"
+						/>
 					</button>
 					{#if message.role !== 'system'}
 						<button
-							class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
+							class="group/actions flex h-7 w-7 shrink-0 rounded-lg hover:bg-gray-100"
 							on:click={() => {
 								activeToolcall = null;
 
@@ -481,20 +507,25 @@
 							<Icon
 								icon={feRefreshCw}
 								strokeWidth={3}
-								class="m-auto h-[12px] w-[12px] text-slate-600"
+								class="m-auto h-[12px] w-[12px] text-slate-600 group-hover/actions:text-slate-800"
 							/>
 						</button>
 					{/if}
 					<button
-						class="flex h-7 w-7 shrink-0 rounded-full hover:bg-gray-100"
+						class="group/actions flex h-7 w-7 shrink-0 rounded-lg hover:bg-gray-100"
 						on:click={() => {
 							// Remove this message from the conversation:
 							convo.messages = convo.messages.slice(0, i).concat(convo.messages.slice(i + 1));
 							// FIXME: Delete message from db
 							saveConversation(convo);
+							dispatch('rerender');
 						}}
 					>
-						<Icon icon={feX} strokeWidth={3} class="m-auto h-[14px] w-[14px] text-slate-600" />
+						<Icon
+							icon={feX}
+							strokeWidth={3}
+							class="m-auto h-[14px] w-[14px] text-slate-600 group-hover/actions:text-slate-800"
+						/>
 					</button>
 				</div>
 			{/if}

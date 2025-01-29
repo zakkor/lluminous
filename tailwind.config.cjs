@@ -2,7 +2,17 @@ const typography = require('@tailwindcss/typography');
 
 function scrollbarsPlugin({ addUtilities }) {
 	addUtilities({
+		'.scrollbar-invisible': {
+			'scrollbar-color': 'white white',
+			'&::-webkit-scrollbar-track': {
+				background: 'white',
+			},
+			'&::-webkit-scrollbar-thumb': {
+				background: 'white',
+			},
+		},
 		'.scrollbar-white': {
+			'scrollbar-color': 'theme(\'colors.gray.400 / 50%\') white',
 			'&::-webkit-scrollbar-track': {
 				background: 'white',
 			},
@@ -11,6 +21,7 @@ function scrollbarsPlugin({ addUtilities }) {
 			},
 		},
 		'.scrollbar-slim': {
+			'scrollbar-width': 'thin',
 			'&::-webkit-scrollbar': {
 				width: '6px',
 				height: '6px',
@@ -27,6 +38,7 @@ function scrollbarsPlugin({ addUtilities }) {
 			},
 		},
 		'.scrollbar-ultraslim': {
+			'scrollbar-width': 'thin',
 			'&::-webkit-scrollbar': {
 				width: '3px',
 				height: '3px',

@@ -2,12 +2,15 @@
 	import { fly } from 'svelte/transition';
 	import FilePreview from './FilePreview.svelte';
 	import Icon from './Icon.svelte';
-	import { feArrowUp, fePaperclip, feSquare, feX } from './feather.js';
+	import { feArrowUp, fePaperclip, feSquare, feX, feUsers, feTool, feSearch } from './feather.js';
 	import { tick } from 'svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import { openAIAdditionalModelsMultimodal } from './providers.js';
 	import { readFileAsDataURL } from './util.js';
 	import { controller, params } from './stores.js';
+	import ToolPill from './ToolPill.svelte';
+	import ToolDropdown from './ToolDropdown.svelte';
+	import ModelSelector from './ModelSelector.svelte';
 
 	const imageUrlRegex = /https?:\/\/[^\s]+?\.(png|jpe?g)(?=\s|$)/gi;
 
@@ -17,11 +20,15 @@
 	export let saveConversation;
 	export let submitCompletion;
 	export let scrollToBottom;
+	export let handleAbort;
 
 	let content = '';
 	let pendingImages = [];
 	let imageUrlsBlacklist = [];
 	let pendingFiles = [];
+
+	let toolsOpen = false;
+	let websearchEnabled = false;
 
 	$: isMultimodal =
 		convo.models[0].modality === 'text+image->text' ||
@@ -228,7 +235,7 @@ ${file.text}
 	<div class="mx-auto flex w-full max-w-[680px] flex-col ld:max-w-[768px]">
 		<div class="relative flex">
 			{#if pendingImages.length > 0 || pendingFiles.length > 0}
-				<div class="absolute left-[50px] top-2.5 flex gap-x-3">
+				<div class="absolute left-5 top-2.5 flex gap-x-3">
 					{#each pendingFiles as file, i}
 						<div class="relative">
 							<FilePreview
@@ -288,24 +295,12 @@ ${file.text}
 					{/each}
 				</div>
 			{/if}
-			{#if isMultimodal}
-				<button
-					class="absolute bottom-[13px] left-4 h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110"
-					on:click={() => fileInputEl.click()}
-				>
-					<input type="file" class="hidden" bind:this={fileInputEl} on:change={handleFileUpload} />
-					<Icon
-						icon={fePaperclip}
-						class="m-auto h-3.5 w-3.5 text-white transition-colors group-disabled:text-slate-400"
-					/>
-				</button>
-			{/if}
 			<textarea
 				bind:this={inputTextareaEl}
-				class="{isMultimodal ? '!pl-[58px]' : ''} {pendingImages.length > 0 ||
+				class="{isMultimodal ? 'pr-[84px]' : 'pr-14'} {pendingImages.length > 0 ||
 				pendingFiles.length > 0
 					? '!pt-[112px]'
-					: ''} max-h-[90dvh] w-full resize-none rounded-[18px] border border-slate-200 py-4 pl-5 pr-14 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-300 focus:outline-none"
+					: ''} max-h-[90dvh] w-full resize-none rounded-[18px] border border-slate-200 pb-14 pl-5 pt-4 font-normal text-slate-800 shadow-sm transition-colors scrollbar-slim focus:border-slate-300 focus:outline-none"
 				rows={1}
 				bind:value={content}
 				on:paste={handlePaste}
@@ -333,34 +328,90 @@ ${file.text}
 					}
 				}}
 			/>
-			{#if generating && convo.messages.filter((msg) => msg.generated).length > 0}
-				<button
-					transition:fly={{ x: 2, duration: 300 }}
-					class="group absolute bottom-[13px] right-4 flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110"
-					on:click={() => {
-						$controller.abort();
-						generating = false;
-					}}
-				>
-					<Icon
-						icon={feSquare}
-						strokeWidth={4}
-						class="m-auto h-3.5 w-3.5 text-white transition-colors group-disabled:text-slate-100"
-					/>
-				</button>
-			{:else}
-				<button
-					transition:fly={{ x: 2, duration: 300 }}
-					disabled={content.length === 0}
-					class="group absolute bottom-[13px] right-4 flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110 disabled:bg-slate-400 disabled:hover:scale-100"
-					on:click={sendMessage}
-				>
-					<Icon
-						icon={feArrowUp}
-						class="m-auto h-4 w-4 text-white transition-colors group-disabled:text-slate-100"
-					/>
-				</button>
-			{/if}
+
+			<div class="absolute bottom-3 left-4 flex gap-2">
+				<div id="tool-dropdown" class="contents">
+					<ToolPill icon={feTool} selected={toolsOpen} on:click={() => (toolsOpen = !toolsOpen)}>
+						Tools
+						{#if convo.tools?.length > 0}
+							<span
+								class="{toolsOpen
+									? 'bg-white text-slate-800'
+									: 'bg-slate-800 text-white'} flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] transition-colors"
+							>
+								{convo.tools.length}
+							</span>
+						{/if}
+					</ToolPill>
+					<ToolDropdown bind:open={toolsOpen} {convo} {saveConversation} />
+				</div>
+
+				{#if convo.models.every((m) => m.provider === 'OpenRouter')}
+					<ToolPill
+						icon={feSearch}
+						selected={convo.websearch}
+						on:click={() => {
+							if (convo.websearch) {
+								convo.websearch = false;
+								saveConversation(convo);
+							} else {
+								convo.websearch = true;
+								saveConversation(convo);
+							}
+						}}
+					>
+						Search
+					</ToolPill>
+				{/if}
+			</div>
+
+			<div class="absolute bottom-[13px] right-4 flex gap-2">
+				{#if isMultimodal}
+					<button
+						class="h-8 w-8 rounded-full transition-transform hover:scale-110 hover:bg-slate-200"
+						on:click={() => fileInputEl.click()}
+					>
+						<input
+							type="file"
+							class="hidden"
+							bind:this={fileInputEl}
+							on:change={handleFileUpload}
+						/>
+						<Icon
+							icon={fePaperclip}
+							strokeWidth={2.5}
+							class="m-auto h-5 w-5 text-slate-800 transition-colors group-disabled:text-slate-400"
+						/>
+					</button>
+				{/if}
+				{#if generating && convo.messages.filter((msg) => msg.generated).length > 0}
+					<button
+						transition:fly={{ x: 2, duration: 300 }}
+						class="group flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110"
+						on:click={() => {
+							handleAbort();
+						}}
+					>
+						<Icon
+							icon={feSquare}
+							strokeWidth={4}
+							class="m-auto h-3.5 w-3.5 text-white transition-colors group-disabled:text-slate-100"
+						/>
+					</button>
+				{:else}
+					<button
+						transition:fly={{ x: 2, duration: 300 }}
+						disabled={content.length === 0}
+						class="group flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110 disabled:bg-slate-400 disabled:hover:scale-100"
+						on:click={sendMessage}
+					>
+						<Icon
+							icon={feArrowUp}
+							class="m-auto h-4 w-4 text-white transition-colors group-disabled:text-slate-100"
+						/>
+					</button>
+				{/if}
+			</div>
 		</div>
 	</div>
 </div>

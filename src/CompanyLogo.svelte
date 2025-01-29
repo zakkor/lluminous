@@ -37,5 +37,7 @@
 		/>
 	{:else if model.id.startsWith('deepseek')}
 		<img src="/logos/deepseek.ico" loading="lazy" class={size} alt="" />
+	{:else if model.id.startsWith('qwen')}
+		<img src="/logos/qwen.svg" loading="lazy" class={size} alt="" />
 	{/if}
 {/if}

@@ -107,7 +107,8 @@ export async function complete(convo, onupdate, onabort) {
 				signal,
 				body: JSON.stringify({
 					stream: true,
-					model: model.id,
+					model:
+						convo.websearch && model.provider === 'OpenRouter' ? model.id + ':online' : model.id,
 					temperature: param.temperature,
 					max_tokens:
 						param.maxTokens != null && param.maxTokens > 0
@@ -118,6 +119,7 @@ export async function complete(convo, onupdate, onabort) {
 					tools: activeSchema.length > 0 ? activeSchema : undefined,
 					system,
 					messages,
+					include_reasoning: model.provider === 'OpenRouter' ? true : undefined,
 				}),
 			});
 		};
@@ -194,7 +196,7 @@ export async function completeConsensus(convo, onupdate, onabort) {
 		},
 		{
 			role: 'user',
-			content: `Here are responses from different models to the same user query:\n\nUser query:\n${convo.messages[convo.messages.length-2].content}\n\n${modelResults
+			content: `Here are responses from different models to the same user query:\n\nUser query:\n${convo.messages[convo.messages.length - 2].content}\n\n${modelResults
 				.map((r) => `${r.model}: ${r.response}`)
 				.join(
 					'\n\n'

@@ -50,8 +50,20 @@ export const providers = [
 // Anthropic provider:
 export const anthropicModels = [
 	{
-		id: 'claude-3-5-sonnet-20240620',
+		id: 'claude-3-5-sonnet-20241022',
 		name: 'Claude 3.5 Sonnet',
+		provider: 'Anthropic',
+		modality: 'text+image->text',
+	},
+	{
+		id: 'claude-3-5-sonnet-20240620',
+		name: 'Claude 3.5 Sonnet (older)',
+		provider: 'Anthropic',
+		modality: 'text+image->text',
+	},
+	{
+		id: 'claude-3-5-haiku-20241022',
+		name: 'Claude 3.5 Haiku',
 		provider: 'Anthropic',
 		modality: 'text+image->text',
 	},
@@ -101,6 +113,17 @@ export const priorityOrder = [
 	{ fromProvider: 'Local' },
 	{
 		exactly: [
+			'anthropic/claude-3.5-sonnet',
+			'anthropic/claude-3.5-haiku',
+			'anthropic/claude-3-opus',
+		],
+	},
+	{
+		exactly: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+	},
+	{ exactly: ['deepseek/deepseek-r1', 'deepseek/deepseek-chat'] },
+	{
+		exactly: [
 			'openai/o1-preview',
 			'openai/o1-mini',
 			'openai/gpt-4-turbo',
@@ -110,93 +133,15 @@ export const priorityOrder = [
 		],
 	},
 	{ exactly: ['o1-preview', 'o1-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'dall-e-3'] },
+	{ startsWith: ['qwen'] },
 	{
 		exactly: [
-			'anthropic/claude-3.5-sonnet',
-			'anthropic/claude-3-opus',
-			'anthropic/claude-3-sonnet',
-			'anthropic/claude-3-haiku',
-		],
-	},
-	{
-		fromProvider: 'Anthropic',
-		exactly: [
-			'claude-3-5-sonnet-20240620',
-			'claude-3-opus-20240229',
-			'claude-3-sonnet-20240229',
-			'claude-3-haiku-20240307',
-		],
-	},
-	{
-		exactly: ['llama-3.1-70b-versatile', 'llama-3.1-8b-instant'],
-	},
-	{
-		exactly: [
+			'meta-llama/llama-3.3-70b-instruct',
 			'meta-llama/llama-3.1-405b-instruct',
-			'meta-llama/llama-3.1-70b-instruct',
-			'meta-llama/llama-3.1-8b-instruct:free',
-			'meta-llama/llama-3-70b-instruct',
-			'meta-llama/llama-3-8b-instruct:free',
+			'meta-llama/llama-3.1-405b',
 		],
 	},
-	{ startsWith: ['deepseek'] },
-	{
-		exactly: [
-			'mistralai/mixtral-8x22b-instruct',
-			'mistralai/mistral-large',
-			'mistralai/mistral-medium',
-			'mistralai/mistral-small',
-		],
-	},
-	{ exactly: ['google/gemini-flash-1.5', 'google/gemini-pro-1.5'] },
-	{ startsWith: ['cohere/'] },
-	{
-		exactly: [
-			'perplexity/llama-3-sonar-large-32k-online',
-			'perplexity/llama-3-sonar-small-32k-online',
-		],
-	},
-	{ startsWith: ['nousresearch/'] },
-	{ fromProvider: 'OpenAI' },
-	{
-		startsWith: [
-			'anthropic/claude-2',
-			'anthropic/claude-2.1',
-			'anthropic/claude-2.0',
-			'anthropic/claude-instant-1',
-		],
-		exactlyNot: [
-			'anthropic/claude-2',
-			'anthropic/claude-2.1',
-			'anthropic/claude-2.0',
-			'anthropic/claude-instant-1',
-			'anthropic/claude-instant-1.0',
-			'anthropic/claude-instant-1.1',
-			'anthropic/claude-instant-1.2',
-			'anthropic/claude-1.2',
-			'anthropic/claude-1',
-			'anthropic/claude-2:beta',
-			'anthropic/claude-2.0:beta',
-			'anthropic/claude-2.1:beta',
-			'anthropic/claude-instant-1:beta',
-		],
-	},
-	{
-		startsWith: ['openai/gpt-3.5-turbo', 'openai/gpt-4'],
-		exactlyNot: [
-			'openai/gpt-3.5-turbo-0125',
-			'openai/gpt-3.5-turbo-0301',
-			'openai/gpt-3.5-turbo-0613',
-			'openai/gpt-3.5-turbo-1106',
-			'openai/gpt-3.5-turbo-instruct',
-			'openai/gpt-4',
-			'openai/gpt-4-0314',
-			'openai/gpt-4-1106-preview',
-			'openai/gpt-4-32k-0314',
-		],
-	},
-	{ fromProvider: 'Mistral' },
-	{ startsWith: ['mistralai/'] },
+	{ fromProvider: 'Groq' },
 ];
 
 export function hasCompanyLogo(model) {
@@ -215,7 +160,8 @@ export function hasCompanyLogo(model) {
 			model.id.startsWith('nous') ||
 			model.id.startsWith('google') ||
 			model.id.startsWith('perplexity') ||
-			model.id.startsWith('deepseek'))
+			model.id.startsWith('deepseek') ||
+			model.id.startsWith('qwen'))
 	);
 }
 
@@ -253,4 +199,20 @@ export function formatModelName(model, short = false) {
 	}
 
 	return name;
+}
+
+export function formatMultipleModelNames(models, short = false) {
+	if (models.length === 1) {
+		return formatModelName(models[0], short);
+	}
+	if (models.length === 2) {
+		return formatModelName(models[0], short) + ', ' + formatModelName(models[1], short);
+	}
+	return (
+		formatModelName(models[0], short) +
+		', ' +
+		formatModelName(models[1], short) +
+		', + ' +
+		(models.length - 2)
+	);
 }

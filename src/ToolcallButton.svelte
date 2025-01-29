@@ -28,7 +28,7 @@
 >
 	<Icon icon={feTerminal} class="{active ? 'text-white' : 'text-slate-800'} h-4 w-4" />
 	{#if toolcall}
-		<span class="{active ? 'text-white' : ''} text-xs font-medium">
+		<span class="{active ? 'text-white' : ''} text-xs">
 			{toolcall.name}
 		</span>
 	{/if}

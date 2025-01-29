@@ -22,11 +22,13 @@
 		fePlus,
 		feRefreshCw,
 		feTool,
+		feUsers,
 		feX,
 	} from './feather.js';
 	import ClientToolSetting from './ClientToolSetting.svelte';
 	import ClientTool from './ClientTool.svelte';
 	import Tooltip from './Tooltip.svelte';
+	import ModelSelector from './ModelSelector.svelte';
 
 	const dispatch = createEventDispatcher();
 
@@ -93,6 +95,18 @@
 							Tool calling
 						</button>
 					</li>
+<!--					TODO: Consensus-->
+<!--					<li>-->
+<!--						<button-->
+<!--							class="{activeTab === 'consensus'-->
+<!--								? 'bg-gray-100/70'-->
+<!--								: ' hover:bg-gray-100/70'} flex w-full items-center gap-x-2.5 rounded-lg px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 transition-colors"-->
+<!--							on:click={() => (activeTab = 'consensus')}-->
+<!--						>-->
+<!--							<Icon icon={feUsers} class="h-3 w-3 text-slate-700" />-->
+<!--							Consensus mode-->
+<!--						</button>-->
+<!--					</li>-->
 				</ul>
 			</nav>
 		</div>
@@ -344,6 +358,18 @@
 						<span class="ms-3 text-sm text-slate-700">Use explicit view for tool calls</span>
 					</label>
 				</div>
+<!--				TODO: Consensus-->
+			<!--{:else if activeTab === 'consensus'}-->
+			<!--	<div class="mt-1 flex flex-col">-->
+			<!--		<span class="mb-3 ml-[3px] flex items-center text-[10px] uppercase tracking-wide">-->
+			<!--			Consensus summary model-->
+			<!--			<Tooltip class="ml-2">-->
+			<!--				Model that summarizes outputs from the different models to gather consensus-->
+			<!--			</Tooltip>-->
+			<!--		</span>-->
+
+			<!--		<ModelSelector />-->
+			<!--	</div>-->
 			{/if}
 		</div>
 	</div>

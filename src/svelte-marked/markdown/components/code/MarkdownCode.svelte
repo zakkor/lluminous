@@ -56,5 +56,18 @@
 			></pre>
 	</div>
 {:else}
-	<pre><code class={`lang-${token.lang}`}>{token.text}</code></pre>
+	<div class="group/code relative">
+		<button
+			class="code-copy-button absolute right-2 top-2 flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 opacity-0 transition-opacity hover:bg-gray-100 group-hover/code:opacity-100"
+			use:flash
+			on:click={(event) => {
+				event.currentTarget.dispatchEvent(new CustomEvent('flashSuccess'));
+				navigator.clipboard.writeText(token.text);
+			}}
+		>
+			<Icon icon={feCopy} class="h-2.5 w-2.5 text-slate-700" />
+			<span class="text-xs">Copy</span>
+		</button>
+		<pre><code class={`lang-${token.lang}`}>{token.text}</code></pre>
+	</div>
 {/if}

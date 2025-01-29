@@ -21,6 +21,7 @@
 		openAIIgnoreIds,
 		priorityOrder,
 		thinkingModels,
+		formatMultipleModelNames,
 	} from './providers.js';
 	import ModelSelector from './ModelSelector.svelte';
 	import CompanyLogo from './CompanyLogo.svelte';
@@ -166,13 +167,6 @@
 							saveMessage(message);
 						}
 
-						// Migrate `message.model` to `message.models`:
-						if ('model' in message) {
-							message.models = [message.model];
-							delete message.model;
-							saveMessage(message);
-						}
-
 						for (let cid in convosData) {
 							const index = convosData[cid].messages.indexOf(message.id);
 							if (index !== -1) {
@@ -294,6 +288,20 @@
 	let thinkingStartTime = null;
 	let thinkingInterval = null;
 
+	function handleAbort() {
+		if (!generating) {
+			return;
+		}
+		$controller.abort();
+		generating = false;
+		// Stop thinking
+		const i = convo.messages.length - 1;
+		if (convo.messages[i].reasoning) {
+			convo.messages[i].thinking = false;
+			stopThinkingTimer(i);
+		}
+	}
+
 	async function submitCompletion(insertUnclosed = true) {
 		if (!convo.models?.[0]?.provider) {
 			const msg = {
@@ -322,7 +330,8 @@
 				content: '',
 				unclosed: true,
 				generated: true,
-				models: convo.models,
+				websearch: convo.websearch && convo.models[0]?.provider === 'OpenRouter',
+				model: convo.models[0],
 			};
 			convo.messages.push(msg);
 			convo.messages = convo.messages;
@@ -384,6 +393,28 @@
 
 				if (choice.delta.content) {
 					convo.messages[i].content += choice.delta.content;
+					// Once content starts coming in, we can stop thinking
+					if (convo.messages[i].reasoning) {
+						convo.messages[i].thinking = false;
+						stopThinkingTimer(i);
+					}
+					saveMessage(convo.messages[i]);
+				}
+
+				// Begin thinking
+				if (choice.delta.reasoning && !convo.messages[i].reasoning) {
+					convo.messages[i].reasoning = true;
+					convo.messages[i].thoughts = '';
+					if (!convo.messages[i].thinking) {
+						convo.messages[i].thinking = true;
+						startThinkingTimer(i);
+					}
+					saveMessage(convo.messages[i]);
+				}
+
+				// Stream thoughts
+				if (convo.messages[i].reasoning && choice.delta.reasoning) {
+					convo.messages[i].thoughts += choice.delta.reasoning;
 					saveMessage(convo.messages[i]);
 				}
 
@@ -444,7 +475,7 @@
 			) {
 				generating = false;
 
-				if (thinkingModels.includes(convo.models[0].id)) {
+				if (convo.messages[i].reasoning) {
 					convo.messages[i].thinking = false;
 					stopThinkingTimer(i);
 				}
@@ -533,22 +564,23 @@
 		};
 
 		const onabort = () => {
-			generating = false;
+			handleAbort();
 		};
 
-		if (convo.models.length === 1) {
+		// TODO: Consensus
+		// if (convo.models.length === 1) {
 			complete(convo, onupdate, onabort);
-		} else {
-			completeConsensus(
-				convo,
-				(chunk) => {
-					convo.messages[i].content += chunk.choices[0].delta.content;
-					saveMessage(convo.messages[i]);
-					generating = false;
-				},
-				() => {}
-			);
-		}
+		// } else {
+		// 	completeConsensus(
+		// 		convo,
+		// 		(chunk) => {
+		// 			convo.messages[i].content += chunk.choices[0].delta.content;
+		// 			saveMessage(convo.messages[i]);
+		// 			handleAbort();
+		// 		},
+		// 		() => {}
+		// 	);
+		// }
 	}
 
 	function startThinkingTimer(messageIndex) {
@@ -614,7 +646,10 @@
 		const convoData = {
 			id: uuidv4(),
 			time: Date.now(),
-			models: convo.models.length > 0 ? [...convo.models] : [models.find((m) => m.id === 'anthropic/claude-3.5-sonnet')],
+			models:
+				convo.models.length > 0
+					? [...convo.models]
+					: [models.find((m) => m.id === 'anthropic/claude-3.5-sonnet')],
 			messages: [],
 			versions: {},
 			tools: [],
@@ -963,6 +998,7 @@
 	}
 
 	$: window.convo = convo;
+	$: window.saveConversation = saveConversation;
 
 	onMount(async () => {
 		// Clear old deprecated local storage data:
@@ -1048,7 +1084,7 @@
 			generating &&
 			convo.messages.filter((msg) => msg.generated).length > 0
 		) {
-			$controller.abort();
+			handleAbort();
 		}
 	}}
 />
@@ -1069,50 +1105,29 @@
 			<Icon icon={feMenu} strokeWidth={3} class="m-auto h-4 w-4 text-slate-700" />
 		</button>
 
-		{#if !convo.shared}
-			<ModelSelector
-				{convo}
-				{models}
-				{loadingModel}
-				{loadedModel}
-				bind:modelFinishedLoading={modelFinishedLoading[0]}
-				on:change={({ detail }) => {
-					convo.models = [detail];
-					saveConversation(convo);
-					if (convo.models[0].provider === 'Local' && convo.models[0].id !== loadedModel.id) {
-						loadModel(convo.models[0]);
-					}
-				}}
-				on:changeMulti={({ detail }) => {
-					if (convo.models.find((m) => m.id === detail.id)) {
-						convo.models = convo.models.filter((m) => m.id !== detail.id);
-					} else {
-						convo.models = [...(convo.models || []), detail];
-					}
-					saveConversation(convo);
-				}}
-				on:setTools={({ detail }) => {
-					convo.tools = convo.tools.concat(detail);
-					saveConversation(convo);
-				}}
-				on:unsetTools={({ detail }) => {
-					convo.tools = convo.tools.filter((t) => !detail.includes(t));
-					saveConversation(convo);
-				}}
-				on:clearTools={() => {
-					convo.tools = [];
-					saveConversation(convo);
-				}}
-				class="!absolute left-1/2 z-[99] -translate-x-1/2"
-			/>
-		{:else if convo.models}
-			<p
-				class="!absolute left-1/2 line-clamp-1 flex -translate-x-1/2 items-center gap-x-2 whitespace-nowrap text-sm font-semibold"
-			>
-				<CompanyLogo model={convo.models[0]} size="w-4 h-4" />
-				{formatModelName(convo.models[0])}
-			</p>
-		{/if}
+		<ModelSelector
+			{convo}
+			{models}
+			{loadingModel}
+			{loadedModel}
+			bind:modelFinishedLoading={modelFinishedLoading[0]}
+			on:change={({ detail }) => {
+				convo.models = [detail];
+				saveConversation(convo);
+				if (convo.models[0].provider === 'Local' && convo.models[0].id !== loadedModel.id) {
+					loadModel(convo.models[0]);
+				}
+			}}
+			on:changeMulti={({ detail }) => {
+				if (convo.models.find((m) => m.id === detail.id)) {
+					convo.models = convo.models.filter((m) => m.id !== detail.id);
+				} else {
+					convo.models = [...(convo.models || []), detail];
+				}
+				saveConversation(convo);
+			}}
+			class="!absolute left-1/2 z-[99] -translate-x-1/2"
+		/>
 
 		<button
 			class="ml-auto flex rounded-full p-2 transition-colors hover:bg-gray-100"
@@ -1139,14 +1154,14 @@
 			<div class="mb-1 pr-3">
 				<button
 					on:click={newConversation}
-					class="flex w-full items-center rounded-lg border py-2.5 pl-3 pr-4 text-left text-sm font-medium hover:bg-gray-100"
+					class="flex w-full items-center rounded-[10px] border py-2.5 pl-3 pr-4 text-left text-sm font-medium hover:bg-gray-100"
 				>
 					New chat
 					<Icon icon={fePlus} strokeWidth={3} class="ml-auto h-3.5 w-3.5 text-slate-700" />
 				</button>
 			</div>
 			<ol
-				class="flex list-none flex-col overflow-y-auto pb-3 pr-3 pt-5 !scrollbar-white scrollbar-slim hover:!scrollbar-slim"
+				class="scrollbar-invisible flex list-none flex-col overflow-y-auto pb-3 pr-3 pt-5 scrollbar-slim hover:scrollbar-white"
 			>
 				{#each historyBuckets as { relativeDate, convos: historyConvos } (relativeDate)}
 					<li class="mb-2 ml-3 text-xs font-medium text-slate-600 [&:not(:first-child)]:mt-6">
@@ -1156,9 +1171,7 @@
 						<li class="group relative">
 							<button
 								on:click={() => {
-									if (generating) {
-										$controller.abort();
-									}
+									handleAbort();
 
 									historyOpen = false;
 									activeToolcall = null;
@@ -1225,50 +1238,29 @@
 		</aside>
 		<div class="flex flex-1 flex-col">
 			<div class="relative hidden items-center px-2 py-2 md:flex">
-				{#if !convo.shared}
-					<ModelSelector
-						{convo}
-						{models}
-						{loadingModel}
-						{loadedModel}
-						bind:modelFinishedLoading={modelFinishedLoading[1]}
-						on:change={({ detail }) => {
-							convo.models = [detail];
-							saveConversation(convo);
-							if (convo.models[0].provider === 'Local' && convo.models[0].id !== loadedModel.id) {
-								loadModel(convo.models[0]);
-							}
-						}}
-						on:changeMulti={({ detail }) => {
-							if (convo.models.find((m) => m.id === detail.id)) {
-								convo.models = convo.models.filter((m) => m.id !== detail.id);
-							} else {
-								convo.models = [...(convo.models || []), detail];
-							}
-							saveConversation(convo);
-						}}
-						on:setTools={({ detail }) => {
-							convo.tools = convo.tools.concat(detail);
-							saveConversation(convo);
-						}}
-						on:unsetTools={({ detail }) => {
-							convo.tools = convo.tools.filter((t) => !detail.includes(t));
-							saveConversation(convo);
-						}}
-						on:clearTools={() => {
-							convo.tools = [];
-							saveConversation(convo);
-						}}
-						class="!absolute left-1/2 z-[99] -translate-x-1/2"
-					/>
-				{:else if convo.models}
-					<p
-						class="!absolute left-1/2 flex -translate-x-1/2 items-center gap-x-2 text-sm font-semibold"
-					>
-						<CompanyLogo model={convo.models[0]} size="w-4 h-4" />
-						{formatModelName(convo.models[0])}
-					</p>
-				{/if}
+				<ModelSelector
+					{convo}
+					{models}
+					{loadingModel}
+					{loadedModel}
+					bind:modelFinishedLoading={modelFinishedLoading[1]}
+					on:change={({ detail }) => {
+						convo.models = [detail];
+						saveConversation(convo);
+						if (convo.models[0].provider === 'Local' && convo.models[0].id !== loadedModel.id) {
+							loadModel(convo.models[0]);
+						}
+					}}
+					on:changeMulti={({ detail }) => {
+						if (convo.models.find((m) => m.id === detail.id)) {
+							convo.models = convo.models.filter((m) => m.id !== detail.id);
+						} else {
+							convo.models = [...(convo.models || []), detail];
+						}
+						saveConversation(convo);
+					}}
+					class="!absolute left-1/2 z-[99] -translate-x-1/2"
+				/>
 
 				<button
 					class="ml-auto flex rounded-full p-3 transition-colors hover:bg-gray-100"
@@ -1301,7 +1293,7 @@
 						bind:this={scrollableEl}
 						class="{splitView
 							? 'scrollbar-none'
-							: 'scrollbar-ultraslim'} scrollable flex h-full w-full flex-col overflow-y-auto pb-[80px]"
+							: 'scrollbar-ultraslim'} scrollable flex h-full w-full flex-col overflow-y-auto pb-[128px]"
 					>
 						{#if convo.messages.length > 0}
 							<ul
@@ -1329,6 +1321,10 @@
 										bind:chose
 										bind:activeToolcall
 										bind:textareaEls
+										on:rerender={() => {
+											// Not sure why this is needed
+											convo.messages = convo.messages;
+										}}
 									/>
 								{/each}
 							</ul>
@@ -1351,6 +1347,7 @@
 						{saveConversation}
 						{submitCompletion}
 						{scrollToBottom}
+						{handleAbort}
 						bind:inputTextareaEl
 						bind:handleFileDrop
 					/>
@@ -1449,5 +1446,10 @@
 				:where(.prose > :last-child):not(:where([class~='not-prose'], [class~='not-prose'] *))
 		) {
 		@apply mb-0;
+	}
+
+	/* Fix code copy button positioning */
+	:global(.markdown.prose p + .group\/code .code-copy-button) {
+		@apply top-6;
 	}
 </style>
