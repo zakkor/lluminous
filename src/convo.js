@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { controller, params, toolSchema } from './stores.js';
-import { providers, reasoningModels } from './providers.js';
+import { providers, reasoningModels, supportReasoningEffortModels } from './providers.js';
 
 export async function complete(convo, onupdate, onabort) {
 	controller.set(new AbortController());
@@ -95,6 +95,9 @@ export async function complete(convo, onupdate, onabort) {
 				tools: activeSchema.length > 0 ? activeSchema : undefined,
 				system,
 				messages,
+				reasoning_effort: supportReasoningEffortModels.includes(model.id)
+					? convo.reasoningEffort || 'medium'
+					: undefined,
 				include_reasoning: model.provider === 'OpenRouter' ? true : undefined,
 			}),
 		});

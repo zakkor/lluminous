@@ -105,7 +105,17 @@ export const providers = [
 // OpenAI provider: OpenAI doesn't provide any metadata for their models, so we have to harddcode which ones are multimodal
 export const openAIAdditionalModelsMultimodal = ['gpt-4o', 'gpt-4-turbo', 'gpt-4-turbo-2024-04-09'];
 
-export const reasoningModels = ['openai/o1-preview', 'openai/o1-mini', 'openai/o3-mini', 'o3-mini'];
+export const reasoningModels = [
+	'openai/o1-preview',
+	'openai/o1-mini',
+	'openai/o3-mini',
+	'o1-preview',
+	'o1-mini',
+	'o1',
+	'o3-mini',
+];
+
+export const supportReasoningEffortModels = ['o3-mini'];
 
 // OpenAI provider:
 export const openAIImageGenerationModels = ['dall-e-3'];
@@ -147,7 +157,7 @@ export const priorityOrder = [
 			'openai/gpt-4o-mini',
 		],
 	},
-	{ exactly: ['o1-preview', 'o1-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'dall-e-3'] },
+	{ exactly: ['o3-mini', 'o1-preview', 'o1-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'dall-e-3'] },
 	{ startsWith: ['qwen'] },
 	{
 		exactly: [

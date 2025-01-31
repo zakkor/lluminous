@@ -2,10 +2,19 @@
 	import { fly } from 'svelte/transition';
 	import FilePreview from './FilePreview.svelte';
 	import Icon from './Icon.svelte';
-	import { feArrowUp, fePaperclip, feSquare, feX, feUsers, feTool, feSearch } from './feather.js';
+	import {
+		feArrowUp,
+		fePaperclip,
+		feSquare,
+		feX,
+		feZap,
+		feUsers,
+		feTool,
+		feSearch,
+	} from './feather.js';
 	import { tick } from 'svelte';
 	import { v4 as uuidv4 } from 'uuid';
-	import { openAIAdditionalModelsMultimodal } from './providers.js';
+	import { openAIAdditionalModelsMultimodal, supportReasoningEffortModels } from './providers.js';
 	import { readFileAsDataURL } from './util.js';
 	import { controller, params } from './stores.js';
 	import ToolPill from './ToolPill.svelte';
@@ -361,6 +370,33 @@ ${file.text}
 						}}
 					>
 						Search
+					</ToolPill>
+				{/if}
+				{#if supportReasoningEffortModels.includes(convo.models[0].id)}
+					<ToolPill
+						icon={feZap}
+						selected={convo.websearch}
+						on:click={() => {
+							// Toggle between low, medium, and high reasoning effort
+							if (convo.reasoningEffort === 'low') {
+								convo.reasoningEffort = 'medium';
+								saveConversation(convo);
+							} else if (!convo.reasoningEffort || convo.reasoningEffort === 'medium') {
+								convo.reasoningEffort = 'high';
+								saveConversation(convo);
+							} else if (convo.reasoningEffort === 'high') {
+								convo.reasoningEffort = 'low';
+								saveConversation(convo);
+							}
+						}}
+					>
+						{#if convo.reasoningEffort === 'low'}
+							Low
+						{:else if !convo.reasoningEffort || convo.reasoningEffort === 'medium'}
+							Medium
+						{:else}
+							High
+						{/if}
 					</ToolPill>
 				{/if}
 			</div>
