@@ -13,18 +13,8 @@
 
 	export let convo;
 	export let models = [];
-	export let loadedModel = null;
-	export let loadingModel = false;
 	let className = '';
 	export { className as class };
-
-	let success = false;
-	export function modelFinishedLoading() {
-		success = true;
-		setTimeout(() => {
-			success = false;
-		}, 1000);
-	}
 
 	let id = 'tool-selector';
 	let open = false;
@@ -58,9 +48,7 @@
 <div {id} class="{className} flex gap-1.5 sm:gap-x-2">
 	<div class="relative">
 		<button
-			class="{loadingModel ? 'animate-pulse' : ''} {success
-				? 'border-green-200 bg-green-50'
-				: ''} px-2 flex h-9 w-full min-w-[210px] max-w-[200px] items-center gap-2.5 rounded-[10px] border border-slate-200 text-left transition-colors hover:border-slate-400 sm:h-10 sm:min-w-[280px] sm:pl-4 sm:pr-9"
+			class="flex h-9 w-full min-w-[210px] max-w-[200px] items-center gap-2.5 rounded-[10px] border border-slate-200 px-2 text-left transition-colors hover:border-slate-400 sm:h-10 sm:min-w-[280px] sm:pl-4 sm:pr-9"
 			on:click={async () => {
 				open = !open;
 				if (open && innerWidth > 640) {
@@ -69,18 +57,8 @@
 				}
 			}}
 		>
-			<CompanyLogo
-				model={convo.models[0]}
-				size="w-5 h-5"
-				rounded="rounded"
-			/>
+			<CompanyLogo model={convo.models[0]} size="w-5 h-5" rounded="rounded" />
 			<div class="flex items-center gap-x-1.5">
-				{#if loadingModel}
-					<Icon icon={feLoader} class="h-3 w-3 shrink-0 animate-spin text-slate-800" />
-				{/if}
-				{#if convo.models[0].provider === 'Local' && loadedModel && loadedModel.id === convo.models[0].id}
-					<Icon icon={feCheckCircle} class="h-3 w-3 shrink-0 text-slate-800" />
-				{/if}
 				<p class="line-clamp-1 text-xs text-slate-700">
 					{formatMultipleModelNames(convo.models, true)}
 				</p>
@@ -129,9 +107,6 @@
 									query = '';
 								}}
 							>
-								{#if model.provider === 'Local' && loadedModel && loadedModel.id === model.id}
-									<Icon icon={feCheckCircle} class="h-3 w-3 text-slate-800" />
-								{/if}
 								<CompanyLogo {model} />
 								<span class="line-clamp-1">{formatModelName(model)}</span>
 								{#if model.modality === 'text->image'}

@@ -380,77 +380,72 @@
 				return;
 			}
 
-			if (convo.models[0].provider === 'Local') {
-				convo.messages[i].content += chunk.content;
+			if (chunk.choices.length === 0) {
+				generating = false;
+				return;
+			}
+
+			const choice = chunk.choices[0];
+
+			if (choice.delta.content) {
+				convo.messages[i].content += choice.delta.content;
+				// Once content starts coming in, we can stop thinking
+				if (convo.messages[i].reasoning) {
+					convo.messages[i].thinking = false;
+					stopThinkingTimer(i);
+				}
 				saveMessage(convo.messages[i]);
-			} else {
-				if (chunk.choices.length === 0) {
-					generating = false;
-					return;
+			}
+
+			// Begin thinking
+			if (choice.delta.reasoning && !convo.messages[i].reasoning) {
+				convo.messages[i].reasoning = true;
+				convo.messages[i].thoughts = '';
+				if (!convo.messages[i].thinking) {
+					convo.messages[i].thinking = true;
+					startThinkingTimer(i);
 				}
+				saveMessage(convo.messages[i]);
+			}
 
-				const choice = chunk.choices[0];
+			// Stream thoughts
+			if (convo.messages[i].reasoning && choice.delta.reasoning) {
+				convo.messages[i].thoughts += choice.delta.reasoning;
+				saveMessage(convo.messages[i]);
+			}
 
-				if (choice.delta.content) {
-					convo.messages[i].content += choice.delta.content;
-					// Once content starts coming in, we can stop thinking
-					if (convo.messages[i].reasoning) {
-						convo.messages[i].thinking = false;
-						stopThinkingTimer(i);
-					}
+			if (choice.delta.tool_calls) {
+				if (!convo.messages[i].toolcalls) {
+					convo.messages[i].toolcalls = [];
 					saveMessage(convo.messages[i]);
 				}
 
-				// Begin thinking
-				if (choice.delta.reasoning && !convo.messages[i].reasoning) {
-					convo.messages[i].reasoning = true;
-					convo.messages[i].thoughts = '';
-					if (!convo.messages[i].thinking) {
-						convo.messages[i].thinking = true;
-						startThinkingTimer(i);
+				for (const tool_call of choice.delta.tool_calls) {
+					let index = tool_call.index;
+					// Watch out! Anthropic tool call indices are 1-based, not 0-based, when message.content is involved.
+					// NOTE: No longer the case for OpenRouter, they've changed this.
+					if (convo.models[0].provider === 'Anthropic' && convo.messages[i].content) {
+						index--;
+					}
+
+					if (!convo.messages[i].toolcalls[index]) {
+						convo.messages[i].toolcalls[index] = {
+							id: tool_call.id,
+							name: tool_call.function.name,
+							arguments: '',
+							expanded: true,
+						};
+						if (innerWidth > 1215) {
+							activeToolcall = convo.messages[i].toolcalls[index];
+						}
+					}
+					if (tool_call.function.arguments) {
+						convo.messages[i].toolcalls[index].arguments += tool_call.function.arguments;
+						if (innerWidth > 1215) {
+							activeToolcall = convo.messages[i].toolcalls[index];
+						}
 					}
 					saveMessage(convo.messages[i]);
-				}
-
-				// Stream thoughts
-				if (convo.messages[i].reasoning && choice.delta.reasoning) {
-					convo.messages[i].thoughts += choice.delta.reasoning;
-					saveMessage(convo.messages[i]);
-				}
-
-				if (choice.delta.tool_calls) {
-					if (!convo.messages[i].toolcalls) {
-						convo.messages[i].toolcalls = [];
-						saveMessage(convo.messages[i]);
-					}
-
-					for (const tool_call of choice.delta.tool_calls) {
-						let index = tool_call.index;
-						// Watch out! Anthropic tool call indices are 1-based, not 0-based, when message.content is involved.
-						// NOTE: No longer the case for OpenRouter, they've changed this.
-						if (convo.models[0].provider === 'Anthropic' && convo.messages[i].content) {
-							index--;
-						}
-
-						if (!convo.messages[i].toolcalls[index]) {
-							convo.messages[i].toolcalls[index] = {
-								id: tool_call.id,
-								name: tool_call.function.name,
-								arguments: '',
-								expanded: true,
-							};
-							if (innerWidth > 1215) {
-								activeToolcall = convo.messages[i].toolcalls[index];
-							}
-						}
-						if (tool_call.function.arguments) {
-							convo.messages[i].toolcalls[index].arguments += tool_call.function.arguments;
-							if (innerWidth > 1215) {
-								activeToolcall = convo.messages[i].toolcalls[index];
-							}
-						}
-						saveMessage(convo.messages[i]);
-					}
 				}
 			}
 
@@ -460,14 +455,8 @@
 			}
 
 			// Check for stoppage:
-			if (convo.models[0].provider === 'Local' && chunk.stop) {
-				generating = false;
-				return;
-			}
-
 			// External tool calls:
 			if (
-				convo.models[0].provider !== 'Local' &&
 				chunk.choices &&
 				(chunk.choices[0].finish_reason === 'stop' ||
 					chunk.choices[0].finish_reason === 'end_turn' ||
@@ -569,7 +558,7 @@
 
 		// TODO: Consensus
 		// if (convo.models.length === 1) {
-			complete(convo, onupdate, onabort);
+		complete(convo, onupdate, onabort);
 		// } else {
 		// 	completeConsensus(
 		// 		convo,
@@ -804,55 +793,7 @@
 		}
 	}
 
-	let loadedModel = null;
-	let loadingModel = false;
-	let modelFinishedLoading = [];
-
-	// For local models, we need to tell the server to load them:
-	async function loadModel(newModel) {
-		loadingModel = true;
-		loadedModel = null;
-
-		await fetch(`${$remoteServer.address}/model`, {
-			method: 'POST',
-			headers: {
-				Authorization: `Basic ${$remoteServer.password}`,
-			},
-			body: JSON.stringify({
-				model: newModel.id,
-			}),
-		});
-		loadedModel = newModel;
-		if (modelFinishedLoading) {
-			modelFinishedLoading[0]();
-			modelFinishedLoading[1]();
-		}
-		loadingModel = false;
-	}
-
 	let models = [];
-
-	async function fetchLoadedModel() {
-		try {
-			const response = await fetch(`${$remoteServer.address}/model`, {
-				method: 'GET',
-				headers: {
-					Authorization: `Basic ${$remoteServer.password}`,
-				},
-			});
-			if (!response.ok) {
-				return;
-			}
-			const json = await response.json();
-
-			loadedModel = {
-				provider: 'Local',
-				id: json.model,
-				// Strip .gguf suffix:
-				name: json.model.replace(/\.gguf$/, ''),
-			};
-		} catch (error) {}
-	}
 
 	let loading = false;
 
@@ -860,25 +801,27 @@
 		loading = true;
 		try {
 			const promises = providers.map((provider) => {
-				if (!provider.apiKeyFn() && provider.name !== 'Local') {
+				const apiKey = provider.apiKeyFn();
+				if (apiKey === '') {
 					return [];
 				}
-				// Anthropic doesn't support the /v1/models endpoint, so we hardcode it:
-				if (provider.name === 'Anthropic') {
-					return anthropicModels;
+
+				// Some providers have hardcoded models
+				if (!provider.modelsUrl && provider.models) {
+					return provider.models;
 				}
 
-				return fetch(`${provider.url}/v1/models`, {
+				return fetch(`${provider.url}${provider.modelsUrl}`, {
 					method: 'GET',
 					headers: {
-						Authorization:
-							provider.name === 'Local'
-								? `Basic ${provider.apiKeyFn()}`
-								: `Bearer ${provider.apiKeyFn()}`,
+						Authorization: apiKey ? `Bearer ${apiKey}` : undefined,
 					},
 				})
 					.then((response) => response.json())
 					.then((json) => {
+						if (provider.responseMapperFn) {
+							return provider.responseMapperFn(json);
+						}
 						const externalModels = json.data.map((m) => ({
 							id: m.id,
 							name: m.name || m.id,
@@ -889,8 +832,8 @@
 						}));
 						return externalModels;
 					})
-					.catch(() => {
-						console.log('Error fetching models from provider', provider.name);
+					.catch((err) => {
+						console.log('Error fetching models from provider', provider.name, err);
 						return [];
 					});
 			});
@@ -1041,7 +984,6 @@
 		initializePWAStyles();
 
 		// Async
-		fetchLoadedModel();
 		fetchModels();
 	});
 
@@ -1108,15 +1050,9 @@
 		<ModelSelector
 			{convo}
 			{models}
-			{loadingModel}
-			{loadedModel}
-			bind:modelFinishedLoading={modelFinishedLoading[0]}
 			on:change={({ detail }) => {
 				convo.models = [detail];
 				saveConversation(convo);
-				if (convo.models[0].provider === 'Local' && convo.models[0].id !== loadedModel.id) {
-					loadModel(convo.models[0]);
-				}
 			}}
 			on:changeMulti={({ detail }) => {
 				if (convo.models.find((m) => m.id === detail.id)) {
@@ -1161,7 +1097,7 @@
 				</button>
 			</div>
 			<ol
-				class="scrollbar-invisible flex list-none flex-col overflow-y-auto pb-3 pr-3 pt-5 scrollbar-slim hover:scrollbar-white"
+				class="flex list-none flex-col overflow-y-auto pb-3 pr-3 pt-5 scrollbar-invisible scrollbar-slim hover:scrollbar-white"
 			>
 				{#each historyBuckets as { relativeDate, convos: historyConvos } (relativeDate)}
 					<li class="mb-2 ml-3 text-xs font-medium text-slate-600 [&:not(:first-child)]:mt-6">
@@ -1241,15 +1177,9 @@
 				<ModelSelector
 					{convo}
 					{models}
-					{loadingModel}
-					{loadedModel}
-					bind:modelFinishedLoading={modelFinishedLoading[1]}
 					on:change={({ detail }) => {
 						convo.models = [detail];
 						saveConversation(convo);
-						if (convo.models[0].provider === 'Local' && convo.models[0].id !== loadedModel.id) {
-							loadModel(convo.models[0]);
-						}
 					}}
 					on:changeMulti={({ detail }) => {
 						if (convo.models.find((m) => m.id === detail.id)) {

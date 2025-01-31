@@ -8,45 +8,6 @@ import {
 	anthropicAPIKey,
 } from './stores.js';
 
-export const providers = [
-	{
-		name: 'OpenRouter',
-		url: 'https://openrouter.ai/api',
-		completionUrl: '/v1/chat/completions',
-		apiKeyFn: () => get(openrouterAPIKey),
-	},
-	{
-		name: 'Anthropic',
-		url: 'https://api.anthropic.com',
-		completionUrl: '/v1/messages',
-		apiKeyFn: () => get(anthropicAPIKey),
-	},
-	{
-		name: 'OpenAI',
-		url: 'https://api.openai.com',
-		completionUrl: '/v1/chat/completions',
-		apiKeyFn: () => get(openaiAPIKey),
-	},
-	{
-		name: 'Groq',
-		url: 'https://api.groq.com/openai',
-		completionUrl: '/v1/chat/completions',
-		apiKeyFn: () => get(groqAPIKey),
-	},
-	{
-		name: 'Mistral',
-		url: 'https://api.mistral.ai',
-		completionUrl: '/v1/chat/completions',
-		apiKeyFn: () => get(mistralAPIKey),
-	},
-	{
-		name: 'Local',
-		url: get(remoteServer).address || 'http://localhost:8081',
-		completionUrl: '/v1/chat/completions',
-		apiKeyFn: () => get(remoteServer).password,
-	},
-].filter(Boolean);
-
 // Anthropic provider:
 export const anthropicModels = [
 	{
@@ -87,6 +48,60 @@ export const anthropicModels = [
 	},
 ];
 
+export const providers = [
+	{
+		name: 'OpenRouter',
+		url: 'https://openrouter.ai/api',
+		completionUrl: '/v1/chat/completions',
+		modelsUrl: '/v1/models',
+		apiKeyFn: () => get(openrouterAPIKey),
+	},
+	{
+		name: 'Anthropic',
+		url: 'https://api.anthropic.com',
+		completionUrl: '/v1/messages',
+		modelsUrl: null,
+		models: anthropicModels,
+		apiKeyFn: () => get(anthropicAPIKey),
+	},
+	{
+		name: 'OpenAI',
+		url: 'https://api.openai.com',
+		completionUrl: '/v1/chat/completions',
+		modelsUrl: '/v1/models',
+		apiKeyFn: () => get(openaiAPIKey),
+	},
+	{
+		name: 'Groq',
+		url: 'https://api.groq.com/openai',
+		completionUrl: '/v1/chat/completions',
+		modelsUrl: '/v1/models',
+		apiKeyFn: () => get(groqAPIKey),
+	},
+	{
+		name: 'Mistral',
+		url: 'https://api.mistral.ai',
+		completionUrl: '/v1/chat/completions',
+		modelsUrl: '/v1/models',
+		apiKeyFn: () => get(mistralAPIKey),
+	},
+	{
+		name: 'Ollama',
+		url: 'http://localhost:11434',
+		completionUrl: '/v1/chat/completions',
+		modelsUrl: '/api/tags',
+		responseMapperFn: (json) => {
+			return json.models.map((m) => ({
+				id: m.name,
+				name: m.name,
+				provider: 'Ollama',
+				modality: 'text->text',
+			}));
+		},
+		apiKeyFn: () => false,
+	},
+].filter(Boolean);
+
 // OpenAI provider: OpenAI doesn't provide any metadata for their models, so we have to harddcode which ones are multimodal
 export const openAIAdditionalModelsMultimodal = ['gpt-4o', 'gpt-4-turbo', 'gpt-4-turbo-2024-04-09'];
 
@@ -110,7 +125,7 @@ export const openAIIgnoreIds = [
 ];
 
 export const priorityOrder = [
-	{ fromProvider: 'Local' },
+	{ fromProvider: 'Ollama' },
 	{
 		exactly: [
 			'anthropic/claude-3.5-sonnet',

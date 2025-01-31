@@ -7,126 +7,101 @@ export async function complete(convo, onupdate, onabort) {
 
 	const model = convo.models[0];
 
-	if (model.provider === 'Local') {
-		if (!model.template) {
-			model.template = 'chatml';
-		}
-		const response = await fetch('http://localhost:8082/completion', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			signal: get(controller).signal,
-			body: JSON.stringify({
-				stream: true,
-				prompt: conversationToString(convo),
-				stop: conversationStop(convo),
-				n_predict: -1,
-				repeat_penalty: 1.1,
-				cache_prompt: true,
-				...(convo.grammar !== '' && { grammar: convo.grammar }),
-			}),
+	const param = get(params);
+
+	const openAICompatibleFormat =
+		model.provider === 'OpenAI' ||
+		model.provider === 'OpenRouter' ||
+		model.provider === 'Groq' ||
+		model.provider === 'Mistral';
+
+	let messages = convo.messages.map(
+		openAICompatibleFormat ? messageToOpenAIFormat : messageToAnthropicFormat
+	);
+
+	let system = undefined;
+	if (model.provider === 'Anthropic' && messages[0].role === 'system') {
+		system = messages.shift().content;
+	}
+
+	if (param.messagesContextLimit > 0) {
+		messages = limitMessagesContext(messages, param.messagesContextLimit);
+	}
+
+	// TODO: Actually it works with Anthropic also. How to show it as disabled for unsupported?
+	// Filter out unclosed messages from being submitted if using external models
+	if (
+		convo.messages[convo.messages.length - 1].unclosed &&
+		convo.messages[convo.messages.length - 1].content === ''
+	) {
+		messages.pop();
+	}
+
+	const schema = get(toolSchema)
+		.map((group) => group.schema)
+		.flat();
+
+	const activeSchema = schema
+		.filter((tool) => (convo.tools || []).includes(tool.function.name))
+		.map((tool) => {
+			if (model.provider === 'Anthropic') {
+				return toolSchemaToAnthropicFormat(tool);
+			}
+			return {
+				type: tool.type,
+				function: tool.function,
+			};
 		});
 
-		streamResponse(model.provider, response.body, onupdate, onabort);
-	} else {
-		const param = get(params);
+	const provider = providers.find((p) => p.name === model.provider);
 
-		const openAICompatibleFormat =
-			model.provider === 'OpenAI' ||
-			model.provider === 'OpenRouter' ||
-			model.provider === 'Groq' ||
-			model.provider === 'Mistral';
-
-		let messages = convo.messages.map(
-			openAICompatibleFormat ? messageToOpenAIFormat : messageToAnthropicFormat
-		);
-
-		let system = undefined;
-		if (model.provider === 'Anthropic' && messages[0].role === 'system') {
-			system = messages.shift().content;
-		}
-
-		if (param.messagesContextLimit > 0) {
-			messages = limitMessagesContext(messages, param.messagesContextLimit);
-		}
-
-		// TODO: Actually it works with Anthropic also. How to show it as disabled for unsupported?
-		// Filter out unclosed messages from being submitted if using external models
-		if (
-			convo.messages[convo.messages.length - 1].unclosed &&
-			convo.messages[convo.messages.length - 1].content === ''
-		) {
-			messages.pop();
-		}
-
-		const schema = get(toolSchema)
-			.map((group) => group.schema)
-			.flat();
-
-		const activeSchema = schema
-			.filter((tool) => (convo.tools || []).includes(tool.function.name))
-			.map((tool) => {
-				if (model.provider === 'Anthropic') {
-					return toolSchemaToAnthropicFormat(tool);
-				}
-				return {
-					type: tool.type,
-					function: tool.function,
-				};
-			});
-
-		const provider = providers.find((p) => p.name === model.provider);
-
-		const completions = async (signal) => {
-			return fetch(`${provider.url}${provider.completionUrl}`, {
-				method: 'POST',
-				headers: {
-					...(model.provider === 'OpenRouter' ||
-					model.provider === 'OpenAI' ||
-					model.provider === 'Groq' ||
-					model.provider === 'Mistral'
+	const completions = async (signal) => {
+		return fetch(`${provider.url}${provider.completionUrl}`, {
+			method: 'POST',
+			headers: {
+				...(model.provider === 'OpenRouter' ||
+				model.provider === 'OpenAI' ||
+				model.provider === 'Groq' ||
+				model.provider === 'Mistral'
+					? {
+							Authorization: `Bearer ${provider.apiKeyFn()}`,
+						}
+					: model.provider === 'Anthropic'
 						? {
-								Authorization: `Bearer ${provider.apiKeyFn()}`,
-							}
-						: model.provider === 'Anthropic'
-							? {
-									'x-api-key': provider.apiKeyFn(),
-									'anthropic-version': '2023-06-01',
-									'anthropic-dangerous-direct-browser-access': 'true',
-								}
-							: {}),
-					'Content-Type': 'application/json',
-					...(model.provider === 'OpenRouter'
-						? {
-								'HTTP-Referer': 'https://lluminous.chat',
-								'X-Title': 'lluminous',
+								'x-api-key': provider.apiKeyFn(),
+								'anthropic-version': '2023-06-01',
+								'anthropic-dangerous-direct-browser-access': 'true',
 							}
 						: {}),
-				},
-				signal,
-				body: JSON.stringify({
-					stream: true,
-					model:
-						convo.websearch && model.provider === 'OpenRouter' ? model.id + ':online' : model.id,
-					temperature: param.temperature,
-					max_tokens:
-						param.maxTokens != null && param.maxTokens > 0
-							? param.maxTokens
-							: model.provider === 'Anthropic'
-								? 4096
-								: undefined,
-					tools: activeSchema.length > 0 ? activeSchema : undefined,
-					system,
-					messages,
-					include_reasoning: model.provider === 'OpenRouter' ? true : undefined,
-				}),
-			});
-		};
+				'Content-Type': 'application/json',
+				...(model.provider === 'OpenRouter'
+					? {
+							'HTTP-Referer': 'https://lluminous.chat',
+							'X-Title': 'lluminous',
+						}
+					: {}),
+			},
+			signal,
+			body: JSON.stringify({
+				stream: true,
+				model: convo.websearch && model.provider === 'OpenRouter' ? model.id + ':online' : model.id,
+				temperature: param.temperature,
+				max_tokens:
+					param.maxTokens != null && param.maxTokens > 0
+						? param.maxTokens
+						: model.provider === 'Anthropic'
+							? 4096
+							: undefined,
+				tools: activeSchema.length > 0 ? activeSchema : undefined,
+				system,
+				messages,
+				include_reasoning: model.provider === 'OpenRouter' ? true : undefined,
+			}),
+		});
+	};
 
-		const response = await completions(get(controller).signal);
-		streamResponse(model.provider, response.body, onupdate, onabort);
-	}
+	const response = await completions(get(controller).signal);
+	streamResponse(model.provider, response.body, onupdate, onabort);
 }
 
 export async function completeConsensus(convo, onupdate, onabort) {
@@ -548,48 +523,4 @@ export async function generateImage(convo, { oncomplete }) {
 	});
 	const json = await resp.json();
 	oncomplete(json);
-}
-
-export function conversationToString(convo) {
-	let result = '';
-	convo.messages.forEach((msg) => {
-		result += messageToString(msg, convo.model.template);
-	});
-	return result;
-}
-
-function conversationStop(convo) {
-	switch (convo.model.template) {
-		case 'chatml':
-			return ['<|im_end|>', '<|im_start|>', '</tool_call>'];
-		case 'deepseek':
-			return ['### Instruction:', '### Response:'];
-		case 'none':
-			return ['</s>'];
-		default:
-			throw new Error('Unknown template');
-	}
-}
-
-function messageToString(message, template) {
-	switch (template) {
-		case 'chatml':
-			let s = '<|im_start|>' + message.role + '\n' + message.content;
-			if (!message.unclosed) {
-				s += '<|im_end|>\n';
-			}
-			return s;
-		case 'deepseek':
-			if (message.role === 'system') {
-				return message.content + '\n';
-			}
-			if (message.role === 'user') {
-				return '### Instruction:\n' + message.content + '\n';
-			}
-			if (message.role === 'assistant') {
-				return '### Response:\n' + message.content + '\n';
-			}
-		case 'none':
-			return message.content;
-	}
 }
