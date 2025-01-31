@@ -8,7 +8,7 @@
 ### Key features:
 
 - Multiple providers, plug in your API keys (stored entirely locally) and you're good to go
-    - Local models (through llama.cpp)
+    - Local models (through Ollama)
     - OpenAI
     - Anthropic
     - OpenRouter (which lets you use ALL models across many providers: OpenAI, Anthropic, OSS, 50+ others)
