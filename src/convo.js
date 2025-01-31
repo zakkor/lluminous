@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { controller, params, toolSchema } from './stores.js';
-import { providers } from './providers.js';
+import { providers, reasoningModels } from './providers.js';
 
 export async function complete(convo, onupdate, onabort) {
 	controller.set(new AbortController());
@@ -85,7 +85,7 @@ export async function complete(convo, onupdate, onabort) {
 			body: JSON.stringify({
 				stream: true,
 				model: convo.websearch && model.provider === 'OpenRouter' ? model.id + ':online' : model.id,
-				temperature: param.temperature,
+				temperature: !reasoningModels.includes(model.id) ? param.temperature : undefined,
 				max_tokens:
 					param.maxTokens != null && param.maxTokens > 0
 						? param.maxTokens

@@ -20,7 +20,7 @@
 		anthropicModels,
 		openAIIgnoreIds,
 		priorityOrder,
-		thinkingModels,
+		reasoningModels,
 		formatMultipleModelNames,
 	} from './providers.js';
 	import ModelSelector from './ModelSelector.svelte';
@@ -336,7 +336,7 @@
 			convo.messages.push(msg);
 			convo.messages = convo.messages;
 
-			if (thinkingModels.includes(convo.models[0].id)) {
+			if (reasoningModels.includes(convo.models[0].id)) {
 				convo.messages[convo.messages.length - 1].reasoning = true;
 				convo.messages[convo.messages.length - 1].thinking = true;
 				startThinkingTimer(convo.messages.length - 1);
