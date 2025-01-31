@@ -58,9 +58,9 @@
 <div {id} class="{className} flex gap-1.5 sm:gap-x-2">
 	<div class="relative">
 		<button
-			class="min-w-[180px] pl-4 pr-9 {loadingModel ? 'animate-pulse' : ''} {success
+			class="{loadingModel ? 'animate-pulse' : ''} {success
 				? 'border-green-200 bg-green-50'
-				: ''} flex h-10 w-full max-w-[200px] items-center gap-2.5 rounded-[10px] border border-slate-200 text-left transition-colors hover:border-slate-400 sm:min-w-[280px]"
+				: ''} px-2 flex h-9 w-full min-w-[210px] max-w-[200px] items-center gap-2.5 rounded-[10px] border border-slate-200 text-left transition-colors hover:border-slate-400 sm:h-10 sm:min-w-[280px] sm:pl-4 sm:pr-9"
 			on:click={async () => {
 				open = !open;
 				if (open && innerWidth > 640) {
@@ -71,7 +71,7 @@
 		>
 			<CompanyLogo
 				model={convo.models[0]}
-				size="w-3.5 h-3.5 sm:w-[18px] sm:h-[18px]"
+				size="w-5 h-5"
 				rounded="rounded"
 			/>
 			<div class="flex items-center gap-x-1.5">
@@ -138,16 +138,16 @@
 									<Icon icon={feImage} class="mt-px h-3 w-3 text-slate-800" />
 								{/if}
 
-<!--								TODO: Consensus-->
-<!--								<Checkbox-->
-<!--									checked={convo.models?.find((m) => m.id === model.id)}-->
-<!--									on:change={() => {}}-->
-<!--									on:click={(event) => {-->
-<!--										event.stopPropagation();-->
-<!--										dispatch('changeMulti', model);-->
-<!--									}}-->
-<!--									class="ml-auto"-->
-<!--								/>-->
+								<!--								TODO: Consensus-->
+								<!--								<Checkbox-->
+								<!--									checked={convo.models?.find((m) => m.id === model.id)}-->
+								<!--									on:change={() => {}}-->
+								<!--									on:click={(event) => {-->
+								<!--										event.stopPropagation();-->
+								<!--										dispatch('changeMulti', model);-->
+								<!--									}}-->
+								<!--									class="ml-auto"-->
+								<!--								/>-->
 							</button>
 						</li>
 					{:else}

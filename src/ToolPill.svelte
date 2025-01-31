@@ -8,7 +8,7 @@
 <button
 	class="{selected
 		? 'text-white bg-slate-800'
-		: 'hover:bg-gray-200'} flex items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-1 text-sm transition-colors"
+		: 'bg-white hover:bg-gray-200'} flex items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-1 text-sm transition-colors"
 	on:click
 >
 	<Icon
