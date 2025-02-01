@@ -276,7 +276,7 @@
 								>
 									{message.thinking ? 'Thinking' : 'Thought'} for {message.thinkingTime < 1
 										? 'a bit'
-										: Math.ceil(message.thinkingTime) + ' seconds'}
+										: ((s) => s >= 60 ? `${Math.floor(s/60)}m ${s%60}s` : `${s} seconds`)(Math.ceil(message.thinkingTime))}
 									{#if message.thoughts}
 										<Icon
 											icon={feChevronDown}
