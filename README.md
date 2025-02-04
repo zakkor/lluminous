@@ -3,7 +3,7 @@
 ### A fast, light, open chat UI
 
 
-![Screenshot](ss.png?v=2)
+![image](https://github.com/user-attachments/assets/38cc47cf-06a3-4dca-8ee5-d9c9edf57903)
 
 ### Key features:
 
