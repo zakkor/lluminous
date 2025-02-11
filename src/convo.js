@@ -55,6 +55,8 @@ export async function complete(convo, onupdate, onabort) {
 
 	const provider = providers.find((p) => p.name === model.provider);
 
+	const stream = model.id !== 'o1';
+
 	const completions = async (signal) => {
 		return fetch(`${provider.url}${provider.completionUrl}`, {
 			method: 'POST',
@@ -76,15 +78,15 @@ export async function complete(convo, onupdate, onabort) {
 				'Content-Type': 'application/json',
 				...(model.provider === 'OpenRouter'
 					? {
-							'HTTP-Referer': 'https://lluminous.chat',
-							'X-Title': 'lluminous',
+							'HTTP-Referer': 'https://llum.chat',
+							'X-Title': 'llum',
 						}
 					: {}),
 			},
 			signal,
 			body: JSON.stringify({
-				stream: true,
-				model: convo.websearch && model.provider === 'OpenRouter' ? model.id + ':online' : model.id,
+				stream,
+				model: model.id,
 				temperature: !reasoningModels.includes(model.id) ? param.temperature : undefined,
 				max_tokens:
 					param.maxTokens != null && param.maxTokens > 0
@@ -99,12 +101,33 @@ export async function complete(convo, onupdate, onabort) {
 					? convo.reasoningEffort || 'medium'
 					: undefined,
 				include_reasoning: model.provider === 'OpenRouter' ? true : undefined,
+				provider:
+					model.provider === 'OpenRouter'
+						? {
+								sort: 'throughput',
+							}
+						: undefined,
+				plugins:
+					convo.websearch && model.provider === 'OpenRouter'
+						? [
+								{
+									id: 'web',
+									max_results: 20,
+									search_prompt: 'Consider the following web results when forming your response:',
+								},
+							]
+						: undefined,
 			}),
 		});
 	};
 
 	const response = await completions(get(controller).signal);
-	streamResponse(model.provider, response.body, onupdate, onabort);
+	if (stream) {
+		streamResponse(model.provider, response.body, onupdate, onabort);
+	} else {
+		const responseBody = await response.json();
+		onupdate(responseBody);
+	}
 }
 
 export async function completeConsensus(convo, onupdate, onabort) {

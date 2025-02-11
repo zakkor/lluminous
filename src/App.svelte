@@ -99,15 +99,34 @@
 
 		const restored = await restoreConversation();
 
-		if (!restored) {
-			if (!$convoId || !convos[$convoId]) {
-				newConversation();
-			} else {
-				convo = convos[$convoId];
-			}
-			if (!convo.tools) {
-				convo.tools = [];
-				saveConversation(convo);
+		// Search bang support
+		const queryParams = new URLSearchParams(window.location.search);
+		if (queryParams.has('search')) {
+			const search = queryParams.get('search');
+			const model = queryParams.get('model');
+			convo.models = [{ id: model, name: model, provider: 'OpenRouter' }];
+			convo.websearch = true;
+			const msg = {
+				id: uuidv4(),
+				role: 'user',
+				content: search,
+				submitted: true,
+			};
+			convo.messages = [msg];
+			saveMessage(msg);
+			saveConversation(convo);
+			submitCompletion();
+		} else {
+			if (!restored) {
+				if (!$convoId || !convos[$convoId]) {
+					newConversation();
+				} else {
+					convo = convos[$convoId];
+				}
+				if (!convo.tools) {
+					convo.tools = [];
+					saveConversation(convo);
+				}
 			}
 		}
 	};
@@ -386,6 +405,17 @@
 			}
 
 			const choice = chunk.choices[0];
+
+			if (convo.messages[i].model.id === 'o1') {
+				convo.messages[i].content = choice.message.content;
+				// Once content starts coming in, we can stop thinking
+				if (convo.messages[i].reasoning) {
+					convo.messages[i].thinking = false;
+					stopThinkingTimer(i);
+				}
+				saveMessage(convo.messages[i]);
+				return;
+			}
 
 			if (choice.delta.content) {
 				convo.messages[i].content += choice.delta.content;

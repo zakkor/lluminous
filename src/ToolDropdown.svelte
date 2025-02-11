@@ -44,7 +44,7 @@
 />
 
 {#if open && $toolSchema.length > 0}
-	<div class="absolute bottom-10 left-1/2 z-10 flex w-[max-content] -translate-x-1/2 rounded-lg">
+	<div class="absolute bottom-10 left-0 z-10 flex w-[max-content] rounded-[10px]">
 		<div
 			transition:scale={{ opacity: 0, start: 0.98, duration: 100, easing: cubicIn }}
 			class="flex h-auto w-auto min-w-[250px] flex-col self-start overflow-y-auto rounded-lg border border-slate-300 bg-white"

@@ -149,6 +149,8 @@ export const priorityOrder = [
 	{ exactly: ['deepseek/deepseek-r1', 'deepseek/deepseek-chat'] },
 	{
 		exactly: [
+			'openai/o3-mini',
+			'openai/o1',
 			'openai/o1-preview',
 			'openai/o1-mini',
 			'openai/gpt-4-turbo',
@@ -157,7 +159,7 @@ export const priorityOrder = [
 			'openai/gpt-4o-mini',
 		],
 	},
-	{ exactly: ['o3-mini', 'o1-preview', 'o1-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'dall-e-3'] },
+	{ exactly: ['o3-mini', 'o1', 'o1-preview', 'o1-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'dall-e-3'] },
 	{ startsWith: ['qwen'] },
 	{
 		exactly: [
