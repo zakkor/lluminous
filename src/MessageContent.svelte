@@ -8,7 +8,7 @@
 	<span class="text-slate-600">{message.error}</span>
 {:else if message.content}
 	<div
-		class="markdown prose prose-slate flex w-full max-w-none flex-col break-words prose-p:whitespace-pre-wrap prose-p:text-slate-800 prose-a:[overflow-wrap:anywhere] prose-code:[overflow-wrap:anywhere] prose-pre:my-4 prose-pre:whitespace-pre-wrap prose-pre:[overflow-wrap:anywhere] prose-pre:border prose-pre:border-slate-200 prose-pre:rounded-lg prose-pre:bg-white prose-pre:text-slate-800 prose-img:mb-2"
+		class="markdown prose prose-slate flex w-full max-w-none flex-col break-words prose-h1:my-1.5 prose-h1:text-2xl prose-h2:my-1.5 prose-h2:text-xl prose-h3:my-1.5 prose-h3:text-lg prose-p:whitespace-pre-wrap prose-p:text-slate-800 prose-a:[overflow-wrap:anywhere] prose-code:[overflow-wrap:anywhere] prose-pre:my-4 prose-pre:whitespace-pre-wrap prose-pre:rounded-lg prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white prose-pre:text-slate-800 prose-pre:[overflow-wrap:anywhere] prose-ul:my-0 prose-img:mb-2"
 	>
 		{#if message.contentParts}
 			{#each message.contentParts as part}

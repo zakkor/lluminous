@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { controller, params, toolSchema } from './stores.js';
-import { providers, reasoningModels, supportReasoningEffortModels } from './providers.js';
+import { headersForFetch, providers } from './providers.js';
 
 export async function complete(convo, onupdate, onabort) {
 	controller.set(new AbortController());
@@ -60,47 +60,59 @@ export async function complete(convo, onupdate, onabort) {
 	const completions = async (signal) => {
 		return fetch(`${provider.url}${provider.completionUrl}`, {
 			method: 'POST',
-			headers: {
-				...(model.provider === 'OpenRouter' ||
-				model.provider === 'OpenAI' ||
-				model.provider === 'Groq' ||
-				model.provider === 'Mistral'
-					? {
-							Authorization: `Bearer ${provider.apiKeyFn()}`,
-						}
-					: model.provider === 'Anthropic'
-						? {
-								'x-api-key': provider.apiKeyFn(),
-								'anthropic-version': '2023-06-01',
-								'anthropic-dangerous-direct-browser-access': 'true',
-							}
-						: {}),
-				'Content-Type': 'application/json',
-				...(model.provider === 'OpenRouter'
-					? {
-							'HTTP-Referer': 'https://llum.chat',
-							'X-Title': 'llum',
-						}
-					: {}),
-			},
+			headers: headersForFetch(provider, model),
 			signal,
 			body: JSON.stringify({
 				stream,
 				model: model.id,
-				temperature: !reasoningModels.includes(model.id) ? param.temperature : undefined,
+				temperature:
+					model.temperatureUnsupported ||
+					(model.provider === 'Anthropic' &&
+						model.kind === 'reasoner' &&
+						param.reasoningEffort['range'] > 0)
+						? undefined
+						: param.temperature,
 				max_tokens:
 					param.maxTokens != null && param.maxTokens > 0
 						? param.maxTokens
 						: model.provider === 'Anthropic'
-							? 4096
+							? model.maxTokensDefault || 4096
 							: undefined,
 				tools: activeSchema.length > 0 ? activeSchema : undefined,
 				system,
 				messages,
-				reasoning_effort: supportReasoningEffortModels.includes(model.id)
-					? convo.reasoningEffort || 'medium'
-					: undefined,
-				include_reasoning: model.provider === 'OpenRouter' ? true : undefined,
+				thinking:
+					model.provider === 'Anthropic' &&
+					model.kind === 'reasoner' &&
+					param.reasoningEffort['range'] > 0
+						? {
+								type: 'enabled',
+								budget_tokens:
+									param.reasoningEffort['range'] === 1000 ? 1024 : param.reasoningEffort['range'],
+							}
+						: undefined,
+				reasoning_effort:
+					model.provider === 'OpenAI' && model.reasoningEffortControls === 'low-medium-high'
+						? convo.reasoningEffort || 'medium'
+						: undefined,
+				...(model.provider === 'OpenRouter' && model.kind === 'reasoner'
+					? model.reasoningEffortControls === 'low-medium-high'
+						? { reasoning: { effort: param.reasoningEffort['low-medium-high'] || 'medium' } }
+						: model.reasoningEffortControls === 'range' && param.reasoningEffort['range'] > 0
+							? {
+									reasoning: {
+										max_tokens:
+											param.reasoningEffort['range'] === 1000
+												? 1024
+												: param.reasoningEffort['range'],
+									},
+								}
+							: {}
+					: {}),
+				include_reasoning:
+					model.provider === 'OpenRouter' && model.reasoningTracesVisibility !== 'hidden'
+						? true
+						: undefined,
 				provider:
 					model.provider === 'OpenRouter'
 						? {
@@ -491,6 +503,10 @@ function extractResponseAnthropic(event, data, onupdate) {
 						},
 					],
 				});
+			} else if (datap.delta.type === 'thinking_delta' && datap.delta.thinking) {
+				onupdate({
+					choices: [{ delta: { reasoning: datap.delta.thinking } }],
+				});
 			}
 			break;
 	}
@@ -528,7 +544,8 @@ function limitMessagesContext(messages, messagesContextLimit) {
 }
 
 export async function generateImage(convo, { oncomplete }) {
-	const provider = providers.find((p) => p.name === convo.model.provider);
+	const model = convo.models[0];
+	const provider = providers.find((p) => p.name === model.provider);
 	const userMessages = convo.messages.filter((msg) => msg.role === 'user');
 	const lastMessage = userMessages[userMessages.length - 1];
 
@@ -541,7 +558,7 @@ export async function generateImage(convo, { oncomplete }) {
 			'Content-Type': 'application/json',
 		},
 		body: JSON.stringify({
-			model: convo.model.id,
+			model: model.id,
 			prompt: lastMessage.content,
 			n: 1,
 			size: '1024x1024',

@@ -14,13 +14,9 @@
 	import {
 		formatModelName,
 		providers,
+		fetchModels,
 		hasCompanyLogo,
-		openAIAdditionalModelsMultimodal,
-		openAIImageGenerationModels,
-		anthropicModels,
-		openAIIgnoreIds,
 		priorityOrder,
-		reasoningModels,
 		formatMultipleModelNames,
 	} from './providers.js';
 	import ModelSelector from './ModelSelector.svelte';
@@ -43,7 +39,7 @@
 		feCpu,
 		feEdit2,
 		feMenu,
-		feMessageCircle,
+		feTerminal,
 		feMoreHorizontal,
 		fePaperclip,
 		fePlus,
@@ -355,9 +351,16 @@
 			convo.messages.push(msg);
 			convo.messages = convo.messages;
 
-			if (reasoningModels.includes(convo.models[0].id)) {
+			if (
+				convo.models[0].kind === 'reasoner' &&
+				(convo.models[0].reasoningEffortControls === 'range'
+					? $params.reasoningEffort['range'] > 0
+					: true)
+			) {
 				convo.messages[convo.messages.length - 1].reasoning = true;
 				convo.messages[convo.messages.length - 1].thinking = true;
+				convo.messages[convo.messages.length - 1].thoughts = '';
+				convo.messages[convo.messages.length - 1].thoughtsExpanded = true;
 				startThinkingTimer(convo.messages.length - 1);
 			}
 
@@ -394,13 +397,13 @@
 		const onupdate = async (chunk) => {
 			if (chunk.error) {
 				convo.messages[i].error = chunk.error.message || chunk.error;
-				generating = false;
 				saveMessage(convo.messages[i]);
+				handleAbort();
 				return;
 			}
 
 			if (chunk.choices.length === 0) {
-				generating = false;
+				handleAbort();
 				return;
 			}
 
@@ -431,6 +434,7 @@
 			if (choice.delta.reasoning && !convo.messages[i].reasoning) {
 				convo.messages[i].reasoning = true;
 				convo.messages[i].thoughts = '';
+				convo.messages[i].thoughtsExpanded = true;
 				if (!convo.messages[i].thinking) {
 					convo.messages[i].thinking = true;
 					startThinkingTimer(i);
@@ -827,102 +831,6 @@
 
 	let loading = false;
 
-	async function fetchModels() {
-		loading = true;
-		try {
-			const promises = providers.map((provider) => {
-				const apiKey = provider.apiKeyFn();
-				if (apiKey === '') {
-					return [];
-				}
-
-				// Some providers have hardcoded models
-				if (!provider.modelsUrl && provider.models) {
-					return provider.models;
-				}
-
-				return fetch(`${provider.url}${provider.modelsUrl}`, {
-					method: 'GET',
-					headers: {
-						Authorization: apiKey ? `Bearer ${apiKey}` : undefined,
-					},
-				})
-					.then((response) => response.json())
-					.then((json) => {
-						if (provider.responseMapperFn) {
-							return provider.responseMapperFn(json);
-						}
-						const externalModels = json.data.map((m) => ({
-							id: m.id,
-							name: m.name || m.id,
-							provider: provider.name,
-							modality:
-								m.architecture?.modality ||
-								(openAIImageGenerationModels.includes(m.id) ? 'text->image' : undefined),
-						}));
-						return externalModels;
-					})
-					.catch((err) => {
-						console.log('Error fetching models from provider', provider.name, err);
-						return [];
-					});
-			});
-
-			const ignoreIds = [...openAIIgnoreIds];
-
-			const results = await Promise.all(promises);
-			const externalModels = results.flat().filter((m) => !ignoreIds.includes(m.id));
-
-			function getPriorityIndex(model) {
-				for (let i = 0; i < priorityOrder.length; i++) {
-					const rule = priorityOrder[i];
-					if (rule.exactly) {
-						const exactIndex = rule.exactly.indexOf(model.id);
-						if (exactIndex !== -1) {
-							return [i, exactIndex];
-						}
-					}
-					if (rule.startsWith) {
-						for (let j = 0; j < rule.startsWith.length; j++) {
-							if (model.id.startsWith(rule.startsWith[j])) {
-								if (rule.exactlyNot && rule.exactlyNot.includes(model.id)) {
-									continue;
-								}
-								return [i, j];
-							}
-						}
-					}
-					if (rule.fromProvider && model.provider === rule.fromProvider) {
-						if (rule.exactlyNot && rule.exactlyNot.includes(model.id)) {
-							continue;
-						}
-						return [i, -1];
-					}
-				}
-				return [priorityOrder.length, -1];
-			}
-
-			externalModels.sort((a, b) => {
-				const [aIndex, aExactIndex] = getPriorityIndex(a);
-				const [bIndex, bExactIndex] = getPriorityIndex(b);
-
-				if (aIndex === bIndex) {
-					if (aExactIndex === bExactIndex) {
-						return a.id.localeCompare(b.id);
-					}
-					return aExactIndex - bExactIndex;
-				}
-				return aIndex - bIndex;
-			});
-
-			models = externalModels;
-		} catch (error) {
-			console.error('Error:', error);
-		} finally {
-			loading = false;
-		}
-	}
-
 	function initializePWAStyles() {
 		if (
 			innerWidth < 640 &&
@@ -984,6 +892,12 @@
 		if ($params.messagesContextLimit == null) {
 			$params.messagesContextLimit = 0;
 		}
+		if ($params.reasoningEffort == null) {
+			$params.reasoningEffort = {
+				'low-medium-high': 'medium',
+				range: 32000,
+			};
+		}
 
 		// Init client tools with default values
 		if ($toolSchema.length === 0 && !window.localStorage.getItem('initializedClientTools')) {
@@ -1013,8 +927,12 @@
 
 		initializePWAStyles();
 
-		// Async
-		fetchModels();
+		loading = true;
+		models = await fetchModels({
+			onFinally: () => {
+				loading = false;
+			},
+		});
 	});
 
 	// For displaying compact tools, we need to collapse sequences of Assistant and Tool messages into a single message
@@ -1294,7 +1212,7 @@
 								class="z-[98] mx-auto border-dashed text-xs"
 								on:click={insertSystemPrompt}
 							>
-								<Icon icon={feMessageCircle} class="mr-2 h-3 w-3 text-slate-600" />
+								<Icon icon={feTerminal} class="mr-2 h-3 w-3 text-slate-600" />
 								Add system prompt
 							</Button>
 						{/if}

@@ -7,6 +7,10 @@ export const params = persisted('params', {
 	temperature: 0.3,
 	maxTokens: 0,
 	messagesContextLimit: 0,
+	reasoningEffort: {
+		'low-medium-high': 'medium',
+		range: 32000,
+	},
 });
 
 export const config = persisted('config', {

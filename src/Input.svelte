@@ -13,13 +13,14 @@
 		feSearch,
 	} from './feather.js';
 	import { tick } from 'svelte';
+	import { get } from 'svelte/store';
 	import { v4 as uuidv4 } from 'uuid';
-	import { openAIAdditionalModelsMultimodal, supportReasoningEffortModels } from './providers.js';
 	import { readFileAsDataURL } from './util.js';
-	import { controller, params } from './stores.js';
+	import { anthropicAPIKey, controller, params } from './stores.js';
 	import ToolPill from './ToolPill.svelte';
 	import ToolDropdown from './ToolDropdown.svelte';
 	import ModelSelector from './ModelSelector.svelte';
+	import ReasoningEffortRangeDropdown from './ReasoningEffortRangeDropdown.svelte';
 
 	const imageUrlRegex = /https?:\/\/[^\s]+?\.(png|jpe?g)(?=\s|$)/gi;
 
@@ -36,12 +37,73 @@
 	let imageUrlsBlacklist = [];
 	let pendingFiles = [];
 
+	let isHoveringSend = false;
+	let tokenCount = null;
+	let tokenLoading = false;
+	let tokenError = null;
+
+	async function calculateTokens() {
+		if (convo.models[0]?.provider !== 'Anthropic') return;
+
+		tokenLoading = true;
+		tokenError = null;
+
+		try {
+			// Build system message
+			const systemMsg = convo.messages.find((m) => m.role === 'system')?.content || '';
+
+			// Build user message content
+			let fileContent = '';
+			if (pendingFiles.length > 0) {
+				for (const file of pendingFiles) {
+					fileContent += `\`\`\`filename="${file.name}"\n${file.text}\n\`\`\`\n\n`;
+				}
+			}
+
+			const messages = [
+				...convo.messages.filter((m) => m.role !== 'system'),
+				{
+					role: 'user',
+					content: fileContent + content,
+					...(pendingImages.length > 0 && {
+						content: pendingImages.map((image) => ({
+							type: 'image_url',
+							image_url: { url: image.url, detail: image.fidelity },
+						})),
+					}),
+				},
+			];
+
+			const response = await fetch('https://api.anthropic.com/v1/messages/count_tokens', {
+				method: 'POST',
+				headers: {
+					'x-api-key': get(anthropicAPIKey),
+					'content-type': 'application/json',
+					'anthropic-version': '2023-06-01',
+					'anthropic-dangerous-direct-browser-access': 'true',
+				},
+				body: JSON.stringify({
+					model: convo.models[0].id,
+					system: systemMsg,
+					messages,
+				}),
+			});
+
+			if (!response.ok) throw new Error('Token count failed');
+			const data = await response.json();
+			tokenCount = data.input_tokens;
+		} catch (err) {
+			tokenError = err.message;
+		} finally {
+			tokenLoading = false;
+		}
+	}
+
 	let toolsOpen = false;
+	let reasoningEffortDropdownOpen = false;
 	let websearchEnabled = false;
 
-	$: isMultimodal =
-		convo.models[0].modality === 'text+image->text' ||
-		openAIAdditionalModelsMultimodal.includes(convo.models[0].id);
+	$: isMultimodal = convo.models[0].modality === 'text+image->text';
 
 	async function sendMessage() {
 		if (content.length > 0) {
@@ -238,6 +300,14 @@ ${file.text}
 			}
 		}
 	}
+
+	function formatCompactNumber(number) {
+		return new Intl.NumberFormat('en-US', {
+			notation: 'compact',
+			compactDisplay: 'short',
+			maximumFractionDigits: 1,
+		}).format(number);
+	}
 </script>
 
 <div class="input-floating absolute bottom-4 left-1/2 z-[99] w-full -translate-x-1/2 px-5 ld:px-8">
@@ -372,10 +442,10 @@ ${file.text}
 						Search
 					</ToolPill>
 				{/if}
-				{#if supportReasoningEffortModels.includes(convo.models[0].id)}
+				{#if convo.models[0].reasoningEffortControls === 'low-medium-high'}
 					<ToolPill
 						icon={feZap}
-						selected={convo.websearch}
+						selected={false}
 						on:click={() => {
 							// Toggle between low, medium, and high reasoning effort
 							if (convo.reasoningEffort === 'low') {
@@ -398,6 +468,19 @@ ${file.text}
 							High
 						{/if}
 					</ToolPill>
+				{:else if convo.models[0].reasoningEffortControls === 'range'}
+					<div id="reasoning-effort-dropdown" class="contents">
+						<ToolPill
+							icon={feZap}
+							selected={reasoningEffortDropdownOpen}
+							on:click={() => (reasoningEffortDropdownOpen = !reasoningEffortDropdownOpen)}
+						>
+							Thinking {$params.reasoningEffort['range'] === 0
+								? 'off'
+								: formatCompactNumber($params.reasoningEffort['range'])}
+						</ToolPill>
+						<ReasoningEffortRangeDropdown bind:open={reasoningEffortDropdownOpen} {convo} />
+					</div>
 				{/if}
 			</div>
 
@@ -422,7 +505,6 @@ ${file.text}
 				{/if}
 				{#if generating && convo.messages.filter((msg) => msg.generated).length > 0}
 					<button
-						transition:fly={{ x: 2, duration: 300 }}
 						class="group flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110"
 						on:click={() => {
 							handleAbort();
@@ -436,15 +518,37 @@ ${file.text}
 					</button>
 				{:else}
 					<button
-						transition:fly={{ x: 2, duration: 300 }}
 						disabled={content.length === 0}
-						class="group flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110 disabled:bg-slate-400 disabled:hover:scale-100"
+						class="group relative flex h-8 w-8 rounded-full bg-slate-800 transition-transform hover:scale-110 disabled:bg-slate-400 disabled:hover:scale-100"
 						on:click={sendMessage}
+						on:mouseenter={() => {
+							if (content.length === 0) {
+								return;
+							}
+							// isHoveringSend = true;
+							// calculateTokens();
+						}}
+						on:mouseleave={() => {
+							// isHoveringSend = false;
+							// tokenCount = null;
+						}}
 					>
 						<Icon
 							icon={feArrowUp}
 							class="m-auto h-4 w-4 text-white transition-colors group-disabled:text-slate-100"
 						/>
+						{#if convo.models[0]?.provider === 'Anthropic'}
+							<div
+								class="absolute bottom-full right-0 mb-2 whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2 text-xs text-white shadow-xl"
+								class:invisible={!tokenError && !tokenCount}
+							>
+								{#if tokenError}
+									Error: {tokenError}
+								{:else}
+									{tokenCount} tokens
+								{/if}
+							</div>
+						{/if}
 					</button>
 				{/if}
 			</div>

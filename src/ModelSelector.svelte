@@ -22,7 +22,17 @@
 
 	$: filteredModels =
 		query.length > 0
-			? models.filter((model) => model.name.toLowerCase().includes(query.toLowerCase()))
+			? models.filter((model) => {
+					if (model.provider.toLowerCase() === query.toLowerCase()) {
+						return true;
+					}
+					// Only search through the model id aka the `id` in `provider/id`.
+					if (model.provider === 'OpenRouter') {
+						const modelId = model.id.split('/')[1] || model.id;
+						return modelId.toLowerCase().includes(query.toLowerCase());
+					}
+					model.name.toLowerCase().includes(query.toLowerCase());
+				})
 			: models;
 
 	let inputEl;
@@ -48,7 +58,7 @@
 <div {id} class="{className} flex gap-1.5 sm:gap-x-2">
 	<div class="relative">
 		<button
-			class="flex h-9 w-full min-w-[210px] max-w-[200px] items-center gap-2.5 rounded-[10px] border border-slate-200 px-2 text-left transition-colors hover:border-slate-400 sm:h-10 sm:min-w-[280px] sm:pl-4 sm:pr-9"
+			class="flex h-9 w-full min-w-[190px] max-w-[200px] items-center gap-2.5 rounded-[10px] border border-slate-200 px-2 text-left transition-colors hover:border-slate-400 sm:h-10 sm:min-w-[280px] sm:pl-4 sm:pr-9"
 			on:click={async () => {
 				open = !open;
 				if (open && innerWidth > 640) {

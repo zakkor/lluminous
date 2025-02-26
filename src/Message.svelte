@@ -11,7 +11,7 @@
 		feChevronRight,
 		feCpu,
 		feEdit2,
-		feMessageCircle,
+		feTerminal,
 		feMoreHorizontal,
 		fePlus,
 		feRefreshCw,
@@ -132,7 +132,7 @@
 				class="absolute left-1/2 top-0 z-[98] -translate-x-1/2 border-dashed text-xs opacity-0 transition-[border-color,opacity] group-hover:opacity-100"
 				on:click={insertSystemPrompt}
 			>
-				<Icon icon={feMessageCircle} class="mr-2 h-3 w-3 text-slate-600" />
+				<Icon icon={feTerminal} class="mr-2 h-3 w-3 text-slate-600" />
 				Add system prompt
 			</Button>
 		{:else if i === 1 && convo.messages[i - 1].role === 'system' && convo.messages[i - 1].customInstructions && !convo.messages[i - 1].showCustomInstructions}
@@ -175,7 +175,7 @@
 				{:else}
 					<span class="m-auto">
 						{#if message.role === 'system'}
-							<Icon icon={feMessageCircle} class="h-4 w-4 text-slate-800" />
+							<Icon icon={feTerminal} class="h-4 w-4 text-slate-800" />
 						{:else if message.role === 'assistant'}
 							<Icon icon={feCpu} class="h-4 w-4 text-slate-800" />
 						{:else}
@@ -269,6 +269,7 @@
 									class="{message.thinking
 										? 'animate-pulse'
 										: ''} flex items-center gap-x-1.5 self-start rounded-full bg-gray-200 px-3.5 py-2 text-left text-xs transition-colors hover:bg-gray-300"
+									disabled={message.thinking}
 									on:click={() => {
 										message.thoughtsExpanded = !message.thoughtsExpanded;
 										saveMessage(message);
@@ -276,7 +277,9 @@
 								>
 									{message.thinking ? 'Thinking' : 'Thought'} for {message.thinkingTime < 1
 										? 'a bit'
-										: ((s) => s >= 60 ? `${Math.floor(s/60)}m ${s%60}s` : `${s} seconds`)(Math.ceil(message.thinkingTime))}
+										: ((s) => (s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s} seconds`))(
+												Math.ceil(message.thinkingTime)
+											)}
 									{#if message.thoughts}
 										<Icon
 											icon={feChevronDown}
@@ -286,8 +289,8 @@
 										/>
 									{/if}
 								</button>
-								{#if message.thoughtsExpanded}
-									<div class="border-l border-gray-200 pl-6">
+								{#if message.thoughtsExpanded && message.thoughts}
+									<div class="mb-3 mt-2 border-l border-gray-200 pl-6">
 										<MessageContent message={{ content: message.thoughts }} />
 									</div>
 								{/if}
