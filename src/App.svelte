@@ -1064,6 +1064,10 @@
 									convo = convos[$convoId];
 
 									cleanShareLink();
+
+									tick().then(() => {
+										scrollToBottom();
+									});
 								}}
 								class="{$convoId === historyConvo.id
 									? 'bg-gray-100'
