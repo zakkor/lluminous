@@ -95,18 +95,18 @@
 							Tool calling
 						</button>
 					</li>
-<!--					TODO: Consensus-->
-<!--					<li>-->
-<!--						<button-->
-<!--							class="{activeTab === 'consensus'-->
-<!--								? 'bg-gray-100/70'-->
-<!--								: ' hover:bg-gray-100/70'} flex w-full items-center gap-x-2.5 rounded-lg px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 transition-colors"-->
-<!--							on:click={() => (activeTab = 'consensus')}-->
-<!--						>-->
-<!--							<Icon icon={feUsers} class="h-3 w-3 text-slate-700" />-->
-<!--							Consensus mode-->
-<!--						</button>-->
-<!--					</li>-->
+					<!--					TODO: Consensus-->
+					<!--					<li>-->
+					<!--						<button-->
+					<!--							class="{activeTab === 'consensus'-->
+					<!--								? 'bg-gray-100/70'-->
+					<!--								: ' hover:bg-gray-100/70'} flex w-full items-center gap-x-2.5 rounded-lg px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 transition-colors"-->
+					<!--							on:click={() => (activeTab = 'consensus')}-->
+					<!--						>-->
+					<!--							<Icon icon={feUsers} class="h-3 w-3 text-slate-700" />-->
+					<!--							Consensus mode-->
+					<!--						</button>-->
+					<!--					</li>-->
 				</ul>
 			</nav>
 		</div>
@@ -223,10 +223,11 @@
 				<div class="mt-1 flex flex-col">
 					<span class="mb-3 ml-[3px] flex items-center text-[10px] uppercase tracking-wide">
 						Tool schema
-						<Tooltip class="ml-2">
-							If you want to use remote tool calls or local models, you will need to have the
-							lluminous server running on your machine.
-						</Tooltip>
+						<Tooltip
+							content="If you want to use remote tool calls or local models, you will need to have the
+							llum server running on your machine."
+							class="ml-2"
+						/>
 					</span>
 					<p class="ml-[3px] text-sm text-slate-700">
 						{toolSchemaFlat.length}
@@ -289,10 +290,10 @@
 					<p class="mt-1 flex flex-col text-[10px] uppercase tracking-wide">
 						<span class="ml-[3px] flex items-center">
 							Client-side tools
-							<Tooltip class="ml-2">
-								Allows you to define custom tools that run directly in your browser (JavaScript
-								only).
-							</Tooltip>
+							<Tooltip
+								content="Allows you to define custom tools that run directly in your browser (JavaScript only)."
+								class="ml-2"
+							/>
 						</span>
 					</p>
 					<div class="mt-3 flex flex-col gap-y-3">
@@ -358,18 +359,18 @@
 						<span class="ms-3 text-sm text-slate-700">Use explicit view for tool calls</span>
 					</label>
 				</div>
-<!--				TODO: Consensus-->
-			<!--{:else if activeTab === 'consensus'}-->
-			<!--	<div class="mt-1 flex flex-col">-->
-			<!--		<span class="mb-3 ml-[3px] flex items-center text-[10px] uppercase tracking-wide">-->
-			<!--			Consensus summary model-->
-			<!--			<Tooltip class="ml-2">-->
-			<!--				Model that summarizes outputs from the different models to gather consensus-->
-			<!--			</Tooltip>-->
-			<!--		</span>-->
+				<!--				TODO: Consensus-->
+				<!--{:else if activeTab === 'consensus'}-->
+				<!--	<div class="mt-1 flex flex-col">-->
+				<!--		<span class="mb-3 ml-[3px] flex items-center text-[10px] uppercase tracking-wide">-->
+				<!--			Consensus summary model-->
+				<!--			<Tooltip class="ml-2">-->
+				<!--				Model that summarizes outputs from the different models to gather consensus-->
+				<!--			</Tooltip>-->
+				<!--		</span>-->
 
-			<!--		<ModelSelector />-->
-			<!--	</div>-->
+				<!--		<ModelSelector />-->
+				<!--	</div>-->
 			{/if}
 		</div>
 	</div>

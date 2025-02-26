@@ -3,6 +3,10 @@
 	let className = '';
 	export { className as class };
   export let strokeWidth = 2;
+	export let use = [() => {}, {}];
+
+	$: useFn = use[0];
+	$: useParams = use[1];
 </script>
 
 <svg
@@ -16,6 +20,7 @@
 	stroke-linecap="round"
 	stroke-linejoin="round"
 	class={className}
+	use:useFn={useParams}
 >
 	{@html icon}
 </svg>
