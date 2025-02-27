@@ -95,6 +95,146 @@
 
 		const restored = await restoreConversation();
 
+		// TODO: Don't await this. Or?
+		const clientMissingResult = await checkClientMissing(
+			'http://localhost:8080',
+			'ed',
+			Object.keys(convos),
+			Object.values(convos).flatMap((c) => c.messages.map((m) => m.id))
+		);
+
+		// Updated server response handling
+		if (
+			clientMissingResult.missingConversationIds.length > 0 ||
+			clientMissingResult.missingMessageIds.length > 0
+		) {
+			const serverItems = await getMissingItems(
+				'http://localhost:8080',
+				'ed',
+				clientMissingResult.missingConversationIds,
+				clientMissingResult.missingMessageIds
+			);
+
+			// 1. First save all the messages we got from server
+			for (const [messageId, message] of Object.entries(serverItems.messages)) {
+				saveMessage(message);
+			}
+
+			// 2. Process each conversation
+			for (const [conversationId, conversation] of Object.entries(serverItems.conversations)) {
+				// Create an array to hold all message objects
+				const messageObjects = [];
+
+				// For each message ID, get the full message object
+				for (const messageId of conversation.messages) {
+					// Try to get from server response first
+					let message = serverItems.messages[messageId];
+
+					// If not in server response, try local storage
+					if (!message) {
+						message = await getMessageById(messageId);
+					}
+
+					if (message) {
+						// Handle error messages properly - ensure we retain error information
+						if (message.error && !message.content) {
+							// If there's an error but no content, set a placeholder or restore from error message
+							message.content = message.error.message || 'Error occurred during message generation';
+						}
+
+						messageObjects.push(message);
+					}
+				}
+
+				// Create a new versions object with message objects instead of IDs
+				const transformedVersions = {};
+
+				if (conversation.versions) {
+					for (const versionKey in conversation.versions) {
+						transformedVersions[versionKey] = [];
+
+						// Each version can be an array of message arrays
+						const versionMessages = conversation.versions[versionKey];
+						if (Array.isArray(versionMessages)) {
+							for (const messageBatch of versionMessages) {
+								if (!messageBatch) continue;
+
+								// Transform each message batch
+								const transformedBatch = [];
+								for (const messageId of messageBatch) {
+									// Try to get from server response first
+									let message = serverItems.messages[messageId];
+
+									// If not in server response, try local storage
+									if (!message) {
+										message = await getMessageById(messageId);
+									}
+
+									if (message) {
+										// Apply same error handling as above
+										if (message.error && !message.content) {
+											message.content =
+												message.error.message || 'Error occurred during message generation';
+										}
+										transformedBatch.push(message);
+									}
+								}
+
+								transformedVersions[versionKey].push(transformedBatch);
+							}
+						}
+					}
+				}
+
+				// Create conversation with full message objects instead of IDs, and transformed versions
+				const transformedConversation = {
+					...conversation,
+					messages: messageObjects,
+					versions: transformedVersions,
+				};
+
+				saveConversation(transformedConversation);
+			}
+		}
+
+		// STEP 3: Check what server is missing from client
+		const serverMissingResult = await checkServerMissing(
+			'http://localhost:8080',
+			'ed',
+			Object.keys(convos),
+			Object.values(convos).flatMap((c) => c.messages.map((m) => m.id))
+		);
+
+		// STEP 4: Upload missing items if any
+		if (
+			serverMissingResult.missingConversationIds.length > 0 ||
+			serverMissingResult.missingMessageIds.length > 0
+		) {
+			// Prepare items to send with selective property copying
+			const conversationsToSend = {};
+			for (const id of serverMissingResult.missingConversationIds) {
+				// Create a new object with just the properties needed by server
+				conversationsToSend[id] = {
+					id: convos[id].id,
+					time: convos[id].time,
+					models: convos[id].models,
+					messages: convos[id].messages.map((msg) => msg.id), // Just the IDs
+					versions: convos[id].versions,
+					tools: convos[id].tools,
+				};
+			}
+
+			const messagesToSend = {};
+			for (const id of serverMissingResult.missingMessageIds) {
+				messagesToSend[id] = Object.values(convos)
+					.find((c) => c.messages.find((m) => m.id === id))
+					?.messages.find((m) => m.id === id);
+			}
+
+			// Send items to server
+			await sendMissingItems('http://localhost:8080', 'ed', conversationsToSend, messagesToSend);
+		}
+
 		// Search bang support
 		const queryParams = new URLSearchParams(window.location.search);
 		if (queryParams.has('search')) {
@@ -129,6 +269,36 @@
 	request.onerror = (event) => {
 		console.error(event.target.error);
 	};
+
+	// Improved function to get a message by ID from IndexedDB
+	async function getMessageById(messageId) {
+		// Safety check for invalid keys
+		if (!messageId || typeof messageId !== 'string' || messageId.trim() === '') {
+			console.warn('Invalid message ID provided:', messageId);
+			return null;
+		}
+
+		return new Promise((resolve, reject) => {
+			try {
+				const transaction = db.transaction(['messages'], 'readonly');
+				const messagesStore = transaction.objectStore('messages');
+
+				const request = messagesStore.get(messageId);
+
+				request.onsuccess = (event) => {
+					resolve(event.target.result); // Will be undefined if not found
+				};
+
+				request.onerror = (event) => {
+					console.error('Error fetching message by ID:', messageId, event.target.error);
+					resolve(null); // Resolve with null instead of rejecting to prevent sync failures
+				};
+			} catch (error) {
+				console.error('Exception in getMessageById for ID:', messageId, error);
+				resolve(null); // Resolve with null instead of rejecting
+			}
+		});
+	}
 
 	const saveMessage = debounce((msg) => {
 		const transaction = db.transaction(['messages'], 'readwrite');
@@ -880,6 +1050,79 @@
 
 	$: window.convo = convo;
 	$: window.saveConversation = saveConversation;
+
+	async function checkClientMissing(baseUrl, token, localConversationIds, localMessageIds) {
+		const response = await fetch(`${baseUrl}/api/sync/check-client-missing`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				token,
+				conversationIds: localConversationIds,
+				messageIds: localMessageIds,
+			}),
+		});
+
+		return await response.json();
+	}
+
+	async function getMissingItems(baseUrl, token, missingConversationIds, missingMessageIds) {
+		const response = await fetch(`${baseUrl}/api/sync/get-items`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				token,
+				conversationIds: missingConversationIds,
+				messageIds: missingMessageIds,
+			}),
+		});
+
+		return await response.json(); // Returns { conversations, messages }
+	}
+
+	// 3. Check what server is missing from client
+	async function checkServerMissing(baseUrl, token, allLocalConversationIds, allLocalMessageIds) {
+		const response = await fetch(`${baseUrl}/api/sync/check-server-missing`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				token,
+				conversationIds: allLocalConversationIds,
+				messageIds: allLocalMessageIds,
+			}),
+		});
+
+		return await response.json(); // Returns { missingConversationIds, missingMessageIds }
+	}
+
+	// 4. Send missing items to server
+	async function sendMissingItems(baseUrl, token, conversationsToSend, messagesToSend) {
+		const response = await fetch(`${baseUrl}/api/sync/send-items`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				token,
+				conversations: conversationsToSend,
+				messages: messagesToSend,
+			}),
+		});
+
+		return await response.json(); // Returns { success: true }
+	}
+
+	// For individual new items, use this fetch:
+	async function sendSingleItem(baseUrl, token, conversation = null, message = null) {
+		const response = await fetch(`${baseUrl}/api/sync/send-single-item`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				token,
+				conversation,
+				message,
+			}),
+		});
+
+		return await response.json(); // Returns { success: true }
+	}
 
 	onMount(async () => {
 		// Clear old deprecated local storage data:
