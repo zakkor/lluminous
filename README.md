@@ -1,4 +1,4 @@
-# lluminous
+# llum
 
 ### A fast, light, open chat UI
 
