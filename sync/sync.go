@@ -11,41 +11,17 @@ import (
 	"time"
 )
 
-// Model represents an LLM model with its properties
-type Model struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Provider string `json:"provider"`
-	Modality string `json:"modality"`
-}
-
 // Conversation represents a chat conversation containing multiple messages
-type Conversation struct {
-	ID       string                 `json:"id"`
-	Time     int64                  `json:"time"`
-	Models   []Model                `json:"models"`
-	Messages []string               `json:"messages"` // Message IDs
-	Versions map[string]interface{} `json:"versions"`
-	Tools    []string               `json:"tools"`
-}
+type Conversation map[string]any
 
 // Message represents a single message in a conversation
-type Message struct {
-	ID             string `json:"id"`
-	Role           string `json:"role"`
-	Content        string `json:"content"`
-	Unclosed       bool   `json:"unclosed"`
-	Generated      bool   `json:"generated"`
-	Model          Model  `json:"model"`
-	PendingContent string `json:"pendingContent"`
-	Editing        bool   `json:"editing"`
-	Submitted      bool   `json:"submitted"`
-}
+type Message map[string]any
 
 // UserData contains all conversations and messages for a specific user
 type UserData struct {
 	Conversations map[string]Conversation `json:"conversations"`
 	Messages      map[string]Message      `json:"messages"`
+	APIKeys       map[string]string       `json:"apiKeys"`
 }
 
 // In-memory storage with mutex for concurrency protection
@@ -108,6 +84,17 @@ type SendSingleItemResponse struct {
 	Success bool `json:"success"`
 }
 
+// Request and response types for deleting single items
+type DeleteSingleItemRequest struct {
+	Token          string `json:"token"`
+	ConversationId string `json:"conversationId,omitempty"`
+	MessageId      string `json:"messageId,omitempty"`
+}
+
+type DeleteSingleItemResponse struct {
+	Success bool `json:"success"`
+}
+
 func main() {
 	// Load storage from file if exists
 	loadStorageFromFile()
@@ -126,6 +113,7 @@ func main() {
 	http.HandleFunc("/api/sync/check-server-missing", handleCheckServerMissing)
 	http.HandleFunc("/api/sync/send-items", handleSendItems)
 	http.HandleFunc("/api/sync/send-single-item", handleSendSingleItem)
+	http.HandleFunc("/api/sync/delete-single-item", handleDeleteSingleItem)
 
 	// Add a simple health check endpoint
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -137,7 +125,7 @@ func main() {
 	corsHandler := corsMiddleware(http.DefaultServeMux)
 
 	// Start server
-	port := getEnv("PORT", "8080")
+	port := getEnv("PORT", "8084")
 	log.Printf("Server starting on :%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, corsHandler))
 }
@@ -196,9 +184,22 @@ func handleCheckClientMissing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Find missing conversations
+	// Find missing conversations, including Modified ones and tombstones
 	missingConversations := []string{}
-	for convId := range userData.Conversations {
+	for convId, conv := range userData.Conversations {
+		// Always include tombstones so clients know about deletions
+		if deleted, ok := conv["deleted"].(bool); ok && deleted {
+			missingConversations = append(missingConversations, convId)
+			continue
+		}
+
+		// Always include Modified conversations
+		if modified, ok := conv["modified"].(bool); ok && modified {
+			missingConversations = append(missingConversations, convId)
+			continue
+		}
+
+		// Otherwise, include if client doesn't have it
 		found := false
 		for _, clientConvId := range req.ConversationIds {
 			if convId == clientConvId {
@@ -211,9 +212,22 @@ func handleCheckClientMissing(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Find missing messages
+	// Find missing messages, including Modified ones and tombstones
 	missingMessages := []string{}
-	for msgId := range userData.Messages {
+	for msgId, msg := range userData.Messages {
+		// Always include tombstones so clients know about deletions
+		if deleted, ok := msg["deleted"].(bool); ok && deleted {
+			missingMessages = append(missingMessages, msgId)
+			continue
+		}
+
+		// Always include Modified messages
+		if modified, ok := msg["modified"].(bool); ok && modified {
+			missingMessages = append(missingMessages, msgId)
+			continue
+		}
+
+		// Otherwise, include if client doesn't have it
 		found := false
 		for _, clientMsgId := range req.MessageIds {
 			if msgId == clientMsgId {
@@ -254,10 +268,10 @@ func handleGetItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mutex.RLock()
-	userData, exists := storage[req.Token]
-	mutex.RUnlock()
+	mutex.Lock() // Using a full lock to safely read and update
+	defer mutex.Unlock()
 
+	userData, exists := storage[req.Token]
 	if !exists {
 		// Return empty data if user not found
 		w.Header().Set("Content-Type", "application/json")
@@ -273,7 +287,24 @@ func handleGetItems(w http.ResponseWriter, r *http.Request) {
 	conversations := make(map[string]Conversation)
 	for _, convId := range req.ConversationIds {
 		if conv, ok := userData.Conversations[convId]; ok {
-			conversations[convId] = conv
+			// For tombstones, only include minimal information
+			if deleted, ok := conv["deleted"].(bool); ok && deleted {
+				conversations[convId] = Conversation{
+					"id":        convId,
+					"deleted":   true,
+					"deletedAt": conv["deletedAt"],
+				}
+				continue
+			}
+
+			// For regular items, create a clean copy without the Modified flag
+			cleanConv := make(Conversation)
+			for k, v := range conv {
+				if k != "modified" {
+					cleanConv[k] = v
+				}
+			}
+			conversations[convId] = cleanConv
 		}
 	}
 
@@ -281,9 +312,29 @@ func handleGetItems(w http.ResponseWriter, r *http.Request) {
 	messages := make(map[string]Message)
 	for _, msgId := range req.MessageIds {
 		if msg, ok := userData.Messages[msgId]; ok {
-			messages[msgId] = msg
+			// For tombstones, only include minimal information
+			if deleted, ok := msg["deleted"].(bool); ok && deleted {
+				messages[msgId] = Message{
+					"id":        msgId,
+					"deleted":   true,
+					"deletedAt": msg["deletedAt"],
+				}
+				continue
+			}
+
+			// For regular items, create a clean copy without the Modified flag
+			cleanMsg := make(Message)
+			for k, v := range msg {
+				if k != "modified" {
+					cleanMsg[k] = v
+				}
+			}
+			messages[msgId] = cleanMsg
 		}
 	}
+
+	// Update storage with reset Modified flags
+	storage[req.Token] = userData
 
 	resp := GetItemsResponse{
 		Conversations: conversations,
@@ -384,13 +435,27 @@ func handleSendItems(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Add conversations
+	// Add conversations, but respect tombstones
 	for id, conv := range req.Conversations {
+		// Check if there's a tombstone for this id
+		if existingConv, exists := userData.Conversations[id]; exists {
+			if deleted, ok := existingConv["deleted"].(bool); ok && deleted {
+				// This is a tombstone, don't resurrect the item
+				continue
+			}
+		}
 		userData.Conversations[id] = conv
 	}
 
-	// Add messages
+	// Add messages, but respect tombstones
 	for id, msg := range req.Messages {
+		// Check if there's a tombstone for this id
+		if existingMsg, exists := userData.Messages[id]; exists {
+			if deleted, ok := existingMsg["deleted"].(bool); ok && deleted {
+				// This is a tombstone, don't resurrect the item
+				continue
+			}
+		}
 		userData.Messages[id] = msg
 	}
 
@@ -447,21 +512,51 @@ func handleSendSingleItem(w http.ResponseWriter, r *http.Request) {
 	// Add conversation if provided
 	if req.Conversation != nil {
 		conv := *req.Conversation
-		if conv.ID == "" {
+		id, ok := conv["id"].(string)
+		if !ok || id == "" {
 			http.Error(w, "Conversation ID is required", http.StatusBadRequest)
 			return
 		}
-		userData.Conversations[conv.ID] = conv
+
+		// Check if there's a tombstone for this id
+		if existingConv, exists := userData.Conversations[id]; exists {
+			if deleted, ok := existingConv["deleted"].(bool); ok && deleted {
+				// This is a tombstone, don't resurrect the item
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(SendSingleItemResponse{Success: true})
+				return
+			}
+
+			// This is an update, mark as Modified
+			conv["modified"] = true
+		}
+		userData.Conversations[id] = conv
 	}
 
 	// Add message if provided
 	if req.Message != nil {
 		msg := *req.Message
-		if msg.ID == "" {
+		id, ok := msg["id"].(string)
+		if !ok || id == "" {
 			http.Error(w, "Message ID is required", http.StatusBadRequest)
 			return
 		}
-		userData.Messages[msg.ID] = msg
+
+		// Check if there's a tombstone for this id
+		if existingMsg, exists := userData.Messages[id]; exists {
+			if deleted, ok := existingMsg["deleted"].(bool); ok && deleted {
+				// This is a tombstone, don't resurrect the item
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(SendSingleItemResponse{Success: true})
+				return
+			}
+
+			// This is an update, mark as Modified
+			msg["modified"] = true
+		}
+		userData.Messages[id] = msg
 	}
 
 	// Update storage
@@ -471,6 +566,83 @@ func handleSendSingleItem(w http.ResponseWriter, r *http.Request) {
 	go saveStorageToFile()
 
 	resp := SendSingleItemResponse{
+		Success: true,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
+}
+
+// handleDeleteSingleItem deletes a single conversation or message
+func handleDeleteSingleItem(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req DeleteSingleItemRequest
+	if err := parseBody(r, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if req.Token == "" {
+		http.Error(w, "Token is required", http.StatusBadRequest)
+		return
+	}
+
+	if req.ConversationId == "" && req.MessageId == "" {
+		http.Error(w, "Either conversationId or messageId must be provided", http.StatusBadRequest)
+		return
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// Get user data
+	userData, exists := storage[req.Token]
+	if !exists {
+		// User doesn't exist, nothing to delete
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(DeleteSingleItemResponse{Success: true})
+		return
+	}
+
+	// Create tombstone for conversation if provided
+	if req.ConversationId != "" {
+		// Check if it exists first
+		if _, ok := userData.Conversations[req.ConversationId]; ok {
+			// Create a tombstone instead of deleting
+			userData.Conversations[req.ConversationId] = Conversation{
+				"id":        req.ConversationId,
+				"deleted":   true,
+				"deletedAt": time.Now().Unix(),
+			}
+		}
+	}
+
+	// Create tombstone for message if provided
+	if req.MessageId != "" {
+		// Check if it exists first
+		if _, ok := userData.Messages[req.MessageId]; ok {
+			// Create a tombstone instead of deleting
+			userData.Messages[req.MessageId] = Message{
+				"id":        req.MessageId,
+				"deleted":   true,
+				"deletedAt": time.Now().Unix(),
+			}
+		}
+	}
+
+	// Update storage
+	storage[req.Token] = userData
+
+	// Save to file after updates
+	go saveStorageToFile()
+
+	resp := DeleteSingleItemResponse{
 		Success: true,
 	}
 

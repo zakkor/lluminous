@@ -17,6 +17,7 @@
 		feRefreshCw,
 		feUser,
 		feX,
+		feChevronUp,
 	} from './feather';
 	import Icon from './Icon.svelte';
 	import MessageContent from './MessageContent.svelte';
@@ -105,6 +106,8 @@
 		}
 		return toolcalls.reverse().flat();
 	}
+
+	let contentHeight;
 </script>
 
 {#if (['user', 'assistant'].includes(message.role) || (message.role === 'system' && (!message.customInstructions || (message.customInstructions && message.showCustomInstructions)))) && ($config.explicitToolView || !collapsedRanges.some((r) => i >= r.starti && i < r.endi))}
@@ -290,8 +293,26 @@
 									{/if}
 								</button>
 								{#if message.thoughtsExpanded && message.thoughts}
-									<div class="mb-3 mt-2 border-l border-gray-200 pl-6">
-										<MessageContent message={{ content: message.thoughts }} />
+									<div
+										class="{contentHeight > 400
+											? 'relative'
+											: ''} mb-3 mt-2 border-l border-gray-200 pl-6"
+									>
+										<MessageContent
+											message={{ content: message.thoughts }}
+											bind:clientHeight={contentHeight}
+										/>
+										{#if contentHeight > 400}
+											<button
+												class="sticky bottom-4 left-1/2 flex translate-x-[calc(-50%-16px)] items-center gap-x-1.5 self-start rounded-full bg-gray-200 px-3.5 py-2 text-left text-xs transition-colors hover:bg-gray-300"
+												on:click={() => {
+													message.thoughtsExpanded = !message.thoughtsExpanded;
+													saveMessage(message);
+												}}
+											>
+												<Icon icon={feChevronUp} class="h-4 w-4 transition-transform" /> Collapse thoughts
+											</button>
+										{/if}
 									</div>
 								{/if}
 							{/if}

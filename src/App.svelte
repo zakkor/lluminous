@@ -21,7 +21,7 @@
 	} from './providers.js';
 	import ModelSelector from './ModelSelector.svelte';
 	import CompanyLogo from './CompanyLogo.svelte';
-	import { controller, remoteServer, config, params, toolSchema } from './stores.js';
+	import { controller, remoteServer, config, params, toolSchema, syncServer } from './stores.js';
 	import SettingsModal from './SettingsModal.svelte';
 	import ToolcallButton from './ToolcallButton.svelte';
 	import MessageContent from './MessageContent.svelte';
@@ -57,6 +57,13 @@
 	import FilePreview from './FilePreview.svelte';
 	import { flash } from './actions';
 	import Message from './Message.svelte';
+	import {
+		deleteSingleItem,
+		llumHostedAddress,
+		sendSingleItem,
+		syncPull,
+		syncPush,
+	} from './sync.js';
 
 	marked.use(
 		markedKatex({
@@ -95,146 +102,6 @@
 
 		const restored = await restoreConversation();
 
-		// TODO: Don't await this. Or?
-		const clientMissingResult = await checkClientMissing(
-			'http://localhost:8080',
-			'ed',
-			Object.keys(convos),
-			Object.values(convos).flatMap((c) => c.messages.map((m) => m.id))
-		);
-
-		// Updated server response handling
-		if (
-			clientMissingResult.missingConversationIds.length > 0 ||
-			clientMissingResult.missingMessageIds.length > 0
-		) {
-			const serverItems = await getMissingItems(
-				'http://localhost:8080',
-				'ed',
-				clientMissingResult.missingConversationIds,
-				clientMissingResult.missingMessageIds
-			);
-
-			// 1. First save all the messages we got from server
-			for (const [messageId, message] of Object.entries(serverItems.messages)) {
-				saveMessage(message);
-			}
-
-			// 2. Process each conversation
-			for (const [conversationId, conversation] of Object.entries(serverItems.conversations)) {
-				// Create an array to hold all message objects
-				const messageObjects = [];
-
-				// For each message ID, get the full message object
-				for (const messageId of conversation.messages) {
-					// Try to get from server response first
-					let message = serverItems.messages[messageId];
-
-					// If not in server response, try local storage
-					if (!message) {
-						message = await getMessageById(messageId);
-					}
-
-					if (message) {
-						// Handle error messages properly - ensure we retain error information
-						if (message.error && !message.content) {
-							// If there's an error but no content, set a placeholder or restore from error message
-							message.content = message.error.message || 'Error occurred during message generation';
-						}
-
-						messageObjects.push(message);
-					}
-				}
-
-				// Create a new versions object with message objects instead of IDs
-				const transformedVersions = {};
-
-				if (conversation.versions) {
-					for (const versionKey in conversation.versions) {
-						transformedVersions[versionKey] = [];
-
-						// Each version can be an array of message arrays
-						const versionMessages = conversation.versions[versionKey];
-						if (Array.isArray(versionMessages)) {
-							for (const messageBatch of versionMessages) {
-								if (!messageBatch) continue;
-
-								// Transform each message batch
-								const transformedBatch = [];
-								for (const messageId of messageBatch) {
-									// Try to get from server response first
-									let message = serverItems.messages[messageId];
-
-									// If not in server response, try local storage
-									if (!message) {
-										message = await getMessageById(messageId);
-									}
-
-									if (message) {
-										// Apply same error handling as above
-										if (message.error && !message.content) {
-											message.content =
-												message.error.message || 'Error occurred during message generation';
-										}
-										transformedBatch.push(message);
-									}
-								}
-
-								transformedVersions[versionKey].push(transformedBatch);
-							}
-						}
-					}
-				}
-
-				// Create conversation with full message objects instead of IDs, and transformed versions
-				const transformedConversation = {
-					...conversation,
-					messages: messageObjects,
-					versions: transformedVersions,
-				};
-
-				saveConversation(transformedConversation);
-			}
-		}
-
-		// STEP 3: Check what server is missing from client
-		const serverMissingResult = await checkServerMissing(
-			'http://localhost:8080',
-			'ed',
-			Object.keys(convos),
-			Object.values(convos).flatMap((c) => c.messages.map((m) => m.id))
-		);
-
-		// STEP 4: Upload missing items if any
-		if (
-			serverMissingResult.missingConversationIds.length > 0 ||
-			serverMissingResult.missingMessageIds.length > 0
-		) {
-			// Prepare items to send with selective property copying
-			const conversationsToSend = {};
-			for (const id of serverMissingResult.missingConversationIds) {
-				// Create a new object with just the properties needed by server
-				conversationsToSend[id] = {
-					id: convos[id].id,
-					time: convos[id].time,
-					models: convos[id].models,
-					messages: convos[id].messages.map((msg) => msg.id), // Just the IDs
-					versions: convos[id].versions,
-					tools: convos[id].tools,
-				};
-			}
-
-			const messagesToSend = {};
-			for (const id of serverMissingResult.missingMessageIds) {
-				messagesToSend[id] = Object.values(convos)
-					.find((c) => c.messages.find((m) => m.id === id))
-					?.messages.find((m) => m.id === id);
-			}
-
-			// Send items to server
-			await sendMissingItems('http://localhost:8080', 'ed', conversationsToSend, messagesToSend);
-		}
-
 		// Search bang support
 		const queryParams = new URLSearchParams(window.location.search);
 		if (queryParams.has('search')) {
@@ -270,46 +137,46 @@
 		console.error(event.target.error);
 	};
 
-	// Improved function to get a message by ID from IndexedDB
-	async function getMessageById(messageId) {
-		// Safety check for invalid keys
-		if (!messageId || typeof messageId !== 'string' || messageId.trim() === '') {
-			console.warn('Invalid message ID provided:', messageId);
-			return null;
-		}
-
-		return new Promise((resolve, reject) => {
-			try {
-				const transaction = db.transaction(['messages'], 'readonly');
-				const messagesStore = transaction.objectStore('messages');
-
-				const request = messagesStore.get(messageId);
-
-				request.onsuccess = (event) => {
-					resolve(event.target.result); // Will be undefined if not found
-				};
-
-				request.onerror = (event) => {
-					console.error('Error fetching message by ID:', messageId, event.target.error);
-					resolve(null); // Resolve with null instead of rejecting to prevent sync failures
-				};
-			} catch (error) {
-				console.error('Exception in getMessageById for ID:', messageId, error);
-				resolve(null); // Resolve with null instead of rejecting
-			}
-		});
-	}
-
-	const saveMessage = debounce((msg) => {
+	const saveMessage = debounce((msg, opts = { syncToServer: true }) => {
 		const transaction = db.transaction(['messages'], 'readwrite');
 		const store = transaction.objectStore('messages');
 
 		store.put(msg);
 
+		if (opts.syncToServer && $syncServer.token) {
+			sendSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
+				conversation: null,
+				message: msg,
+			});
+		}
+
 		transaction.onerror = () => {
 			console.error('Message save failed', transaction.error);
 		};
-	}, 100);
+	}, 500);
+
+	function convertMessageFromIdToObject(message, conversations) {
+		for (let convo of conversations) {
+			const index = convo.messages.indexOf(message.id);
+			if (index !== -1) {
+				// Replace the message ID with the actual message object
+				convo.messages[index] = message;
+			}
+			// Handle versions
+			for (let versionKey in convo.versions) {
+				for (let messages of convo.versions[versionKey]) {
+					if (!messages) {
+						continue;
+					}
+					const i = messages.indexOf(message.id);
+					if (i !== -1) {
+						// Replace the message ID with the actual message object
+						messages[i] = message;
+					}
+				}
+			}
+		}
+	}
 
 	async function fetchAllConversations() {
 		const transaction = db.transaction(['conversations', 'messages'], 'readonly');
@@ -320,7 +187,6 @@
 			const conversationsRequest = conversationsStore.getAll();
 			conversationsRequest.onsuccess = (event) => {
 				const conversations = event.target.result;
-				const convosData = {};
 				conversations.forEach((conversation) => {
 					// Migrate `convo.model` to `convo.models`:
 					if (conversation.model) {
@@ -328,102 +194,161 @@
 						delete conversation.model;
 						saveConversation(conversation);
 					}
-
-					convosData[conversation.id] = conversation;
 				});
-				resolve(convosData);
+				resolve(conversations);
 			};
 			conversationsRequest.onerror = (event) => {
 				reject(event.target.error);
 			};
 		});
 
-		const fetchMessages = (convosData) => {
-			return new Promise((resolve, reject) => {
-				const messagesRequest = messagesStore.getAll();
-				messagesRequest.onsuccess = (event) => {
-					const messages = event.target.result;
-
-					messages.forEach((message) => {
-						// Migrate old tool_call_id to toolcallId
-						if ('tool_call_id' in message) {
-							message.toolcallId = message.tool_call_id;
-							delete message.tool_call_id;
-							saveMessage(message);
-						}
-
-						for (let cid in convosData) {
-							const index = convosData[cid].messages.indexOf(message.id);
-							if (index !== -1) {
-								// Replace the message ID with the actual message object
-								convosData[cid].messages[index] = message;
-							}
-							// Handle versions
-							for (let versionKey in convosData[cid].versions) {
-								for (let messages of convosData[cid].versions[versionKey]) {
-									if (!messages) {
-										continue;
-									}
-									const i = messages.indexOf(message.id);
-									if (i !== -1) {
-										// Replace the message ID with the actual message object
-										messages[i] = message;
-									}
-								}
-							}
-						}
-					});
-					resolve(convosData);
-				};
-				messagesRequest.onerror = (event) => {
-					reject(event.target.error);
-				};
-			});
-		};
+		const fetchMessages = new Promise((resolve, reject) => {
+			const messagesRequest = messagesStore.getAll();
+			messagesRequest.onsuccess = (event) => {
+				const messages = event.target.result;
+				resolve(messages);
+			};
+			messagesRequest.onerror = (event) => {
+				reject(event.target.error);
+			};
+		});
 
 		try {
-			const convosData = await fetchConversations;
-			const updatedConvos = await fetchMessages(convosData);
-			convos = updatedConvos;
+			// First, we fetch all entities, convert them into the proper format, so we can display them
+			// ASAP on-screen.
+			const [conversations, messages] = await Promise.all([fetchConversations, fetchMessages]);
+
+			const conversationsConverted = structuredClone(conversations);
+			messages.forEach((message) => {
+				convertMessageFromIdToObject(message, conversationsConverted);
+			});
+			const convosMap = {};
+			for (const convo of conversationsConverted) {
+				convosMap[convo.id] = convo;
+			}
+			convos = convosMap;
+
+			// Sync:
+			if ($syncServer.token) {
+				// Conversations returned by this need to be converted again.
+				const { newConversations, deletedConversations, newMessages, deletedMessages } =
+					await syncPull({
+						conversationIds: conversations.map((c) => c.id),
+						messageIds: messages.map((m) => m.id),
+						saveConversation,
+						deleteConversation,
+						saveMessage,
+						deleteMessage,
+					});
+				const completeConversations = conversations.concat(newConversations);
+				const completeMessages = messages.concat(newMessages);
+
+				const newConversationsConverted = structuredClone(newConversations);
+				messages.forEach((message) => {
+					convertMessageFromIdToObject(message, newConversationsConverted);
+				});
+				newMessages.forEach((message) => {
+					convertMessageFromIdToObject(message, newConversationsConverted);
+				});
+				for (const convo of newConversationsConverted) {
+					convosMap[convo.id] = convo;
+				}
+				for (const convo of deletedConversations) {
+					delete convosMap[convo.id];
+				}
+				// TODO: Delete messages.
+				// for (const message of deletedMessages) {
+				// 	const conversationId = con
+				// 	convosMap
+				// }
+				convos = convosMap;
+
+				await syncPush({
+					conversations: completeConversations.filter((c) => c.messages.length > 0),
+					messages: completeMessages,
+				});
+			}
 		} catch (error) {
 			console.error('Error fetching history:', error);
 		}
 	}
 
-	const saveConversation = debounce((convo) => {
+	const saveConversation = debounce((convo, opts = { convert: true, syncToServer: true }) => {
 		const transaction = db.transaction(['conversations'], 'readwrite');
 		const store = transaction.objectStore('conversations');
-		store.put({
+
+		// Check if we need to convert the messages to ids
+		// This may be called during sync, for which the data is ids already
+		const messages = opts.convert ? convo.messages.map((msg) => msg.id) : convo.messages;
+		const versions = opts.convert
+			? Object.fromEntries(
+					Object.entries(convo.versions).map(([key, value]) => [
+						key,
+						value.map((messages) => {
+							if (!messages) {
+								return null;
+							}
+							return messages.map((msg) => {
+								return msg.id;
+							});
+						}),
+					])
+				)
+			: convo.versions;
+
+		const convoConvertedOrNot = {
 			...convo,
-			messages: convo.messages.map((msg) => msg.id),
-			versions: Object.fromEntries(
-				Object.entries(convo.versions).map(([key, value]) => [
-					key,
-					value.map((messages) => {
-						if (!messages) {
-							return null;
-						}
-						return messages.map((msg) => {
-							return msg.id;
-						});
-					}),
-				])
-			),
-		});
+			messages,
+			versions,
+		};
+
+		store.put(convoConvertedOrNot);
+
+		if (opts.syncToServer && $syncServer.token && convo.messages.length > 0) {
+			sendSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
+				conversation: convoConvertedOrNot,
+				message: null,
+			});
+		}
 
 		transaction.onerror = () => {
 			console.error('Conversation save failed', transaction.error);
 		};
-	}, 100);
+	}, 500);
 
-	function deleteConversation(convo) {
+	function deleteConversation(convo, opts = { syncToServer: true }) {
 		const transaction = db.transaction(['conversations'], 'readwrite');
 		const store = transaction.objectStore('conversations');
 
 		store.delete(convo.id);
 
+		if (opts.syncToServer && $syncServer.token && convo.messages.length > 0) {
+			deleteSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
+				conversationId: convo.id,
+				messageId: null,
+			});
+		}
+
 		transaction.onerror = () => {
 			console.error('Conversation delete failed', transaction.error);
+		};
+	}
+
+	function deleteMessage(message, opts = { syncToServer: true }) {
+		const transaction = db.transaction(['messages'], 'readwrite');
+		const store = transaction.objectStore('messages');
+
+		store.delete(message.id);
+
+		if (opts.syncToServer && $syncServer.token) {
+			deleteSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
+				conversationId: null,
+				messageId: message.id,
+			});
+		}
+
+		transaction.onerror = () => {
+			console.error('Message delete failed', transaction.error);
 		};
 	}
 
@@ -1051,79 +976,6 @@
 	$: window.convo = convo;
 	$: window.saveConversation = saveConversation;
 
-	async function checkClientMissing(baseUrl, token, localConversationIds, localMessageIds) {
-		const response = await fetch(`${baseUrl}/api/sync/check-client-missing`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				token,
-				conversationIds: localConversationIds,
-				messageIds: localMessageIds,
-			}),
-		});
-
-		return await response.json();
-	}
-
-	async function getMissingItems(baseUrl, token, missingConversationIds, missingMessageIds) {
-		const response = await fetch(`${baseUrl}/api/sync/get-items`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				token,
-				conversationIds: missingConversationIds,
-				messageIds: missingMessageIds,
-			}),
-		});
-
-		return await response.json(); // Returns { conversations, messages }
-	}
-
-	// 3. Check what server is missing from client
-	async function checkServerMissing(baseUrl, token, allLocalConversationIds, allLocalMessageIds) {
-		const response = await fetch(`${baseUrl}/api/sync/check-server-missing`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				token,
-				conversationIds: allLocalConversationIds,
-				messageIds: allLocalMessageIds,
-			}),
-		});
-
-		return await response.json(); // Returns { missingConversationIds, missingMessageIds }
-	}
-
-	// 4. Send missing items to server
-	async function sendMissingItems(baseUrl, token, conversationsToSend, messagesToSend) {
-		const response = await fetch(`${baseUrl}/api/sync/send-items`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				token,
-				conversations: conversationsToSend,
-				messages: messagesToSend,
-			}),
-		});
-
-		return await response.json(); // Returns { success: true }
-	}
-
-	// For individual new items, use this fetch:
-	async function sendSingleItem(baseUrl, token, conversation = null, message = null) {
-		const response = await fetch(`${baseUrl}/api/sync/send-single-item`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				token,
-				conversation,
-				message,
-			}),
-		});
-
-		return await response.json(); // Returns { success: true }
-	}
-
 	onMount(async () => {
 		// Clear old deprecated local storage data:
 		localStorage.removeItem('tools');
@@ -1508,7 +1360,7 @@
 <SettingsModal
 	open={settingsModalOpen}
 	trigger="settings"
-	on:fetchModels={fetchModels}
+	on:fetchModels={() => fetchModels({ onFinally: () => {} })}
 	on:disableTool={({ detail: name }) => {
 		convo.tools = convo.tools.filter((n) => n !== name);
 		saveConversation(convo);

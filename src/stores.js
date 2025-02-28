@@ -24,4 +24,5 @@ export const groqAPIKey = persisted('groqAPIKey', '');
 export const mistralAPIKey = persisted('mistralAPIKey', '');
 
 export const remoteServer = persisted('remoteServer', { address: '', password: '' });
+export const syncServer = persisted('syncServer', { address: '', token: '', password: '' });
 export const toolSchema = persisted('toolSchemaGroups', []);

@@ -10,6 +10,7 @@
 		openrouterAPIKey,
 		params,
 		remoteServer,
+		syncServer,
 		toolSchema,
 	} from './stores.js';
 	import Button from './Button.svelte';
@@ -29,14 +30,14 @@
 	import ClientTool from './ClientTool.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import ModelSelector from './ModelSelector.svelte';
+	import { tooltip } from './tooltip.js';
 
 	const dispatch = createEventDispatcher();
 
 	export let open = false;
 	export let trigger = '';
 
-	let activeTab =
-		$openaiAPIKey === '' && $groqAPIKey === '' && $openrouterAPIKey === '' ? 'api-keys' : 'tools';
+	let activeTab = 'api-keys';
 
 	let addClientToolOpen = false;
 	let loadClientTool = null;
@@ -81,7 +82,7 @@
 							on:click={() => (activeTab = 'remote-server')}
 						>
 							<Icon icon={feHardDrive} class="h-3 w-3 text-slate-700" />
-							Remote server
+							Sync and servers
 						</button>
 					</li>
 					<li>
@@ -184,8 +185,12 @@
 				>
 
 				<p class="ml-1 text-center text-xs leading-relaxed text-slate-800 sm:text-left">
-					Your API keys are stored entirely locally, on your device, in your browser. They are not
-					sent to or stored on any remote server.
+					{#if $syncServer.token}
+						Sync is enabled. Your API keys are being synced between devices.
+					{:else}
+						Your API keys are stored entirely locally, on your device, in your browser. They are not
+						sent to or stored on any remote server.
+					{/if}
 				</p>
 			{:else if activeTab === 'custom-instructions'}
 				<label class="mt-1 flex flex-col text-[10px] uppercase tracking-wide">
@@ -198,7 +203,13 @@
 				>
 			{:else if activeTab === 'remote-server'}
 				<label class="flex flex-col text-[10px] uppercase tracking-wide">
-					<span class="mb-2 ml-[3px] flex items-center">Server address </span>
+					<span class="mb-2 flex items-center">
+						<span class="ml-[3px]">Tool server address </span>
+						<Tooltip
+							content="Start the llum tool server, then enter the address and passphrase here. The default address is http://localhost:8081"
+							class="ml-2"
+						/>
+					</span>
 					<input
 						type="text"
 						bind:value={$remoteServer.address}
@@ -208,14 +219,93 @@
 				>
 
 				<label class="flex flex-col text-[10px] uppercase tracking-wide">
-					<span class="mb-2 ml-[3px]">Server password</span>
+					<span class="mb-2 flex items-center">
+						<span class="ml-[3px]">Tool server passphrase </span>
+						<Tooltip
+							content="If your tool server is exposed over the internet, it's a good idea to enter a passphrase. Otherwise anyone would be able to run your tools."
+							class="ml-2"
+						/>
+					</span>
 					<input
-						type="password"
+						type="text"
 						bind:value={$remoteServer.password}
-						placeholder="Enter server password"
+						placeholder="Enter tool server passphrase"
 						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
 					/></label
 				>
+
+				<label class="mt-6 flex flex-col text-[10px] uppercase tracking-wide">
+					<span class="mb-2 flex items-center">
+						<span class="ml-[3px]">Sync server address </span>
+						<Tooltip
+							content="Run the llum sync server to sync your chats and API keys between devices. If you want to use our server instead of self-hosting, then make this field blank. Be aware that this means that your API keys will be sent to a remote server!"
+							class="ml-2"
+						/>
+					</span>
+					<input
+						type="text"
+						bind:value={$syncServer.address}
+						placeholder="Enter sync server address, or leave blank to use ours"
+						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
+					/></label
+				>
+
+				<label class="flex flex-col text-[10px] uppercase tracking-wide">
+					<span class="mb-2 flex items-center">
+						<span class="ml-[3px]">Sync server token </span>
+						<Tooltip
+							content="Your token is the key used to sync your chats and keys. Generate a token then plug it here on all the devices you want to sync with (phone, desktop, etc)."
+							class="ml-2"
+						/>
+					</span>
+					<input
+						type="text"
+						bind:value={$syncServer.token}
+						placeholder="Enter sync token"
+						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
+					/></label
+				>
+
+				<label class="flex flex-col text-[10px] uppercase tracking-wide">
+					<span class="mb-2 flex items-center">
+						<span class="ml-[3px]">Sync server encryption password </span>
+						<Tooltip
+							content="Used to securely encrypt your data."
+							class="ml-2"
+						/>
+					</span>
+					<input
+						type="text"
+						bind:value={$syncServer.password}
+						placeholder="Enter encryption password"
+						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
+					/></label
+				>
+
+
+				<div class="mb-4 flex items-center gap-3">
+					<Button
+						variant="outline"
+						class="self-start"
+						use={[
+							tooltip,
+							{
+								content:
+									'Watch out! Generating a new token means your old one will be lost forever.',
+							},
+						]}
+						on:click={async () => {
+							$syncServer.token = uuidv4();
+						}}
+					>
+						<Icon icon={feRefreshCw} class="mr-2 h-3 w-3 text-slate-700" />
+						Generate a random token
+					</Button>
+
+					{#if $syncServer.token}
+						<p class="text-xs text-slate-600">Sync is enabled.</p>
+					{/if}
+				</div>
 
 				<p class="mt-auto text-xs text-slate-600">Version: {import.meta.env.BUILD_TIMESTAMP}</p>
 			{:else if activeTab === 'tools'}
@@ -224,8 +314,8 @@
 					<span class="mb-3 ml-[3px] flex items-center text-[10px] uppercase tracking-wide">
 						Tool schema
 						<Tooltip
-							content="If you want to use remote tool calls or local models, you will need to have the
-							llum server running on your machine."
+							content="If you want to use tools, you will need to have the
+							llum tool server running on your machine. See the 'Sync and servers' tab for more information."
 							class="ml-2"
 						/>
 					</span>

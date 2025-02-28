@@ -8,6 +8,10 @@
 	export let disabled = false;
 
 	export let el = undefined;
+	export let use = [() => {}, {}];
+
+	$: useFn = use[0];
+	$: useParams = use[1];
 
 	const variantClass = {
 		outline:
@@ -23,6 +27,7 @@
 	{disabled}
 	class="{className} {variantClass} flex items-center"
 	use:flash
+	use:useFn={useParams}
 	on:click
 >
 	<slot />

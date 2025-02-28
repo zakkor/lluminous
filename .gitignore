@@ -34,3 +34,6 @@ tunnel.sh
 *.njsproj
 *.sln
 *.sw?
+
+storage.json
+sync/sync
