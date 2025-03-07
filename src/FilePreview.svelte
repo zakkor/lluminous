@@ -1,9 +1,9 @@
 <script>
 	export let filename;
 	export let element = 'div';
-	let className = 'w-full px-6 py-6 my-auto';
+	let className = 'w-full px-2 py-6 my-auto';
 	export { className as class };
-	export let outerClass = 'aspect-[4/5] max-h-[160px] relative';
+	export let outerClass = 'aspect-[4/5] w-[120px] relative';
 	export let filenameClass = 'line-clamp-2 leading-relaxed';
 	export let badgeClass = '';
 </script>
@@ -11,7 +11,7 @@
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <svelte:element
 	this={element}
-	class="{outerClass} group/file bg-white flex flex-col gap-2 self-start rounded-lg border border-slate-200 transition-colors hover:border-slate-300"
+	class="{outerClass} file-preview group/file bg-white flex flex-col gap-2 self-start rounded-lg border border-slate-200 transition-colors hover:border-slate-300"
 	on:click
 >
 	<div class="absolute right-[-1px] top-[-1px] bg-white">

@@ -9,7 +9,7 @@ export const params = persisted('params', {
 	messagesContextLimit: 0,
 	reasoningEffort: {
 		'low-medium-high': 'medium',
-		range: 32000,
+		range: 64000,
 	},
 });
 

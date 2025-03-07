@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { flash } from '../../../../actions.js';
-	import { feCopy, feFile } from '../../../../feather.js';
+	import { feChevronDown, feChevronUp, feCopy, feFile } from '../../../../feather.js';
 	import FilePreview from '../../../../FilePreview.svelte';
 	import Icon from '../../../../Icon.svelte';
 	import type { MarkdownOptions, Renderers } from '../../markedConfiguration';
@@ -27,6 +27,9 @@
 	$: if (token.lang) {
 		attrs = parseAttributes(token.lang);
 	}
+
+	let clientHeight;
+	let showingAll = false;
 </script>
 
 {#if attrs.filename && !showCode}
@@ -56,9 +59,9 @@
 			></pre>
 	</div>
 {:else}
-	<div class="group/code relative">
+	<div class="group/code relative" bind:clientHeight>
 		<button
-			class="code-copy-button absolute right-2 top-2 flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 opacity-0 transition-opacity hover:bg-gray-100 group-hover/code:opacity-100"
+			class="code-copy-button absolute right-2 top-2 z-10 flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 opacity-0 transition-opacity hover:bg-gray-100 group-hover/code:opacity-100"
 			use:flash
 			on:click={(event) => {
 				event.currentTarget.dispatchEvent(new CustomEvent('flashSuccess'));
@@ -68,6 +71,27 @@
 			<Icon icon={feCopy} class="h-2.5 w-2.5 text-slate-700" />
 			<span class="text-xs">Copy</span>
 		</button>
-		<pre><code class={`lang-${token.lang}`}>{token.text}</code></pre>
+		{#if clientHeight > 400}
+			<div
+				class="pointer-events-none absolute bottom-4 left-0 right-0 z-10 h-16 {!showingAll
+					? 'rounded-b-lg border-b border-l border-r border-slate-200 bg-gradient-to-b from-transparent to-slate-50'
+					: ''}"
+			>
+				<button
+					class="pointer-events-auto sticky bottom-4 left-1/2 flex translate-x-[calc(-50%+24px)] items-center gap-x-1.5 self-start rounded-full bg-gray-200 px-3.5 py-2 text-left text-xs transition-colors hover:bg-gray-300"
+					on:click={() => (showingAll = !showingAll)}
+				>
+					<Icon
+						icon={showingAll ? feChevronUp : feChevronDown}
+						class="h-4 w-4 transition-transform"
+					/>
+					{showingAll ? 'Show less' : 'Show all'}
+				</button>
+			</div>
+		{/if}
+		<pre
+			class={clientHeight > 400 && !showingAll
+				? 'max-h-[400px] overflow-y-auto scrollbar-ultraslim'
+				: ''}><code class={`lang-${token.lang}`}>{token.text}</code></pre>
 	</div>
 {/if}

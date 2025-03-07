@@ -198,7 +198,7 @@ const capabilities = {
 				modality: 'text+image->text',
 				kind: 'reasoner',
 				reasoningEffortControls: 'range',
-				reasoningEffortRange: [0, 32000],
+				reasoningEffortRange: [0, 64000],
 				reasoningTracesVisibility: 'visible-and-redacted',
 				reinsertReasoningTracesOnSubmit: true,
 				maxTokensDefault: 128000,

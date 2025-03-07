@@ -990,7 +990,7 @@
 		if ($params.reasoningEffort == null) {
 			$params.reasoningEffort = {
 				'low-medium-high': 'medium',
-				range: 32000,
+				range: 64000,
 			};
 		}
 
@@ -1428,5 +1428,10 @@
 	/* Fix code copy button positioning */
 	:global(.markdown.prose p + .group\/code .code-copy-button) {
 		@apply top-6;
+	}
+
+	/* File previews spacing */
+	:global(.markdown.prose .file-preview:not(:last-of-type)) {
+		@apply mb-4;
 	}
 </style>
