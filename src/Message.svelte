@@ -35,6 +35,7 @@
 	export let collapsedRanges;
 
 	export let saveMessage;
+	export let deleteMessage;
 	export let saveVersion;
 	export let saveConversation;
 	export let shiftVersion;
@@ -539,7 +540,7 @@
 						on:click={() => {
 							// Remove this message from the conversation:
 							convo.messages = convo.messages.slice(0, i).concat(convo.messages.slice(i + 1));
-							// FIXME: Delete message from db
+							deleteMessage(message);
 							saveConversation(convo);
 							dispatch('rerender');
 						}}

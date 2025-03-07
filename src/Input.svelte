@@ -452,7 +452,7 @@ ${file.text}
 				<div
 					bind:this={containerEl}
 					on:scroll={updateFades}
-					class="flex max-w-[256px] gap-2 overflow-x-auto scrollbar-none sm:max-w-none sm:overflow-x-visible"
+					class="flex max-w-[220px] gap-2 overflow-x-auto scrollbar-none sm:max-w-none sm:overflow-x-visible"
 				>
 					<div id="tool-dropdown" class="contents">
 						<ToolPill icon={feTool} selected={toolsOpen} on:click={() => (toolsOpen = !toolsOpen)}>

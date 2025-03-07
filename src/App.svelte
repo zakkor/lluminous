@@ -1304,6 +1304,7 @@
 										{generating}
 										{collapsedRanges}
 										{saveMessage}
+										{deleteMessage}
 										{saveVersion}
 										{saveConversation}
 										{shiftVersion}

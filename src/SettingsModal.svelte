@@ -277,6 +277,10 @@
 					<p class="mb-4 text-xs text-slate-600">
 						Sync is enabled & fully end-to-end encrypted. First sync will occur on refresh.
 					</p>
+				{:else}
+					<p class="mb-4 text-xs text-slate-600">
+						Sync is NOT enabled. You'll need to have both a token and password to enable sync.
+					</p>
 				{/if}
 
 				<p class="mt-auto text-xs text-slate-600">Version: {import.meta.env.BUILD_TIMESTAMP}</p>
