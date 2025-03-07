@@ -300,7 +300,7 @@
 									>
 										<MessageContent
 											message={{ content: message.thoughts }}
-											bind:clientHeight={contentHeight}
+											bind:contentHeight
 										/>
 										{#if contentHeight > 400}
 											<button
