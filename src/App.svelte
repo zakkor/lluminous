@@ -225,49 +225,55 @@
 
 			// Sync:
 			if ($syncServer.token && $syncServer.password) {
-				await initEncryption($syncServer.password);
-
-				// Conversations returned by this need to be converted again.
-				const { newConversations, deletedConversations, newMessages, deletedMessages } =
-					await syncPull({
-						conversationIds: conversations.map((c) => c.id),
-						messageIds: messages.map((m) => m.id),
-						saveConversation,
-						deleteConversation,
-						saveMessage,
-						deleteMessage,
-					});
-				const completeConversations = conversations.concat(newConversations);
-				const completeMessages = messages.concat(newMessages);
-
-				const newConversationsConverted = structuredClone(newConversations);
-				messages.forEach((message) => {
-					convertMessageFromIdToObject(message, newConversationsConverted);
-				});
-				newMessages.forEach((message) => {
-					convertMessageFromIdToObject(message, newConversationsConverted);
-				});
-				for (const convo of newConversationsConverted) {
-					convosMap[convo.id] = convo;
-				}
-				for (const convo of deletedConversations) {
-					delete convosMap[convo.id];
-				}
-				// TODO: Delete messages.
-				// for (const message of deletedMessages) {
-				// 	const conversationId = con
-				// 	convosMap
-				// }
-				convos = convosMap;
-
-				await syncPush({
-					conversations: completeConversations.filter((c) => c.messages.length > 0),
-					messages: completeMessages,
-				});
+				syncPullPush(conversations, messages, convosMap); // async
 			}
 		} catch (error) {
 			console.error('Error fetching history:', error);
 		}
+	}
+
+	async function syncPullPush(conversations, messages, convosMap) {
+		await initEncryption($syncServer.password);
+
+		// Conversations returned by this need to be converted again.
+		const { newConversations, deletedConversations, newMessages, deletedMessages } = await syncPull(
+			{
+				conversationIds: conversations.map((c) => c.id),
+				messageIds: messages.map((m) => m.id),
+				saveConversation,
+				deleteConversation,
+				saveMessage,
+				deleteMessage,
+			}
+		);
+		const completeConversations = conversations.concat(newConversations);
+		const completeMessages = messages.concat(newMessages);
+
+		const newConversationsConverted = structuredClone(newConversations);
+		messages.forEach((message) => {
+			convertMessageFromIdToObject(message, newConversationsConverted);
+		});
+		newMessages.forEach((message) => {
+			convertMessageFromIdToObject(message, newConversationsConverted);
+		});
+
+		for (const convo of newConversationsConverted) {
+			convosMap[convo.id] = convo;
+		}
+		for (const convo of deletedConversations) {
+			delete convosMap[convo.id];
+		}
+		// TODO: Delete messages.
+		// for (const message of deletedMessages) {
+		// 	const conversationId = con
+		// 	convosMap
+		// }
+		convos = convosMap;
+
+		await syncPush({
+			conversations: completeConversations.filter((c) => c.messages.length > 0),
+			messages: completeMessages,
+		});
 	}
 
 	const saveConversation = debounce((convo, opts = { convert: true, syncToServer: true }) => {
@@ -1435,16 +1441,16 @@
 	}
 
 	:global(
-			.markdown.prose
-				:where(.prose > :first-child):not(:where([class~='not-prose'], [class~='not-prose'] *))
-		) {
+		.markdown.prose
+			:where(.prose > :first-child):not(:where([class~='not-prose'], [class~='not-prose'] *))
+	) {
 		@apply mt-0;
 	}
 
 	:global(
-			.markdown.prose
-				:where(.prose > :last-child):not(:where([class~='not-prose'], [class~='not-prose'] *))
-		) {
+		.markdown.prose
+			:where(.prose > :last-child):not(:where([class~='not-prose'], [class~='not-prose'] *))
+	) {
 		@apply mb-0;
 	}
 
