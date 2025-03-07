@@ -59,6 +59,7 @@
 	import Message from './Message.svelte';
 	import {
 		deleteSingleItem,
+		initEncryption,
 		llumHostedAddress,
 		sendSingleItem,
 		syncPull,
@@ -231,6 +232,8 @@
 
 			// Sync:
 			if ($syncServer.token && $syncServer.password) {
+				await initEncryption($syncServer.password);
+
 				// Conversations returned by this need to be converted again.
 				const { newConversations, deletedConversations, newMessages, deletedMessages } =
 					await syncPull({
