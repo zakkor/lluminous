@@ -537,6 +537,7 @@
 				// Once content starts coming in, we can stop thinking
 				if (convo.messages[i].reasoning) {
 					convo.messages[i].thinking = false;
+					convo.messages[i].thoughtsExpanded = false;
 					stopThinkingTimer(i);
 				}
 				saveMessage(convo.messages[i]);
