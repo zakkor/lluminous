@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import { persisted } from './localstorage.js';
 
 export const controller = writable(null);
@@ -22,6 +22,24 @@ export const openrouterAPIKey = persisted('openrouterkey', '');
 export const anthropicAPIKey = persisted('anthropicAPIKey', '');
 export const groqAPIKey = persisted('groqAPIKey', '');
 export const mistralAPIKey = persisted('mistralAPIKey', '');
+
+export function getAPIKeysAsObject() {
+	return {
+		openai: get(openaiAPIKey),
+		openrouter: get(openrouterAPIKey),
+		anthropic: get(anthropicAPIKey),
+		groq: get(groqAPIKey),
+		mistral: get(mistralAPIKey),
+	};
+}
+
+export function setAPIKeysFromObject(obj) {
+	openaiAPIKey.set(obj.openai || '');
+	openrouterAPIKey.set(obj.openrouter || '');
+	anthropicAPIKey.set(obj.anthropic || '');
+	groqAPIKey.set(obj.groq || '');
+	mistralAPIKey.set(obj.mistral || '');
+}
 
 export const remoteServer = persisted('remoteServer', { address: '', password: '' });
 export const syncServer = persisted('syncServer', { address: '', token: '', password: '' });

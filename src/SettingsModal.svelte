@@ -4,6 +4,7 @@
 	import {
 		anthropicAPIKey,
 		config,
+		getAPIKeysAsObject,
 		groqAPIKey,
 		mistralAPIKey,
 		openaiAPIKey,
@@ -31,6 +32,7 @@
 	import Tooltip from './Tooltip.svelte';
 	import ModelSelector from './ModelSelector.svelte';
 	import { tooltip } from './tooltip.js';
+	import { llumHostedAddress, sendSingleItem } from './sync.js';
 
 	const dispatch = createEventDispatcher();
 
@@ -43,6 +45,15 @@
 	let loadClientTool = null;
 
 	let elRefreshToolSchema;
+
+	async function onAPIKeyUpdate() {
+		dispatch('fetchModels');
+		await sendSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
+			conversation: null,
+			message: null,
+			apiKeys: getAPIKeysAsObject(),
+		});
+	}
 </script>
 
 <Modal bind:open {trigger}>
@@ -120,11 +131,7 @@
 						bind:value={$openrouterAPIKey}
 						placeholder="Enter your API key"
 						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
-						on:change={() => {
-							if ($openrouterAPIKey.length === 73 || $openrouterAPIKey.length === 0) {
-								dispatch('fetchModels');
-							}
-						}}
+						on:change={onAPIKeyUpdate}
 					/></label
 				>
 				<label class="flex flex-col text-[10px] uppercase tracking-wide">
@@ -134,11 +141,7 @@
 						bind:value={$anthropicAPIKey}
 						placeholder="Enter your API key"
 						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
-						on:change={() => {
-							if ($anthropicAPIKey.length === 108 || $anthropicAPIKey.length === 0) {
-								dispatch('fetchModels');
-							}
-						}}
+						on:change={onAPIKeyUpdate}
 					/></label
 				>
 				<label class="flex flex-col text-[10px] uppercase tracking-wide">
@@ -148,11 +151,7 @@
 						bind:value={$openaiAPIKey}
 						placeholder="Enter your API key"
 						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
-						on:change={() => {
-							if ($openaiAPIKey.length === 56 || $openaiAPIKey.length === 0) {
-								dispatch('fetchModels');
-							}
-						}}
+						on:change={onAPIKeyUpdate}
 					/></label
 				>
 				<label class="flex flex-col text-[10px] uppercase tracking-wide">
@@ -162,11 +161,7 @@
 						bind:value={$groqAPIKey}
 						placeholder="Enter your API key"
 						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
-						on:change={() => {
-							if ($groqAPIKey.length === 56 || $groqAPIKey.length === 0) {
-								dispatch('fetchModels');
-							}
-						}}
+						on:change={onAPIKeyUpdate}
 					/></label
 				>
 				<label class="flex flex-col text-[10px] uppercase tracking-wide">
@@ -176,17 +171,14 @@
 						bind:value={$mistralAPIKey}
 						placeholder="Enter your API key"
 						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
-						on:change={() => {
-							if ($mistralAPIKey.length === 32 || $mistralAPIKey.length === 0) {
-								dispatch('fetchModels');
-							}
-						}}
+						on:change={onAPIKeyUpdate}
 					/></label
 				>
 
 				<p class="ml-1 text-center text-xs leading-relaxed text-slate-800 sm:text-left">
-					{#if $syncServer.token}
-						Sync is enabled. Your API keys are being synced between devices.
+					{#if $syncServer.token && $syncServer.password}
+						Sync is enabled. Your API keys are being synced between devices. Fully end-to-end
+						encrypted.
 					{:else}
 						Your API keys are stored entirely locally, on your device, in your browser. They are not
 						sent to or stored on any remote server.
@@ -238,7 +230,7 @@
 					<span class="mb-2 flex items-center">
 						<span class="ml-[3px]">Sync server address </span>
 						<Tooltip
-							content="Run the llum sync server to sync your chats and API keys between devices. If you want to use our server instead of self-hosting, then make this field blank. Be aware that this means that your API keys will be sent to a remote server!"
+							content="Run the llum sync server to sync your chats and API keys between devices. If you want to use our server instead of self-hosting, then make this field blank."
 							class="ml-2"
 						/>
 					</span>
@@ -269,10 +261,7 @@
 				<label class="flex flex-col text-[10px] uppercase tracking-wide">
 					<span class="mb-2 flex items-center">
 						<span class="ml-[3px]">Sync server encryption password </span>
-						<Tooltip
-							content="Used to securely encrypt your data."
-							class="ml-2"
-						/>
+						<Tooltip content="Used to securely encrypt your data." class="ml-2" />
 					</span>
 					<input
 						type="text"
@@ -282,11 +271,10 @@
 					/></label
 				>
 
-
 				<div class="mb-4 flex items-center gap-3">
 					<Button
 						variant="outline"
-						class="self-start"
+						class="shrink-0 self-start"
 						use={[
 							tooltip,
 							{
@@ -302,8 +290,8 @@
 						Generate a random token
 					</Button>
 
-					{#if $syncServer.token}
-						<p class="text-xs text-slate-600">Sync is enabled.</p>
+					{#if $syncServer.token && $syncServer.password}
+						<p class="text-xs text-slate-600">Sync is enabled & fully end-to-end encrypted.</p>
 					{/if}
 				</div>
 

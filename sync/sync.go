@@ -51,6 +51,7 @@ type GetItemsRequest struct {
 type GetItemsResponse struct {
 	Conversations map[string]Conversation `json:"conversations"`
 	Messages      map[string]Message      `json:"messages"`
+	APIKeys       map[string]string       `json:"apiKeys"`
 }
 
 type CheckServerMissingRequest struct {
@@ -75,9 +76,10 @@ type SendItemsResponse struct {
 }
 
 type SendSingleItemRequest struct {
-	Token        string        `json:"token"`
-	Conversation *Conversation `json:"conversation,omitempty"`
-	Message      *Message      `json:"message,omitempty"`
+	Token        string            `json:"token"`
+	Conversation *Conversation     `json:"conversation,omitempty"`
+	Message      *Message          `json:"message,omitempty"`
+	APIKeys      map[string]string `json:"apiKeys,omitempty"`
 }
 
 type SendSingleItemResponse struct {
@@ -279,6 +281,7 @@ func handleGetItems(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(GetItemsResponse{
 			Conversations: make(map[string]Conversation),
 			Messages:      make(map[string]Message),
+			APIKeys:       make(map[string]string),
 		})
 		return
 	}
@@ -339,6 +342,7 @@ func handleGetItems(w http.ResponseWriter, r *http.Request) {
 	resp := GetItemsResponse{
 		Conversations: conversations,
 		Messages:      messages,
+		APIKeys:       userData.APIKeys, // Include API keys in response
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -432,6 +436,7 @@ func handleSendItems(w http.ResponseWriter, r *http.Request) {
 		userData = UserData{
 			Conversations: make(map[string]Conversation),
 			Messages:      make(map[string]Message),
+			APIKeys:       make(map[string]string),
 		}
 	}
 
@@ -492,8 +497,8 @@ func handleSendSingleItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Conversation == nil && req.Message == nil {
-		http.Error(w, "Either conversation or message must be provided", http.StatusBadRequest)
+	if req.Conversation == nil && req.Message == nil && len(req.APIKeys) == 0 {
+		http.Error(w, "Either conversation, message, or apiKeys must be provided", http.StatusBadRequest)
 		return
 	}
 
@@ -506,6 +511,7 @@ func handleSendSingleItem(w http.ResponseWriter, r *http.Request) {
 		userData = UserData{
 			Conversations: make(map[string]Conversation),
 			Messages:      make(map[string]Message),
+			APIKeys:       make(map[string]string),
 		}
 	}
 
@@ -557,6 +563,12 @@ func handleSendSingleItem(w http.ResponseWriter, r *http.Request) {
 			msg["modified"] = true
 		}
 		userData.Messages[id] = msg
+	}
+
+	// Add API keys if provided
+	if len(req.APIKeys) > 0 {
+		// Replace the entire APIKeys map
+		userData.APIKeys = req.APIKeys
 	}
 
 	// Update storage

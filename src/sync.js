@@ -1,4 +1,4 @@
-import { syncServer } from './stores.js';
+import { setAPIKeysFromObject, syncServer } from './stores.js';
 import { get } from 'svelte/store';
 
 export const llumHostedAddress = 'http://localhost:8084';
@@ -56,6 +56,8 @@ export async function syncPull({
 			saveConversation(conversation, { convert: false, syncToServer: false });
 		}
 
+		setAPIKeysFromObject(serverItems.apiKeys);
+
 		return {
 			newConversations,
 			deletedConversations,
@@ -105,7 +107,7 @@ export async function syncPush({ conversations, messages }) {
 	}
 }
 
-async function checkClientMissing(baseUrl, token, localConversationIds, localMessageIds) {
+async function checkClientMissing(baseUrl, token, localConversationIds, localMessageIds, localAPIKeyIds) {
 	const response = await fetch(`${baseUrl}/api/sync/check-client-missing`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -130,7 +132,7 @@ async function getMissingItems(baseUrl, token, missingConversationIds, missingMe
 		}),
 	});
 
-	return await response.json(); // Returns { conversations, messages }
+	return await response.json(); // Returns { conversations, messages, apiKeys }
 }
 
 async function checkServerMissing(baseUrl, token, allLocalConversationIds, allLocalMessageIds) {
@@ -161,7 +163,7 @@ async function sendMissingItems(baseUrl, token, conversationsToSend, messagesToS
 	return await response.json(); // Returns { success: true }
 }
 
-export async function sendSingleItem(baseUrl, token, item = { conversation: null, message: null }) {
+export async function sendSingleItem(baseUrl, token, item = { conversation: null, message: null, apiKeys: null }) {
 	const response = await fetch(`${baseUrl}/api/sync/send-single-item`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -169,6 +171,7 @@ export async function sendSingleItem(baseUrl, token, item = { conversation: null
 			token,
 			conversation: item.conversation || null,
 			message: item.message || null,
+			apiKeys: item.apiKeys || null,
 		}),
 	});
 

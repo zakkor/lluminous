@@ -5,6 +5,7 @@
 	import Icon from '../../../../Icon.svelte';
 	import type { MarkdownOptions, Renderers } from '../../markedConfiguration';
 	import type { Tokens } from 'marked';
+	import { afterUpdate } from 'svelte';
 
 	export let token: Tokens.Code;
 	export const options: MarkdownOptions = undefined;
@@ -29,7 +30,25 @@
 	}
 
 	let clientHeight;
+	let scrollableEl, fadeEl;
 	let showingAll = false;
+
+	function updateFade() {
+		if (!scrollableEl || !fadeEl) {
+			return;
+		}
+		const isScrolledToEnd =
+			scrollableEl.scrollTop + scrollableEl.clientHeight >= scrollableEl.scrollHeight;
+		if (isScrolledToEnd) {
+			fadeEl.style.background = 'transparent';
+		} else {
+			fadeEl.style.removeProperty('background');
+		}
+	}
+
+	afterUpdate(() => {
+		updateFade();
+	});
 </script>
 
 {#if attrs.filename && !showCode}
@@ -61,7 +80,7 @@
 {:else}
 	<div class="group/code relative" bind:clientHeight>
 		<button
-			class="code-copy-button absolute right-2 top-2 z-10 flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 opacity-0 transition-opacity hover:bg-gray-100 group-hover/code:opacity-100"
+			class="code-copy-button absolute right-5 top-5 z-10 flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 opacity-0 transition-opacity hover:bg-gray-100 group-hover/code:opacity-100"
 			use:flash
 			on:click={(event) => {
 				event.currentTarget.dispatchEvent(new CustomEvent('flashSuccess'));
@@ -73,7 +92,8 @@
 		</button>
 		{#if clientHeight > 400}
 			<div
-				class="pointer-events-none absolute bottom-4 left-0 right-0 z-10 h-16 {!showingAll
+				bind:this={fadeEl}
+				class="pointer-events-none absolute bottom-4 left-0 right-0 z-10 h-16 w-[calc(100%-10px)] {!showingAll
 					? 'rounded-b-lg border-b border-l border-r border-slate-200 bg-gradient-to-b from-transparent to-slate-50'
 					: ''}"
 			>
@@ -90,6 +110,8 @@
 			</div>
 		{/if}
 		<pre
+			bind:this={scrollableEl}
+			on:scroll={updateFade}
 			class={clientHeight > 400 && !showingAll
 				? 'max-h-[400px] overflow-y-auto scrollbar-ultraslim'
 				: ''}><code class={`lang-${token.lang}`}>{token.text}</code></pre>

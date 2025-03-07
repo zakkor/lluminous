@@ -12,7 +12,7 @@
 		feTool,
 		feSearch,
 	} from './feather.js';
-	import { tick } from 'svelte';
+	import { afterUpdate, tick } from 'svelte';
 	import { get } from 'svelte/store';
 	import { v4 as uuidv4 } from 'uuid';
 	import { readFileAsDataURL } from './util.js';
@@ -308,7 +308,35 @@ ${file.text}
 			maximumFractionDigits: 1,
 		}).format(number);
 	}
+
+	let containerEl, leftFadeEl, rightFadeEl;
+
+	function updateFades() {
+		if (!containerEl || !leftFadeEl || !rightFadeEl) {
+			return;
+		}
+		const isScrollable = containerEl.scrollWidth > containerEl.clientWidth;
+
+		if (isScrollable) {
+			// Update left fade - only visible if scrolled away from start
+			leftFadeEl.style.opacity = containerEl.scrollLeft > 0 ? '1' : '0';
+
+			// Update right fade - visible if there's more content to scroll to
+			const hasMoreContent =
+				containerEl.scrollLeft + containerEl.clientWidth < containerEl.scrollWidth;
+			rightFadeEl.style.opacity = hasMoreContent ? '1' : '0';
+		} else {
+			leftFadeEl.style.opacity = '0';
+			rightFadeEl.style.opacity = '0';
+		}
+	}
+
+	afterUpdate(() => {
+		updateFades();
+	});
 </script>
+
+<svelte:window on:resize={updateFades} />
 
 <div class="input-floating absolute bottom-4 left-1/2 z-[99] w-full -translate-x-1/2 px-5 ld:px-8">
 	<div class="mx-auto flex w-full max-w-[680px] flex-col ld:max-w-[768px]">
@@ -408,80 +436,98 @@ ${file.text}
 				}}
 			/>
 
-			<div class="absolute bottom-3 left-4 flex gap-2">
-				<div id="tool-dropdown" class="contents">
-					<ToolPill icon={feTool} selected={toolsOpen} on:click={() => (toolsOpen = !toolsOpen)}>
-						Tools
-						{#if convo.tools?.length > 0}
-							<span
-								class="{toolsOpen
-									? 'bg-white text-slate-800'
-									: 'bg-slate-800 text-white'} flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] transition-colors"
-							>
-								{convo.tools.length}
-							</span>
-						{/if}
-					</ToolPill>
-					<ToolDropdown bind:open={toolsOpen} {convo} {saveConversation} />
-				</div>
+			<div class="absolute bottom-3 left-4">
+				<!-- Left fade -->
+				<div
+					bind:this={leftFadeEl}
+					class="pointer-events-none absolute bottom-0 left-0 z-10 h-full w-6 bg-gradient-to-r from-white to-transparent opacity-0 transition-opacity sm:hidden"
+				/>
 
-				{#if convo.models.every((m) => m.provider === 'OpenRouter')}
-					<ToolPill
-						icon={feSearch}
-						selected={convo.websearch}
-						on:click={() => {
-							if (convo.websearch) {
-								convo.websearch = false;
-								saveConversation(convo);
-							} else {
-								convo.websearch = true;
-								saveConversation(convo);
-							}
-						}}
-					>
-						Search
-					</ToolPill>
-				{/if}
-				{#if convo.models[0].reasoningEffortControls === 'low-medium-high'}
-					<ToolPill
-						icon={feZap}
-						selected={false}
-						on:click={() => {
-							// Toggle between low, medium, and high reasoning effort
-							if (convo.reasoningEffort === 'low') {
-								convo.reasoningEffort = 'medium';
-								saveConversation(convo);
-							} else if (!convo.reasoningEffort || convo.reasoningEffort === 'medium') {
-								convo.reasoningEffort = 'high';
-								saveConversation(convo);
-							} else if (convo.reasoningEffort === 'high') {
-								convo.reasoningEffort = 'low';
-								saveConversation(convo);
-							}
-						}}
-					>
-						{#if convo.reasoningEffort === 'low'}
-							Low
-						{:else if !convo.reasoningEffort || convo.reasoningEffort === 'medium'}
-							Medium
-						{:else}
-							High
-						{/if}
-					</ToolPill>
-				{:else if convo.models[0].reasoningEffortControls === 'range'}
-					<div id="reasoning-effort-dropdown" class="contents">
+				<!-- Right fade -->
+				<div
+					bind:this={rightFadeEl}
+					class="pointer-events-none absolute bottom-0 right-0 z-10 h-full w-6 bg-gradient-to-l from-white to-transparent opacity-0 transition-opacity sm:hidden"
+				/>
+
+				<div
+					bind:this={containerEl}
+					on:scroll={updateFades}
+					class="flex max-w-[256px] gap-2 overflow-x-auto scrollbar-none sm:max-w-none sm:overflow-x-visible"
+				>
+					<div id="tool-dropdown" class="contents">
+						<ToolPill icon={feTool} selected={toolsOpen} on:click={() => (toolsOpen = !toolsOpen)}>
+							Tools
+							{#if convo.tools?.length > 0}
+								<span
+									class="{toolsOpen
+										? 'bg-white text-slate-800'
+										: 'bg-slate-800 text-white'} flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] transition-colors"
+								>
+									{convo.tools.length}
+								</span>
+							{/if}
+						</ToolPill>
+						<ToolDropdown bind:open={toolsOpen} {convo} {saveConversation} />
+					</div>
+
+					{#if convo.models.every((m) => m.provider === 'OpenRouter')}
+						<ToolPill
+							icon={feSearch}
+							selected={convo.websearch}
+							on:click={() => {
+								if (convo.websearch) {
+									convo.websearch = false;
+									saveConversation(convo);
+								} else {
+									convo.websearch = true;
+									saveConversation(convo);
+								}
+							}}
+						>
+							Search
+						</ToolPill>
+					{/if}
+					{#if convo.models[0].reasoningEffortControls === 'low-medium-high'}
 						<ToolPill
 							icon={feZap}
-							selected={reasoningEffortDropdownOpen}
-							on:click={() => (reasoningEffortDropdownOpen = !reasoningEffortDropdownOpen)}
+							selected={false}
+							on:click={() => {
+								// Toggle between low, medium, and high reasoning effort
+								if (convo.reasoningEffort === 'low') {
+									convo.reasoningEffort = 'medium';
+									saveConversation(convo);
+								} else if (!convo.reasoningEffort || convo.reasoningEffort === 'medium') {
+									convo.reasoningEffort = 'high';
+									saveConversation(convo);
+								} else if (convo.reasoningEffort === 'high') {
+									convo.reasoningEffort = 'low';
+									saveConversation(convo);
+								}
+							}}
 						>
-							Thinking {$params.reasoningEffort['range'] === 0
-								? 'off'
-								: formatCompactNumber($params.reasoningEffort['range'])}
+							{#if convo.reasoningEffort === 'low'}
+								Low
+							{:else if !convo.reasoningEffort || convo.reasoningEffort === 'medium'}
+								Medium
+							{:else}
+								High
+							{/if}
 						</ToolPill>
-						<ReasoningEffortRangeDropdown bind:open={reasoningEffortDropdownOpen} {convo} />
-					</div>
-				{/if}
+					{:else if convo.models[0].reasoningEffortControls === 'range'}
+						<div id="reasoning-effort-dropdown" class="contents">
+							<ToolPill
+								icon={feZap}
+								selected={reasoningEffortDropdownOpen}
+								on:click={() => (reasoningEffortDropdownOpen = !reasoningEffortDropdownOpen)}
+							>
+								Thinking {$params.reasoningEffort['range'] === 0
+									? 'off'
+									: formatCompactNumber($params.reasoningEffort['range'])}
+							</ToolPill>
+							<ReasoningEffortRangeDropdown bind:open={reasoningEffortDropdownOpen} {convo} />
+						</div>
+					{/if}
+				</div>
 			</div>
 
 			<div class="absolute bottom-[13px] right-4 flex gap-2">

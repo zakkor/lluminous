@@ -143,10 +143,11 @@
 
 		store.put(msg);
 
-		if (opts.syncToServer && $syncServer.token) {
+		if (opts.syncToServer && $syncServer.token && $syncServer.password) {
 			sendSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
 				conversation: null,
 				message: msg,
+				apiKeys: null,
 			});
 		}
 
@@ -229,7 +230,7 @@
 			convos = convosMap;
 
 			// Sync:
-			if ($syncServer.token) {
+			if ($syncServer.token && $syncServer.password) {
 				// Conversations returned by this need to be converted again.
 				const { newConversations, deletedConversations, newMessages, deletedMessages } =
 					await syncPull({
@@ -304,10 +305,16 @@
 
 		store.put(convoConvertedOrNot);
 
-		if (opts.syncToServer && $syncServer.token && convo.messages.length > 0) {
+		if (
+			opts.syncToServer &&
+			$syncServer.token &&
+			$syncServer.password &&
+			convo.messages.length > 0
+		) {
 			sendSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
 				conversation: convoConvertedOrNot,
 				message: null,
+				apiKeys: null,
 			});
 		}
 
@@ -322,7 +329,12 @@
 
 		store.delete(convo.id);
 
-		if (opts.syncToServer && $syncServer.token && convo.messages.length > 0) {
+		if (
+			opts.syncToServer &&
+			$syncServer.token &&
+			$syncServer.password &&
+			convo.messages.length > 0
+		) {
 			deleteSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
 				conversationId: convo.id,
 				messageId: null,
@@ -340,7 +352,7 @@
 
 		store.delete(message.id);
 
-		if (opts.syncToServer && $syncServer.token) {
+		if (opts.syncToServer && $syncServer.token && $syncServer.password) {
 			deleteSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
 				conversationId: null,
 				messageId: message.id,
@@ -1427,7 +1439,7 @@
 
 	/* Fix code copy button positioning */
 	:global(.markdown.prose p + .group\/code .code-copy-button) {
-		@apply top-6;
+		@apply top-7;
 	}
 
 	/* File previews spacing */
