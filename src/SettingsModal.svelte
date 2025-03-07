@@ -31,8 +31,7 @@
 	import ClientTool from './ClientTool.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import ModelSelector from './ModelSelector.svelte';
-	import { tooltip } from './tooltip.js';
-	import { llumHostedAddress, sendSingleItem } from './sync.js';
+	import { sendSingleItem } from './sync.js';
 
 	const dispatch = createEventDispatcher();
 
@@ -48,7 +47,7 @@
 
 	async function onAPIKeyUpdate() {
 		dispatch('fetchModels');
-		await sendSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
+		await sendSingleItem($syncServer.address, $syncServer.token, {
 			conversation: null,
 			message: null,
 			apiKeys: getAPIKeysAsObject(),
@@ -230,14 +229,14 @@
 					<span class="mb-2 flex items-center">
 						<span class="ml-[3px]">Sync server address </span>
 						<Tooltip
-							content="Run the llum sync server to sync your chats and API keys between devices. If you want to use our server instead of self-hosting, then make this field blank."
+							content="Run the llum sync server to sync your chats and API keys between devices. If you want to use our server instead of self-hosting leave this field as is."
 							class="ml-2"
 						/>
 					</span>
 					<input
 						type="text"
 						bind:value={$syncServer.address}
-						placeholder="Enter sync server address, or leave blank to use ours"
+						placeholder="Enter sync server address, or leave as is to use ours"
 						class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 transition-colors placeholder:text-gray-500 focus:border-slate-400 focus:outline-none"
 					/></label
 				>
@@ -246,7 +245,7 @@
 					<span class="mb-2 flex items-center">
 						<span class="ml-[3px]">Sync server token </span>
 						<Tooltip
-							content="Your token is the key used to sync your chats and keys. Generate a token then plug it here on all the devices you want to sync with (phone, desktop, etc)."
+							content="Your unique user token, used to identify your data. Copy your token and encryption password and paste them into these same fields on all the devices you want to sync with (phone, desktop, etc)."
 							class="ml-2"
 						/>
 					</span>
@@ -261,7 +260,10 @@
 				<label class="flex flex-col text-[10px] uppercase tracking-wide">
 					<span class="mb-2 flex items-center">
 						<span class="ml-[3px]">Sync server encryption password </span>
-						<Tooltip content="Used to securely encrypt your data." class="ml-2" />
+						<Tooltip
+							content="Used to securely encrypt your data. Do NOT change your password after the initial first sync."
+							class="ml-2"
+						/>
 					</span>
 					<input
 						type="text"
@@ -271,29 +273,11 @@
 					/></label
 				>
 
-				<div class="mb-4 flex items-center gap-3">
-					<Button
-						variant="outline"
-						class="shrink-0 self-start"
-						use={[
-							tooltip,
-							{
-								content:
-									'Watch out! Generating a new token means your old one will be lost forever.',
-							},
-						]}
-						on:click={async () => {
-							$syncServer.token = uuidv4();
-						}}
-					>
-						<Icon icon={feRefreshCw} class="mr-2 h-3 w-3 text-slate-700" />
-						Generate a random token
-					</Button>
-
-					{#if $syncServer.token && $syncServer.password}
-						<p class="text-xs text-slate-600">Sync is enabled & fully end-to-end encrypted.</p>
-					{/if}
-				</div>
+				{#if $syncServer.token && $syncServer.password}
+					<p class="mb-4 text-xs text-slate-600">
+						Sync is enabled & fully end-to-end encrypted. First sync will occur on refresh.
+					</p>
+				{/if}
 
 				<p class="mt-auto text-xs text-slate-600">Version: {import.meta.env.BUILD_TIMESTAMP}</p>
 			{:else if activeTab === 'tools'}

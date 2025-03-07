@@ -1,7 +1,7 @@
 import { setAPIKeysFromObject, syncServer } from './stores.js';
 import { get } from 'svelte/store';
 
-export const llumHostedAddress = 'http://localhost:8084';
+export const llumHostedAddress = 'https://sync.llum.chat';
 
 // Encryption state
 let encryptionKey = null;
@@ -208,14 +208,14 @@ export async function syncPull({
 	deleteMessage,
 }) {
 	const clientMissingResult = await checkClientMissing(
-		get(syncServer).address || llumHostedAddress,
+		get(syncServer).address,
 		get(syncServer).token,
 		conversationIds,
 		messageIds
 	);
 
 	const serverItems = await getMissingItems(
-		get(syncServer).address || llumHostedAddress,
+		get(syncServer).address,
 		get(syncServer).token,
 		clientMissingResult.missingConversationIds,
 		clientMissingResult.missingMessageIds
@@ -264,7 +264,9 @@ export async function syncPull({
 		saveConversation(conversation, { convert: false, syncToServer: false });
 	}
 
-	setAPIKeysFromObject(apiKeys);
+	if (Object.keys(apiKeys).length > 0) {
+		setAPIKeysFromObject(apiKeys);
+	}
 
 	return {
 		newConversations,
@@ -277,7 +279,7 @@ export async function syncPull({
 export async function syncPush({ conversations, messages }) {
 	// Check what server is missing from client
 	const serverMissingResult = await checkServerMissing(
-		get(syncServer).address || llumHostedAddress,
+		get(syncServer).address,
 		get(syncServer).token,
 		conversations.map((c) => c.id),
 		messages.map((m) => m.id)
@@ -309,7 +311,7 @@ export async function syncPush({ conversations, messages }) {
 
 		// Send items to server
 		await sendMissingItems(
-			get(syncServer).address || llumHostedAddress,
+			get(syncServer).address,
 			get(syncServer).token,
 			encryptedConversations,
 			encryptedMessages

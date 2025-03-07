@@ -1,5 +1,7 @@
 import { writable, get } from 'svelte/store';
 import { persisted } from './localstorage.js';
+import { v4 as uuidv4 } from 'uuid';
+import { llumHostedAddress } from './sync.js';
 
 export const controller = writable(null);
 
@@ -41,6 +43,10 @@ export function setAPIKeysFromObject(obj) {
 	mistralAPIKey.set(obj.mistral || '');
 }
 
-export const remoteServer = persisted('remoteServer', { address: '', password: '' });
-export const syncServer = persisted('syncServer', { address: '', token: '', password: '' });
+export const remoteServer = persisted('remoteServer', { address: 'http://localhost:8081', password: '' });
+export const syncServer = persisted('syncServer', {
+	address: llumHostedAddress,
+	token: uuidv4(),
+	password: '',
+});
 export const toolSchema = persisted('toolSchemaGroups', []);

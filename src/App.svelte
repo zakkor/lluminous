@@ -60,7 +60,6 @@
 	import {
 		deleteSingleItem,
 		initEncryption,
-		llumHostedAddress,
 		sendSingleItem,
 		syncPull,
 		syncPush,
@@ -145,7 +144,7 @@
 		store.put(msg);
 
 		if (opts.syncToServer && $syncServer.token && $syncServer.password) {
-			sendSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
+			sendSingleItem($syncServer.address, $syncServer.token, {
 				conversation: null,
 				message: msg,
 				apiKeys: null,
@@ -314,7 +313,7 @@
 			$syncServer.password &&
 			convo.messages.length > 0
 		) {
-			sendSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
+			sendSingleItem($syncServer.address, $syncServer.token, {
 				conversation: convoConvertedOrNot,
 				message: null,
 				apiKeys: null,
@@ -338,7 +337,7 @@
 			$syncServer.password &&
 			convo.messages.length > 0
 		) {
-			deleteSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
+			deleteSingleItem($syncServer.address, $syncServer.token, {
 				conversationId: convo.id,
 				messageId: null,
 			});
@@ -356,7 +355,7 @@
 		store.delete(message.id);
 
 		if (opts.syncToServer && $syncServer.token && $syncServer.password) {
-			deleteSingleItem($syncServer.address || llumHostedAddress, $syncServer.token, {
+			deleteSingleItem($syncServer.address, $syncServer.token, {
 				conversationId: null,
 				messageId: message.id,
 			});
@@ -570,6 +569,10 @@
 					// NOTE: No longer the case for OpenRouter, they've changed this.
 					if (convo.models[0].provider === 'Anthropic' && convo.messages[i].content) {
 						index--;
+						// With thinking, we need to subtract one more:
+						if (convo.messages[i].reasoning) {
+							index--;
+						}
 					}
 
 					if (!convo.messages[i].toolcalls[index]) {
