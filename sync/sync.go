@@ -9,6 +9,11 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+	"github.com/go-chi/httprate"
 )
 
 // Conversation represents a chat conversation containing multiple messages
@@ -109,56 +114,51 @@ func main() {
 		}
 	}()
 
-	// Set up API endpoint handlers
-	http.HandleFunc("/api/sync/check-client-missing", handleCheckClientMissing)
-	http.HandleFunc("/api/sync/get-items", handleGetItems)
-	http.HandleFunc("/api/sync/check-server-missing", handleCheckServerMissing)
-	http.HandleFunc("/api/sync/send-items", handleSendItems)
-	http.HandleFunc("/api/sync/send-single-item", handleSendSingleItem)
-	http.HandleFunc("/api/sync/delete-single-item", handleDeleteSingleItem)
+	// Create a new Chi router
+	r := chi.NewRouter()
+
+	// Add middleware
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"*"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	}))
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
 
 	// Add a simple health check endpoint
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
-	// Create CORS middleware handler
-	corsHandler := corsMiddleware(http.DefaultServeMux)
+	// API routes
+	r.Route("/api/sync", func(r chi.Router) {
+		// Rate limited endpoints (60 requests per minute with burst of 5)
+		r.With(httprate.LimitByIP(60, 1*time.Minute)).Group(func(r chi.Router) {
+			r.Post("/check-client-missing", handleCheckClientMissing)
+			r.Post("/get-items", handleGetItems)
+			r.Post("/check-server-missing", handleCheckServerMissing)
+		})
+		// Not rate limited endpoints
+		r.Post("/send-items", handleSendItems)
+		r.Post("/send-single-item", handleSendSingleItem)
+		r.Post("/delete-single-item", handleDeleteSingleItem)
+	})
 
 	// Start server
 	port := getEnv("PORT", "8084")
 	log.Printf("Server starting on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, corsHandler))
-}
-
-// corsMiddleware adds CORS headers to each response
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", "*") // Allow any origin
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-
-		// Handle preflight requests
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		// Call the next handler
-		next.ServeHTTP(w, r)
-	})
+	log.Fatal(http.ListenAndServe(":"+port, r))
 }
 
 // handleCheckClientMissing finds what items the client is missing compared to the server
 func handleCheckClientMissing(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req CheckClientMissingRequest
 	if err := parseBody(r, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -254,11 +254,6 @@ func handleCheckClientMissing(w http.ResponseWriter, r *http.Request) {
 
 // handleGetItems returns the requested conversations and messages
 func handleGetItems(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req GetItemsRequest
 	if err := parseBody(r, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -352,11 +347,6 @@ func handleGetItems(w http.ResponseWriter, r *http.Request) {
 
 // handleCheckServerMissing finds what items the server is missing compared to the client
 func handleCheckServerMissing(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req CheckServerMissingRequest
 	if err := parseBody(r, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -411,11 +401,6 @@ func handleCheckServerMissing(w http.ResponseWriter, r *http.Request) {
 
 // handleSendItems receives multiple items from the client and stores them
 func handleSendItems(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req SendItemsRequest
 	if err := parseBody(r, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -481,11 +466,6 @@ func handleSendItems(w http.ResponseWriter, r *http.Request) {
 
 // handleSendSingleItem receives a single item from the client and stores it
 func handleSendSingleItem(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req SendSingleItemRequest
 	if err := parseBody(r, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -588,11 +568,6 @@ func handleSendSingleItem(w http.ResponseWriter, r *http.Request) {
 
 // handleDeleteSingleItem deletes a single conversation or message
 func handleDeleteSingleItem(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req DeleteSingleItemRequest
 	if err := parseBody(r, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
