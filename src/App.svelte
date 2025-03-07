@@ -57,13 +57,7 @@
 	import FilePreview from './FilePreview.svelte';
 	import { flash } from './actions';
 	import Message from './Message.svelte';
-	import {
-		deleteSingleItem,
-		initEncryption,
-		sendSingleItem,
-		syncPull,
-		syncPush,
-	} from './sync.js';
+	import { deleteSingleItem, initEncryption, sendSingleItem, syncPull, syncPush } from './sync.js';
 
 	marked.use(
 		markedKatex({
@@ -478,14 +472,23 @@
 		}
 
 		for (let i = 0; i < convo.messages.length; i++) {
+			let modified = false;
 			if (convo.messages[i].editing) {
 				convo.messages[i].content = convo.messages[i].pendingContent;
+				convo.messages[i].editing = false;
+				modified = true;
 			}
-			convo.messages[i].pendingContent = '';
-			convo.messages[i].editing = false;
-			convo.messages[i].submitted = true;
+			if (convo.messages[i].pendingContent !== '') {
+				convo.messages[i].pendingContent = '';
+				modified = true;
+			}
+			if (!convo.messages[i].submitted) {
+				convo.messages[i].submitted = true;
+			}
 
-			saveMessage(convo.messages[i]);
+			if (modified) {
+				saveMessage(convo.messages[i]);
+			}
 		}
 		await tick();
 		scrollToBottom();
