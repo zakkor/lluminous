@@ -272,7 +272,6 @@
 									class="{message.thinking
 										? 'animate-pulse'
 										: ''} flex items-center gap-x-1.5 self-start rounded-full bg-gray-200 px-3.5 py-2 text-left text-xs transition-colors hover:bg-gray-300"
-									disabled={message.thinking}
 									on:click={() => {
 										message.thoughtsExpanded = !message.thoughtsExpanded;
 										saveMessage(message);
