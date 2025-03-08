@@ -18,21 +18,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/zakkor/server/llama"
 	"github.com/zakkor/server/toolfns"
 )
 
 var (
-	llamaPath = flag.String("llama", "", "Path to the llama.cpp directory. You only need this if you want to run local models using llama.cpp.")
-	password  = flag.String("password", "", "Password for basic auth.")
+	password = flag.String("password", "", "Password for basic auth.")
 )
-
-const llamaPort = 8082
 
 func main() {
 	flag.Parse()
-
-	var activeLlama *llama.ServerInstance
 
 	r := chi.NewRouter()
 	r.Use(cors.Handler(cors.Options{
@@ -62,51 +56,7 @@ func main() {
 	r.Get("/tool_schema", th.ToolSchema)
 	r.Post("/tool", th.InvokeTool)
 
-	r.Get("/v1/models", func(w http.ResponseWriter, r *http.Request) {
-		models, err := llama.ListLocalModels(*llamaPath)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if err := json.NewEncoder(w).Encode(map[string]any{"data": models}); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	})
-
-	r.Get("/model", func(w http.ResponseWriter, r *http.Request) {
-		modelMap := map[string]any{
-			"model": "",
-		}
-		if activeLlama != nil {
-			modelMap["model"] = activeLlama.ModelName
-		}
-
-		if err := json.NewEncoder(w).Encode(modelMap); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	})
-	r.Post("/model", func(w http.ResponseWriter, r *http.Request) {
-		var newModel map[string]any
-		if err := json.NewDecoder(r.Body).Decode(&newModel); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if activeLlama != nil {
-			activeLlama.Kill()
-		}
-		var err error
-		activeLlama, err = llama.Serve(*llamaPath, llamaPort, newModel["model"].(string), []string{"-c", "4096", "-ngl", "1", "-t", "8", "-tb", "12", "-b", "4096"})
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	})
-
-	fmt.Println("Running at http://localhost:8081")
+	fmt.Println("Tool server running at http://localhost:8081")
 	httpServer := &http.Server{Addr: ":8081", Handler: r}
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {

@@ -67,6 +67,6 @@ Alternatively, you can proceed below with a full setup of both the client and se
 
 1. Clone the repository
 2. Install and start the client: `npm i && npm run dev`. The client will be accessible at http://localhost:5173
-3. Install and start the server: `cd server && go generate ./... && go build && ./server -password chooseapassword -llama "path/to/llama.cpp (optional)`. The server will be accessible at http://localhost:8081. You can plug this into the server address in the chat UI, along with the password you selected.
+3. Install and start the server: `cd server && go generate ./... && go build && ./server -password foobar`. The server will be accessible at http://localhost:8081. You can plug this into the server address in the chat UI, along with the password you selected.
 
 
