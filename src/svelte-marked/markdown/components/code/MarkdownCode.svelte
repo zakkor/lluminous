@@ -93,7 +93,7 @@
 		{#if clientHeight > 400}
 			<div
 				bind:this={fadeEl}
-				class="pointer-events-none absolute bottom-4 left-0 right-0 z-10 h-16 w-[calc(100%-10px)] {!showingAll
+				class="pointer-events-none absolute bottom-4 left-0 right-0 z-10 h-16 w-full {!showingAll
 					? 'rounded-b-lg border-b border-l border-r border-slate-200 bg-gradient-to-b from-transparent to-slate-50'
 					: ''}"
 			>
