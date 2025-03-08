@@ -394,6 +394,8 @@
 	let activeToolcall = null;
 
 	let scrollableEl = null;
+	let previousScrollTop = 0;
+	let autoscrollCanceled;
 	function scrollToBottom() {
 		scrollableEl.scrollTop = scrollableEl.scrollHeight;
 	}
@@ -607,7 +609,7 @@
 			}
 
 			// Scroll to bottom if we're at or near the bottom of the conversation:
-			if (scrollableEl.scrollHeight - scrollableEl.scrollTop - scrollableEl.clientHeight < 100) {
+			if (!autoscrollCanceled) {
 				scrollToBottom();
 			}
 
@@ -1299,6 +1301,23 @@
 						class="{splitView
 							? 'scrollbar-none'
 							: 'scrollbar-ultraslim'} scrollable flex h-full w-full flex-col overflow-y-auto pb-[128px]"
+						on:scroll={() => {
+							// If direction is going up, set autoscrollCanceled to true
+							// Otherwise if we are at the bottom of the page, re-enable autoscroll
+							const { scrollTop, scrollHeight, clientHeight } = scrollableEl;
+
+							// Check if scrolling upward
+							if (scrollTop < previousScrollTop) {
+								autoscrollCanceled = true;
+							}
+							// Check if we're at the bottom of the scrollable area
+							else if (scrollHeight - scrollTop - clientHeight <= 5) {
+								autoscrollCanceled = false;
+							}
+
+							// Update for next scroll event
+							previousScrollTop = scrollTop;
+						}}
 					>
 						{#if convo.messages.length > 0}
 							<ul
