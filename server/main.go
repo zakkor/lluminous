@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -39,18 +38,6 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-
-	// Serve client:
-	if embedStaticFiles {
-		staticFS, err := fs.Sub(staticFiles, "dist-client")
-		if err != nil {
-			log.Fatal(err)
-		}
-		fileServer := http.FileServer(http.FS(staticFS))
-		r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-			fileServer.ServeHTTP(w, r)
-		})
-	}
 
 	th := &ToolHandler{Groups: toolfns.ToolGroups}
 	r.Get("/tool_schema", th.ToolSchema)

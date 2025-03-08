@@ -3,14 +3,6 @@
 # Define the list of GOOS values
 GOOS_VALUES=("darwin" "linux" "windows")
 
-# Build client
-cd .. && npm run build && cd server
-rm -r ./dist-client
-mkdir -p ./dist-client
-cp -r ../dist/* ./dist-client/
-
-tar -czvf ./dist-client.tar.gz ./dist-client
-
 rm -r ./dist
 mkdir -p ./dist
 
@@ -24,7 +16,7 @@ for GOOS in "${GOOS_VALUES[@]}"; do
     fi
 
     # Set the output file name
-    OUTPUT_FILE="./dist/lluminous-${GOOS}-${GOARCH}"
+    OUTPUT_FILE="./dist/llum-${GOOS}-${GOARCH}"
 
     # Append .exe for Windows builds
     if [ "$GOOS" == "windows" ]; then
@@ -44,6 +36,4 @@ for GOOS in "${GOOS_VALUES[@]}"; do
 done
 
 # Create a new release with the new builds
-gh release create v0.0.5 dist/* dist-client.tar.gz --notes ''
-
-echo "Builds and release process completed successfully."
+gh release create v0.0.6 dist/* --notes '' && echo "Build and release process completed successfully."
